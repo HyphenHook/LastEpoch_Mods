@@ -25,7 +25,7 @@ using MelonLoader;
 
 [assembly: Guid("fdda6fb9-b165-44bb-988a-a6979f74ec43")]
 
-[assembly: AssemblyVersion("5.1.0.0")]
-[assembly: AssemblyFileVersion("5.1.0.0")]
+[assembly: AssemblyVersion("5.1.1.0")]
+[assembly: AssemblyFileVersion("5.1.1.0")]
 
-[assembly: AssemblyInformationalVersion("5.1.0")]
+[assembly: AssemblyInformationalVersion("5.1.1")]

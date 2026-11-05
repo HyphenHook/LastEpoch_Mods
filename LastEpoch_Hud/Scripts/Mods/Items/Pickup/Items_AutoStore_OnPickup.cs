@@ -118,24 +118,15 @@ public class Items_AutoStore_OnPickup
                 );
                 return;
             }
-            if (ItemList.isShard(type))
+            if (
+                ItemList.isShard(type)
+                || Item.isResonance(type)
+                || type == Item.runeItemType
+                || type == Item.glyphItemType
+                || ItemList.isCraftingItem(type)
+            )
             {
-                manager.TryStoreShard(entry);
-                return;
-            }
-            if (Item.isResonance(type))
-            {
-                manager.TryStoreResonance(entry);
-                return;
-            }
-            if ((type == Item.runeItemType) || (type == Item.glyphItemType))
-            {
-                manager.TryStoreRuneOrGlyph(entry);
-                return;
-            }
-            if (ItemList.isCraftingItem(type))
-            {
-                manager.TryQuickStoreCraftingItem(entry);
+                manager.TryStoreMaterialFromInventory(entry);
             }
         }
         catch { }
