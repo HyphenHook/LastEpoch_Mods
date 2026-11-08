@@ -1,3 +1,4 @@
+using LastEpoch_Hud.Scripts.Core.Items;
 using LastEpoch_Hud.Scripts.Core.ModUI.Sliders;
 using LastEpoch_Hud.Tests.Support;
 
@@ -9,6 +10,12 @@ public sealed class ItemSliderLimitsPrefabTests
     private static readonly Dictionary<string, bool> _wholeNumbersOverrides = new()
     {
         [nameof(ItemSliderLimits.DropAffixCount)] = true,
+    };
+
+    // The mod-wide affix limit (AffixLimits.MaxTotal) is higher than the prefab's old slider maximum.
+    private static readonly Dictionary<string, float> _maxOverrides = new()
+    {
+        [nameof(ItemSliderLimits.DropAffixCount)] = AffixLimits.MaxTotal,
     };
 
     [Theory]
@@ -89,7 +96,11 @@ public sealed class ItemSliderLimitsPrefabTests
             field,
             prefab[minSlider].WholeNumbers
         );
-        var expected = new SliderRange(prefab[minSlider].Min, prefab[maxSlider].Max, whole);
+        var expected = new SliderRange(
+            prefab[minSlider].Min,
+            _maxOverrides.GetValueOrDefault(field, prefab[maxSlider].Max),
+            whole
+        );
         SliderRange? actual = SliderLimitsReflection.Find(typeof(ItemSliderLimits), field);
         Assert.True(actual.HasValue, $"Limits field missing: {field}");
         Assert.Equal(expected, actual.Value);

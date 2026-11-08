@@ -246,10 +246,12 @@ public sealed class ForceDropLegalAffixes
     {
         if (!known || (!IsEquipment && !IsIdol && !IsAltar))
             return "Item type unavailable";
-        if (IsSet || (IsIdol && IsUnique))
+        if (IsIdol && IsUnique)
             return "This item has no ordinary affix slots";
-        if (sealedAffix && (IsUnique || IsIdol))
-            return "Regular sealed affixes do not transfer to uniques or ordinary idols";
+        if (IsSet && !sealedAffix)
+            return "This item has no ordinary affix slots";
+        if (sealedAffix && IsIdol)
+            return "Sealed affixes do not apply to idols";
         if (definition.IsNullOrDestroyed())
             return "Definition unavailable";
         if (enchantment && !IsHereticalIdol)

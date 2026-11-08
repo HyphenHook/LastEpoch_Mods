@@ -17,9 +17,9 @@ public sealed class ItemSliderLimitsTests
 
     [Fact]
     public void AffixCount_IsWholeNumbers() =>
-        Assert.Equal(new SliderRange(0f, 6f, true), ItemSliderLimits.DropAffixCount);
+        Assert.Equal(new SliderRange(0f, 12f, true), ItemSliderLimits.DropAffixCount);
 
     [Fact]
     public void IdolAffixCount_MatchesCodeFallback() =>
-        Assert.Equal(new SliderRange(0f, 2f, true), ItemSliderLimits.DropIdolAffixCount);
+        Assert.Equal(new SliderRange(0f, 12f, true), ItemSliderLimits.DropIdolAffixCount);
 }

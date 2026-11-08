@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using LastEpoch_Hud.Scripts.Core.Items;
 
 namespace LastEpoch_Hud.Scripts.Core.ForceDrop;
 
@@ -103,10 +104,15 @@ public static class ForceDropLegalRules
         bool heretical = false
     )
     {
-        if (slot < 0 || slot > 5 || setItem)
+        if (slot < 0 || slot >= AffixLimits.ForceDropRows)
             return false;
+        // Sets take no ordinary affixes, but the regular and Primordial seals work on every
+        // rarity. Idols take no seals. Every ordinary slot takes any affix, prefix or suffix;
+        // on Heretical idols the second and fourth rows (slots 1 and 3) hold the enchantments.
+        if (setItem)
+            return AffixLimits.IsSealedSlot(slot);
         if (idol)
-            return !unique && (slot == 0 || slot == 2 || (heretical && (slot == 1 || slot == 3)));
-        return slot < 4 || !unique;
+            return !unique && AffixLimits.IsOrdinarySlot(slot);
+        return true;
     }
 }

@@ -6,6 +6,7 @@ using HarmonyLib;
 using Il2Cpp;
 using Il2CppTMPro;
 using LastEpoch_Hud.Scripts.Core.ForceDrop;
+using LastEpoch_Hud.Scripts.Core.Items;
 using LastEpoch_Hud.Scripts.ModUI.Settings;
 using LastEpoch_Hud.Scripts.ModUI.Shell;
 using UnityEngine;
@@ -87,7 +88,8 @@ public static class ForceDropBuilder
     static bool SearchAllItems => !string.IsNullOrWhiteSpace(search.text);
     static int VisibleItemCount => SearchAllItems ? itemMatches.Count : itemIndexes.Count;
     static readonly List<Number> numbers = new List<Number>();
-    static readonly AffixRow[] rows = new AffixRow[6];
+    static readonly AffixRow[] rows = new AffixRow[AffixLimits.ForceDropRows];
+    static GameObject affixContent;
     static Number forging,
         quantity,
         lp,
@@ -263,12 +265,10 @@ public static class ForceDropBuilder
                 );
             LocaleRegistry.Apply(
                 rows[slot].slotLabel,
-                allowIllegal && slot < 4 ? "Affix " + (slot + 1)
-                    : enchantment ? "Enchantment " + (slot == 1 ? 1 : 2)
-                    : slot == 4 ? "Sealed"
-                    : slot == 5 ? "Primordial"
-                    : slot < 2 ? "Prefix " + (slot + 1)
-                    : "Suffix " + (slot - 1)
+                enchantment ? "Enchantment " + (slot == 1 ? 1 : 2)
+                    : slot == AffixLimits.SealedSlot ? "Sealed"
+                    : slot == AffixLimits.PrimordialSlot ? "Primordial"
+                    : "Affix " + (slot + 1)
             );
             rows[slot].select.interactable = available;
             rows[slot].tier.input.interactable = available;
@@ -601,46 +601,58 @@ public static class ForceDropBuilder
         Label(affixPage, "Affix", .03f, .93f, .55f, .99f, 13);
         Label(affixPage, "Tier", .59f, .93f, .72f, .99f, 13);
         Label(affixPage, "Roll %", .75f, .93f, .88f, .99f, 13);
+        // Twelve rows do not fit in the panel, so they scroll inside a masked viewport.
+        var affixViewport = Panel(affixPage, "Affix scroll viewport", 0f, 0f, 1f, .92f, false);
+        affixViewport.GetComponent<Image>().color = Color.clear;
+        affixViewport.AddComponent<RectMask2D>();
+        affixContent = new GameObject("Affix scroll content");
+        var affixContentRect = affixContent.AddComponent<RectTransform>();
+        affixContent.transform.SetParent(affixViewport.transform, false);
+        affixContentRect.anchorMin = new Vector2(0, 1);
+        affixContentRect.anchorMax = new Vector2(1, 1);
+        affixContentRect.pivot = new Vector2(.5f, 1);
+        affixContentRect.sizeDelta = new Vector2(0, rows.Length * AffixRowHeight);
+        var affixScroll = affixViewport.AddComponent<ScrollRect>();
+        affixScroll.viewport = affixViewport.GetComponent<RectTransform>();
+        affixScroll.content = affixContentRect;
+        affixScroll.horizontal = false;
+        affixScroll.vertical = true;
+        affixScroll.movementType = ScrollRect.MovementType.Clamped;
+        affixScroll.scrollSensitivity = AffixRowHeight;
+        float rowStep = 1f / rows.Length;
         for (int i = 0; i < rows.Length; i++)
         {
             int index = i;
-            float y = .80f - i * .13f;
+            float top = 1f - i * rowStep;
+            float y = top - rowStep + rowStep * .06f;
+            float y1 = top - rowStep * .06f;
             var row = new AffixRow();
             rows[i] = row;
             string slot =
-                i == 4 ? "Sealed"
-                : i == 5 ? "Primordial"
-                : i < 2 ? "Prefix " + (i + 1)
-                : "Suffix " + (i - 1);
-            row.slotLabel = Label(affixPage, slot, .03f, y, .17f, y + .105f, 12);
-            row.select = Button(
-                affixPage,
-                "None",
-                .18f,
-                y,
-                .57f,
-                y + .11f,
-                () => AffixPicker(index)
-            );
+                i == AffixLimits.SealedSlot ? "Sealed"
+                : i == AffixLimits.PrimordialSlot ? "Primordial"
+                : "Affix " + (i + 1);
+            row.slotLabel = Label(affixContent, slot, .03f, y, .17f, y1, 12);
+            row.select = Button(affixContent, "None", .18f, y, .57f, y1, () => AffixPicker(index));
             row.selectedLabel = row.select.GetComponentInChildren<Text>(true);
             row.tier = NumericCompact(
-                affixPage,
+                affixContent,
                 .59f,
                 y,
                 .72f,
-                y + .11f,
-                i == 5 ? 8 : 1,
-                i == 5 ? 8 : 7,
-                i == 5 ? 8 : 7
+                y1,
+                i == AffixLimits.PrimordialSlot ? 8 : 1,
+                i == AffixLimits.PrimordialSlot ? 8 : 7,
+                i == AffixLimits.PrimordialSlot ? 8 : 7
             );
-            row.roll = NumericCompact(affixPage, .75f, y, .86f, y + .11f, 0, 100, 100);
+            row.roll = NumericCompact(affixContent, .75f, y, .86f, y1, 0, 100, 100);
             row.roll.mode = Button(
-                affixPage,
+                affixContent,
                 "Fixed",
                 .88f,
                 y,
                 .98f,
-                y + .11f,
+                y1,
                 () =>
                 {
                     row.roll.random = !row.roll.random;
@@ -1213,14 +1225,13 @@ public static class ForceDropBuilder
         );
         bool idolEnchantment = LegalContext(slot).IsHereticalIdol && (slot == 1 || slot == 3);
         OpenPicker(
-            allowIllegal && slot < 4 ? "Affix " + (slot + 1)
-                : idolEnchantment ? "Idol enchantment"
-                : slot == 4 ? "Sealed affix"
-                : slot == 5 ? "Primordial affix"
-                : slot < 2 ? "Prefix"
-                : "Suffix",
+            idolEnchantment ? "Idol enchantment"
+                : slot == AffixLimits.SealedSlot ? "Sealed affix"
+                : slot == AffixLimits.PrimordialSlot ? "Primordial affix"
+                : "Affix " + (slot + 1),
             true,
-            !allowIllegal && slot < 4 && !idolEnchantment ? (slot < 2 ? 0 : 1) : -1
+            // Any affix fits any slot, so the picker always lists prefixes and suffixes together.
+            -1
         );
     }
 
@@ -1240,7 +1251,7 @@ public static class ForceDropBuilder
             return "Unavailable slot";
         string reason = context.OrdinaryReason(
             a,
-            slot >= 4,
+            AffixLimits.IsSealedSlot(slot),
             context.IsHereticalIdol && (slot == 1 || slot == 3)
         );
         if (!allowIllegal && reason.Length > 0)
@@ -1248,14 +1259,7 @@ public static class ForceDropBuilder
         if (a.IsNullOrDestroyed() || ForceDropCatalog.MaximumTier(a, RouteMaximum) == 0)
             return "Definition/tier unavailable";
         if (
-            !allowIllegal
-            && slot < 4
-            && !(context.IsHereticalIdol && (slot == 1 || slot == 3))
-            && a.type != (slot < 2 ? AffixList.AffixType.PREFIX : AffixList.AffixType.SUFFIX)
-        )
-            return "Placement or duplicate exclusion";
-        if (
-            slot == 5
+            slot == AffixLimits.PrimordialSlot
             && !ForceDropModeRules.CanSealPrimordial(
                 FD.ItemType,
                 FD.ItemRarity,
@@ -1340,9 +1344,9 @@ public static class ForceDropBuilder
     {
         // Native storage has independent regular and Primordial seals.
         // A regular seal stays within T1-T7; the Primordial slot is T8 only.
-        if (slot == 4)
+        if (slot == AffixLimits.SealedSlot)
             return 7;
-        if (slot == 5)
+        if (slot == AffixLimits.PrimordialSlot)
             return 8;
         return RouteMaximum;
     }
@@ -1354,7 +1358,7 @@ public static class ForceDropBuilder
             var row = rows[slot];
             var definition = FindAffix(row.id);
             int maximum = RowMaximum(slot, definition);
-            if (slot == 5)
+            if (slot == AffixLimits.PrimordialSlot)
             {
                 // Primordial is an evolution to T8, not another ordinary tier slider.
                 row.tier.min = 8;
@@ -1507,6 +1511,10 @@ public static class ForceDropBuilder
                     return "Exclusive unique modifiers must be different and separate from ordinary affixes.";
             }
         }
+        if (ids.Count + (corrupted && corruptionId >= 0 ? 1 : 0) > AffixLimits.MaxTotal)
+            return "An item holds at most "
+                + AffixLimits.MaxTotal
+                + " affixes, including sealed, Primordial, corruption and unique modifiers.";
         for (int slot = 0; slot < rows.Length; slot++)
         {
             var row = rows[slot];
@@ -1527,21 +1535,13 @@ public static class ForceDropBuilder
                 return "This item has no legal affix slot here. Clear the selection.";
             string reason = context.OrdinaryReason(
                 definition,
-                slot >= 4,
+                AffixLimits.IsSealedSlot(slot),
                 context.IsHereticalIdol && (slot == 1 || slot == 3)
             );
             if (!allowIllegal && reason.Length > 0)
                 return NativeItemNames.AffixName(row.id, row.name) + ": " + reason;
             if (
-                !allowIllegal
-                && slot < 4
-                && !(context.IsHereticalIdol && (slot == 1 || slot == 3))
-                && definition.type
-                    != (slot < 2 ? AffixList.AffixType.PREFIX : AffixList.AffixType.SUFFIX)
-            )
-                return "Affix type does not match its slot.";
-            if (
-                slot == 5
+                slot == AffixLimits.PrimordialSlot
                 && (
                     row.tier.value != 8
                     || !ForceDropModeRules.CanSealPrimordial(
@@ -1631,8 +1631,8 @@ public static class ForceDropBuilder
                 if (r.id >= 0)
                     s.Append("\n\n")
                         .Append(
-                            r == rows[4] ? L("Sealed") + ": "
-                            : r == rows[5] ? L("Primordial") + ": "
+                            r == rows[AffixLimits.SealedSlot] ? L("Sealed") + ": "
+                            : r == rows[AffixLimits.PrimordialSlot] ? L("Primordial") + ": "
                             : ""
                         )
                         .Append(r.name)
@@ -1716,8 +1716,8 @@ public static class ForceDropBuilder
                             row.id,
                             row.tier.value - 1,
                             ResolvedRoll(row.roll),
-                            slot == 4 ? ForceDropSeal.Regular
-                                : slot == 5 ? ForceDropSeal.Primordial
+                            slot == AffixLimits.SealedSlot ? ForceDropSeal.Regular
+                                : slot == AffixLimits.PrimordialSlot ? ForceDropSeal.Primordial
                                 : ForceDropSeal.None
                         )
                     );

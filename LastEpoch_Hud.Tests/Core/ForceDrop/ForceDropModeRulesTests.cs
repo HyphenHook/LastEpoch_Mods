@@ -60,7 +60,8 @@ public sealed class ForceDropModeRulesTests
 
     [Theory]
     [InlineData(21, 0, ForceDropAffixFamily.Standard, 8, ForceDropMode.Legal, true)]
-    [InlineData(21, 7, ForceDropAffixFamily.Standard, 8, ForceDropMode.Legal, false)]
+    [InlineData(21, 7, ForceDropAffixFamily.Standard, 8, ForceDropMode.Legal, true)]
+    [InlineData(21, 8, ForceDropAffixFamily.Standard, 8, ForceDropMode.Legal, true)]
     [InlineData(25, 0, ForceDropAffixFamily.Standard, 8, ForceDropMode.Legal, false)]
     [InlineData(21, 0, ForceDropAffixFamily.Set, 8, ForceDropMode.Legal, false)]
     [InlineData(21, 0, ForceDropAffixFamily.Standard, 7, ForceDropMode.Legal, false)]

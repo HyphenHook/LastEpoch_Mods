@@ -272,6 +272,26 @@ public class Save_Manager : MonoBehaviour
                     Affix_3_Tier = 6,
                     Enable_Affix_3_Value = false,
                     Affix_3_Value = 255,
+                    Enable_Affix_4_Tier = false,
+                    Affix_4_Tier = 6,
+                    Enable_Affix_4_Value = false,
+                    Affix_4_Value = 255,
+                    Enable_Affix_5_Tier = false,
+                    Affix_5_Tier = 6,
+                    Enable_Affix_5_Value = false,
+                    Affix_5_Value = 255,
+                    Enable_Affix_6_Tier = false,
+                    Affix_6_Tier = 6,
+                    Enable_Affix_6_Value = false,
+                    Affix_6_Value = 255,
+                    Enable_Affix_7_Tier = false,
+                    Affix_7_Tier = 6,
+                    Enable_Affix_7_Value = false,
+                    Affix_7_Value = 255,
+                    Enable_Affix_8_Tier = false,
+                    Affix_8_Tier = 6,
+                    Enable_Affix_8_Value = false,
+                    Affix_8_Value = 255,
                     Enable_UniqueMod_0 = false,
                     UniqueMod_0 = 255,
                     Enable_UniqueMod_1 = false,
@@ -826,6 +846,31 @@ public class Save_Manager : MonoBehaviour
             public int Affix_3_Tier;
             public bool Enable_Affix_3_Value;
             public float Affix_3_Value;
+
+            public bool Enable_Affix_4_Tier;
+            public int Affix_4_Tier;
+            public bool Enable_Affix_4_Value;
+            public float Affix_4_Value;
+
+            public bool Enable_Affix_5_Tier;
+            public int Affix_5_Tier;
+            public bool Enable_Affix_5_Value;
+            public float Affix_5_Value;
+
+            public bool Enable_Affix_6_Tier;
+            public int Affix_6_Tier;
+            public bool Enable_Affix_6_Value;
+            public float Affix_6_Value;
+
+            public bool Enable_Affix_7_Tier;
+            public int Affix_7_Tier;
+            public bool Enable_Affix_7_Value;
+            public float Affix_7_Value;
+
+            public bool Enable_Affix_8_Tier;
+            public int Affix_8_Tier;
+            public bool Enable_Affix_8_Value;
+            public float Affix_8_Value;
 
             public bool Enable_UniqueMod_0;
             public float UniqueMod_0;

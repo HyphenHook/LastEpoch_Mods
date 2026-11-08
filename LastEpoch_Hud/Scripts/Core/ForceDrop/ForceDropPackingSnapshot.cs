@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using LastEpoch_Hud.Scripts.Core.Items;
 
 namespace LastEpoch_Hud.Scripts.Core.ForceDrop;
 
@@ -112,6 +113,8 @@ public sealed class ForceDropPackingSnapshot
                 + ", affixes="
                 + Affixes.Count
                 + ")";
+        if (Affixes.Count > AffixLimits.MaxTotal)
+            return "More than " + AffixLimits.MaxTotal + " affixes";
         if (Affixes.Select(a => a.Id).Distinct().Count() != Affixes.Count)
             return "Duplicate affix IDs";
         if (
