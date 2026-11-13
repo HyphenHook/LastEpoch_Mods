@@ -453,7 +453,7 @@ internal static class BazaarCustomItems
     // ------------------------------------------------------------ affix pools and rolls
 
     /// <summary>Every affix the force-drop rules allow on this base, remembered so a build is cheap.</summary>
-    private static List<AffixList.Affix> Pool(int baseType, int subType, bool sealedAffix, bool enchantment)
+    internal static List<AffixList.Affix> Pool(int baseType, int subType, bool sealedAffix, bool enchantment)
     {
         string key = baseType + ":" + subType + ":" + sealedAffix + ":" + enchantment;
         if (_pools.TryGetValue(key, out List<AffixList.Affix> cached))
@@ -478,7 +478,7 @@ internal static class BazaarCustomItems
     }
 
     /// <summary>Common affixes come up more than rare ones, as in the game.</summary>
-    private static AffixList.Affix WeightedPick(List<AffixList.Affix> pool, Random rng)
+    internal static AffixList.Affix WeightedPick(List<AffixList.Affix> pool, Random rng)
     {
         double total = 0;
         foreach (AffixList.Affix d in pool)
@@ -498,7 +498,7 @@ internal static class BazaarCustomItems
     }
 
     /// <summary>A display tier (1..7) drawn from the weights, limited to what this affix actually has.</summary>
-    private static int DisplayTier(AffixList.Affix def, Random rng, double[] weights)
+    internal static int DisplayTier(AffixList.Affix def, Random rng, double[] weights)
     {
         int max = Math.Max(1, ForceDropCatalog.MaximumTier(def));
         double total = 0;
@@ -522,7 +522,7 @@ internal static class BazaarCustomItems
         return max;
     }
 
-    private static int Roll(Random rng, double quality)
+    internal static int Roll(Random rng, double quality)
     {
         double gaussian = Math.Sqrt(-2 * Math.Log(1 - rng.NextDouble())) * Math.Cos(2 * Math.PI * rng.NextDouble());
         return (int)Math.Clamp(255 * quality + 50 * gaussian, 0, 255);
