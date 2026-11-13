@@ -407,14 +407,32 @@ public class Skills_AutoCast : MonoBehaviour
             return;
         if (!IsModifierHeld())
             return;
+        // Ctrl+click is also the game's quick-move on inventory and stall items. Over any menu it is
+        // not an autocast toggle, or right-clicking an item would switch the right-click skill on.
+        if (PointerIsOverUI())
+            return;
 
         var arr = GetOrCreateFormState(lastFormKey);
         arr[i] = !arr[i];
+        MelonLogger.Msg("AutoCast: slot " + (i + 1) + " toggled " + (arr[i] ? "ON" : "OFF"));
 
         // Suspended clicks only stage intent into autocastByForm; UpdateIconShine still
         // paints the slot via its armed check so the player sees the pending state.
         if (!isSuspended && !skills[i].ability.IsNullOrDestroyed())
             skills[i].autocastOn = arr[i];
+    }
+
+    static bool PointerIsOverUI()
+    {
+        try
+        {
+            var events = UnityEngine.EventSystems.EventSystem.current;
+            return events != null && events.IsPointerOverGameObject();
+        }
+        catch
+        {
+            return false;
+        }
     }
 
     static bool IsModifierHeld()

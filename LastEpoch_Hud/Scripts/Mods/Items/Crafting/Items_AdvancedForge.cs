@@ -293,20 +293,53 @@ internal static class Items_AdvancedForge
     [HarmonyPatch(typeof(CraftingSlotManager), "Forge")]
     internal static class Forge
     {
-        [HarmonyPrefix, HarmonyPriority(Priority.First)]
-        static bool Prefix(CraftingSlotManager __instance)
+        sealed class VanillaForgeState
         {
+            public ItemAffix Affix;
+            public byte Tier;
+            public byte Roll;
+            public byte Fp;
+            public int Glyph;
+        }
+
+        [HarmonyPrefix, HarmonyPriority(Priority.First)]
+        static bool Prefix(CraftingSlotManager __instance, out VanillaForgeState __state)
+        {
+            __state = null;
             // Recheck at execution: a stale enabled button must never allow
             // another seal or consume resources on this rejected craft.
             if (BlockedGuaranteedDespair(__instance))
                 return false;
-            if (!T7Enabled() || item.IsNullOrDestroyed() || IsIdol(item))
+            if (!Ready() || item.IsNullOrDestroyed() || IsIdol(item))
                 return true;
 
             int affixId = __instance.appliedAffixID;
             ItemAffix affix = GetAffix(item, affixId);
-            if (affix.IsNullOrDestroyed() || affix.affixTier < 4 || affix.affixTier >= 6)
+            if (affix.IsNullOrDestroyed())
                 return true;
+
+            // Below T5 the native forge handles the craft (and its resource use);
+            // remember the state so Postfix can enforce the guaranteed glyph outcome.
+            if (affix.affixTier < 4 || !T7Enabled() || affix.affixTier >= 6)
+            {
+                int g = SupportGlyphSubtype(__instance);
+                if (
+                    affix.affixTier < 4
+                    && (
+                        (g == 0 && ModSettings.AdvancedForge.GuaranteedGlyphOfHope.Value)
+                        || (g == 3 && ModSettings.AdvancedForge.GuaranteedGlyphOfDespair.Value)
+                    )
+                )
+                    __state = new VanillaForgeState
+                    {
+                        Affix = affix,
+                        Tier = affix.affixTier,
+                        Roll = affix.affixRoll,
+                        Fp = item.forgingPotential,
+                        Glyph = g,
+                    };
+                return true;
+            }
 
             int oldTier = affix.affixTier;
             int glyph = SupportGlyphSubtype(__instance);
@@ -342,6 +375,34 @@ internal static class Items_AdvancedForge
 
             item.RefreshIDAndValues();
             return false;
+        }
+
+        [HarmonyPostfix]
+        static void Postfix(VanillaForgeState __state)
+        {
+            if (__state == null || item.IsNullOrDestroyed() || __state.Affix.IsNullOrDestroyed())
+                return;
+            try
+            {
+                ItemAffix affix = __state.Affix;
+                if (__state.Glyph == 0)
+                {
+                    // Guaranteed Hope: the native roll may have charged forging potential.
+                    item.forgingPotential = __state.Fp;
+                }
+                else if (__state.Glyph == 3 && !affix.IsSealed)
+                {
+                    // Guaranteed Despair: undo a native non-seal outcome and seal instead.
+                    affix.affixTier = __state.Tier;
+                    affix.affixRoll = __state.Roll;
+                    item.forgingPotential = __state.Fp;
+                    item.SealAffix(affix);
+                }
+                item.RefreshIDAndValues();
+            }
+            catch (Exception)
+            { /* Never interrupt native crafting. */
+            }
         }
     }
 }
