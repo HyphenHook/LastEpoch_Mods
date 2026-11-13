@@ -50,12 +50,20 @@ public class Main : MelonLoader.MelonMod
         {
             Base.Init();
         }
+        Scripts.Mods.Economy.OfflineBazaarMarket.Tick();
+        Scripts.Mods.Economy.BazaarRefresh.Tick();
         Scripts.Mods.Login.Login_OfflineOnly.Tick();
         Scripts.Mods.Login.Login_OfflineCharacterSelect.Tick();
     }
 
+    public override void OnGUI()
+    {
+        Scripts.Mods.Economy.OfflineBazaarMarket.DrawWarmUp();
+    }
+
     public override void OnApplicationQuit()
     {
+        Scripts.Mods.Economy.OfflineBazaarMarket.SaveOnQuit();
         Caching.ClearCache();
     }
 }
