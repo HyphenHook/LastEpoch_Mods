@@ -170,30 +170,30 @@ public class Items_Drop_Rarity
                             min = 0;
                             Save_Manager.instance.data.Items.Drop.AffixCount_Min = 0f;
                         }
-                        else if (min > 6)
+                        else if (min > AffixLimits.MaxTotal)
                         {
-                            min = 6;
-                            Save_Manager.instance.data.Items.Drop.AffixCount_Min = 6f;
+                            min = AffixLimits.MaxTotal;
+                            Save_Manager.instance.data.Items.Drop.AffixCount_Min =
+                                AffixLimits.MaxTotal;
                         }
                         if (max < 0)
                         {
                             max = 0;
                             Save_Manager.instance.data.Items.Drop.AffixCount_Max = 0f;
                         }
-                        else if (max > 6)
+                        else if (max > AffixLimits.MaxTotal)
                         {
-                            max = 6;
-                            Save_Manager.instance.data.Items.Drop.AffixCount_Max = 6f;
+                            max = AffixLimits.MaxTotal;
+                            Save_Manager.instance.data.Items.Drop.AffixCount_Max =
+                                AffixLimits.MaxTotal;
                         }
 
-                        if (min == max)
-                        {
-                            __result = (byte)min;
-                        }
-                        else
-                        {
-                            __result = (byte)UnityEngine.Random.RandomRangeInt(min, (max + 1));
-                        }
+                        // The rarity byte holds the affix count of a normal drop, and 7 and
+                        // above mean unique, so the game rolls at most 6 affixes by itself.
+                        // The total limit (AffixLimits.MaxTotal) is reached through Force Drop.
+                        int count =
+                            min == max ? min : UnityEngine.Random.RandomRangeInt(min, (max + 1));
+                        __result = AffixLimits.RarityForOrdinaryCount(count);
                     }
                 }
             }

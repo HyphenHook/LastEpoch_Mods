@@ -1,5 +1,6 @@
 ﻿using HarmonyLib;
 using Il2Cpp;
+using LastEpoch_Hud.Scripts.Core.Items;
 
 namespace LastEpoch_Hud.Scripts.Mods.Items.Crafting;
 
@@ -83,65 +84,62 @@ public class Items_Crafting_Slot
                         implicits_enables.Clear();
                         implicits_values.Clear();
 
+                        var craft_slot = Save_Manager.instance.data.Items.CraftingSlot;
+                        // One entry per ordinary affix slot, in the order the item lists them.
                         System.Collections.Generic.List<bool> affix_tier_enables =
-                            new System.Collections.Generic.List<bool>();
-                        affix_tier_enables.Add(
-                            Save_Manager.instance.data.Items.CraftingSlot.Enable_Affix_0_Tier
-                        );
-                        affix_tier_enables.Add(
-                            Save_Manager.instance.data.Items.CraftingSlot.Enable_Affix_1_Tier
-                        );
-                        affix_tier_enables.Add(
-                            Save_Manager.instance.data.Items.CraftingSlot.Enable_Affix_2_Tier
-                        );
-                        affix_tier_enables.Add(
-                            Save_Manager.instance.data.Items.CraftingSlot.Enable_Affix_3_Tier
-                        );
+                            new System.Collections.Generic.List<bool>
+                            {
+                                craft_slot.Enable_Affix_0_Tier,
+                                craft_slot.Enable_Affix_1_Tier,
+                                craft_slot.Enable_Affix_2_Tier,
+                                craft_slot.Enable_Affix_3_Tier,
+                                craft_slot.Enable_Affix_4_Tier,
+                                craft_slot.Enable_Affix_5_Tier,
+                                craft_slot.Enable_Affix_6_Tier,
+                                craft_slot.Enable_Affix_7_Tier,
+                                craft_slot.Enable_Affix_8_Tier,
+                            };
                         System.Collections.Generic.List<float> affix_tier_values =
-                            new System.Collections.Generic.List<float>();
-                        affix_tier_values.Add(
-                            Save_Manager.instance.data.Items.CraftingSlot.Affix_0_Tier
-                        );
-                        affix_tier_values.Add(
-                            Save_Manager.instance.data.Items.CraftingSlot.Affix_1_Tier
-                        );
-                        affix_tier_values.Add(
-                            Save_Manager.instance.data.Items.CraftingSlot.Affix_2_Tier
-                        );
-                        affix_tier_values.Add(
-                            Save_Manager.instance.data.Items.CraftingSlot.Affix_3_Tier
-                        );
+                            new System.Collections.Generic.List<float>
+                            {
+                                craft_slot.Affix_0_Tier,
+                                craft_slot.Affix_1_Tier,
+                                craft_slot.Affix_2_Tier,
+                                craft_slot.Affix_3_Tier,
+                                craft_slot.Affix_4_Tier,
+                                craft_slot.Affix_5_Tier,
+                                craft_slot.Affix_6_Tier,
+                                craft_slot.Affix_7_Tier,
+                                craft_slot.Affix_8_Tier,
+                            };
                         System.Collections.Generic.List<bool> affix_value_enables =
-                            new System.Collections.Generic.List<bool>();
-                        affix_value_enables.Add(
-                            Save_Manager.instance.data.Items.CraftingSlot.Enable_Affix_0_Value
-                        );
-                        affix_value_enables.Add(
-                            Save_Manager.instance.data.Items.CraftingSlot.Enable_Affix_1_Value
-                        );
-                        affix_value_enables.Add(
-                            Save_Manager.instance.data.Items.CraftingSlot.Enable_Affix_2_Value
-                        );
-                        affix_value_enables.Add(
-                            Save_Manager.instance.data.Items.CraftingSlot.Enable_Affix_3_Value
-                        );
+                            new System.Collections.Generic.List<bool>
+                            {
+                                craft_slot.Enable_Affix_0_Value,
+                                craft_slot.Enable_Affix_1_Value,
+                                craft_slot.Enable_Affix_2_Value,
+                                craft_slot.Enable_Affix_3_Value,
+                                craft_slot.Enable_Affix_4_Value,
+                                craft_slot.Enable_Affix_5_Value,
+                                craft_slot.Enable_Affix_6_Value,
+                                craft_slot.Enable_Affix_7_Value,
+                                craft_slot.Enable_Affix_8_Value,
+                            };
                         System.Collections.Generic.List<float> affix_value_values =
-                            new System.Collections.Generic.List<float>();
-                        affix_value_values.Add(
-                            Save_Manager.instance.data.Items.CraftingSlot.Affix_0_Value
-                        );
-                        affix_value_values.Add(
-                            Save_Manager.instance.data.Items.CraftingSlot.Affix_1_Value
-                        );
-                        affix_value_values.Add(
-                            Save_Manager.instance.data.Items.CraftingSlot.Affix_2_Value
-                        );
-                        affix_value_values.Add(
-                            Save_Manager.instance.data.Items.CraftingSlot.Affix_3_Value
-                        );
+                            new System.Collections.Generic.List<float>
+                            {
+                                craft_slot.Affix_0_Value,
+                                craft_slot.Affix_1_Value,
+                                craft_slot.Affix_2_Value,
+                                craft_slot.Affix_3_Value,
+                                craft_slot.Affix_4_Value,
+                                craft_slot.Affix_5_Value,
+                                craft_slot.Affix_6_Value,
+                                craft_slot.Affix_7_Value,
+                                craft_slot.Affix_8_Value,
+                            };
 
-                        int nb_prefix = 0;
-                        int nb_suffix = 0;
+                        int ordinary_index = 0;
                         foreach (ItemAffix affix in item.affixes)
                         {
                             if (affix.IsSealed)
@@ -181,25 +179,10 @@ public class Items_Crafting_Slot
                             }
                             else
                             {
-                                int result = -1;
-                                if (
-                                    (affix.affixType == AffixList.AffixType.PREFIX)
-                                    && (nb_prefix < 3)
-                                )
-                                {
-                                    result = 0 + nb_prefix;
-                                    nb_prefix++;
-                                }
-                                else if (
-                                    (affix.affixType == AffixList.AffixType.SUFFIX)
-                                    && (nb_suffix < 3)
-                                )
-                                {
-                                    result = 2 + nb_suffix;
-                                    nb_suffix++;
-                                }
+                                // Position among the ordinary affixes; prefix or suffix does not matter.
+                                int result = ordinary_index++;
 
-                                if ((result > -1) && (result < 6))
+                                if (result < AffixLimits.OrdinarySlots)
                                 {
                                     if (
                                         (result < affix_tier_enables.Count)

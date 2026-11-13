@@ -1,4 +1,5 @@
 using LastEpoch_Hud.Scripts.Core.ForceDrop;
+using LastEpoch_Hud.Scripts.Core.Items;
 
 namespace LastEpoch_Hud.Tests.Core.ForceDrop;
 
@@ -57,7 +58,32 @@ public class ForceDropLegalRulesTests
         );
         Assert.True(ForceDropLegalRules.SlotAllowed(1, true, false, false, true));
         Assert.True(ForceDropLegalRules.SlotAllowed(3, true, false, false, true));
-        Assert.False(ForceDropLegalRules.SlotAllowed(4, true, false, false, true));
+        Assert.True(ForceDropLegalRules.SlotAllowed(4, true, false, false, true));
+        Assert.False(ForceDropLegalRules.SlotAllowed(AffixLimits.SealedSlot, true, false, false));
+        Assert.False(
+            ForceDropLegalRules.SlotAllowed(AffixLimits.ForceDropRows, true, false, false)
+        );
+    }
+
+    [Fact]
+    public void EveryOrdinarySlotTakesAnyAffixAndUniquesCannotUseSeals()
+    {
+        for (int slot = 0; slot < AffixLimits.OrdinarySlots; slot++)
+        {
+            Assert.True(ForceDropLegalRules.SlotAllowed(slot, false, false, false));
+            Assert.True(ForceDropLegalRules.SlotAllowed(slot, false, true, false));
+        }
+        Assert.True(ForceDropLegalRules.SlotAllowed(AffixLimits.SealedSlot, false, false, false));
+        Assert.True(
+            ForceDropLegalRules.SlotAllowed(AffixLimits.PrimordialSlot, false, false, false)
+        );
+        // Seals work on every rarity: uniques and sets included.
+        Assert.True(ForceDropLegalRules.SlotAllowed(AffixLimits.SealedSlot, false, true, false));
+        Assert.True(
+            ForceDropLegalRules.SlotAllowed(AffixLimits.PrimordialSlot, false, true, false)
+        );
+        Assert.True(ForceDropLegalRules.SlotAllowed(AffixLimits.SealedSlot, false, false, true));
+        Assert.False(ForceDropLegalRules.SlotAllowed(0, false, false, true));
     }
 
     [Fact]
@@ -150,33 +176,39 @@ public class ForceDropLegalRulesTests
     }
 
     [Fact]
-    public void OrdinaryIdolUsesOnePrefixAndOneSuffixWithinExistingFiveRowUi()
+    public void OrdinaryIdolUsesEveryOrdinarySlotButNoSeals()
     {
-        Assert.True(ForceDropLegalRules.SlotAllowed(0, true, false, false));
-        Assert.True(ForceDropLegalRules.SlotAllowed(2, true, false, false));
-        Assert.False(ForceDropLegalRules.SlotAllowed(1, true, false, false));
-        Assert.False(ForceDropLegalRules.SlotAllowed(3, true, false, false));
-        Assert.False(ForceDropLegalRules.SlotAllowed(4, true, false, false));
+        for (int slot = 0; slot < AffixLimits.OrdinarySlots; slot++)
+            Assert.True(ForceDropLegalRules.SlotAllowed(slot, true, false, false));
+        Assert.False(ForceDropLegalRules.SlotAllowed(AffixLimits.SealedSlot, true, false, false));
+        Assert.False(
+            ForceDropLegalRules.SlotAllowed(AffixLimits.PrimordialSlot, true, false, false)
+        );
         Assert.False(ForceDropLegalRules.SlotAllowed(0, true, true, false));
     }
 
     [Fact]
     public void EquipmentHasIndependentRegularAndPrimordialSealSlots()
     {
-        Assert.True(ForceDropLegalRules.SlotAllowed(4, false, false, false));
-        Assert.True(ForceDropLegalRules.SlotAllowed(5, false, false, false));
-        Assert.False(ForceDropLegalRules.SlotAllowed(5, false, true, false));
-        Assert.False(ForceDropLegalRules.SlotAllowed(5, true, false, false));
-        Assert.False(ForceDropLegalRules.SlotAllowed(5, false, false, true));
-        Assert.False(ForceDropLegalRules.SlotAllowed(6, false, false, false));
+        Assert.True(ForceDropLegalRules.SlotAllowed(AffixLimits.SealedSlot, false, false, false));
+        Assert.True(
+            ForceDropLegalRules.SlotAllowed(AffixLimits.PrimordialSlot, false, false, false)
+        );
+        Assert.True(
+            ForceDropLegalRules.SlotAllowed(AffixLimits.PrimordialSlot, false, true, false)
+        );
+        Assert.False(
+            ForceDropLegalRules.SlotAllowed(AffixLimits.PrimordialSlot, true, false, false)
+        );
+        Assert.False(
+            ForceDropLegalRules.SlotAllowed(AffixLimits.ForceDropRows, false, false, false)
+        );
     }
 
     [Fact]
-    public void RegularSealOnUniqueIsNotExposedAsALegalTransfer()
+    public void SetItemsTakeSealsButNoOrdinaryAffixes()
     {
-        Assert.True(ForceDropLegalRules.SlotAllowed(4, false, false, false));
-        Assert.False(ForceDropLegalRules.SlotAllowed(4, false, true, false));
-        Assert.True(ForceDropLegalRules.SlotAllowed(3, false, true, false));
+        Assert.True(ForceDropLegalRules.SlotAllowed(AffixLimits.SealedSlot, false, true, true));
         Assert.False(ForceDropLegalRules.SlotAllowed(0, false, true, true));
     }
 }

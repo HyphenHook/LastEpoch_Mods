@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using Il2Cpp;
 using LastEpoch_Hud.Scripts.Core.ForceDrop;
+using LastEpoch_Hud.Scripts.Core.Items;
 using LastEpoch_Hud.Scripts.Mods.Items;
 using LastEpoch_Hud.Scripts.Mods.Items.AutoLoot;
 
@@ -105,9 +106,7 @@ public static class ForceDropItemCreator
         ItemAffix regularSeal = null,
             primordialSeal = null;
         int ordinaryCount = 0;
-        int prefixes = 0,
-            suffixes = 0,
-            enchantments = 0,
+        int enchantments = 0,
             weaverAffixes = 0;
         foreach (var selected in request.Affixes)
         {
@@ -186,21 +185,20 @@ public static class ForceDropItemCreator
                 ordinaryCount++;
                 if (enchantment)
                     enchantments++;
-                else if (definition.type == AffixList.AffixType.PREFIX)
-                    prefixes++;
-                else
-                    suffixes++;
                 if (definition.specialAffixType == AffixList.SpecialAffixType.IdolWeaver)
                     weaverAffixes++;
             }
         }
-        bool idol = request.ItemType >= 25 && request.ItemType <= 33;
+        // Any mix of prefixes and suffixes is allowed; only the 12-affix total and the
+        // two idol enchantments are limited.
+        if (!request.IsIllegal && enchantments > 2)
+            throw new InvalidOperationException("An idol holds at most two enchantments.");
         if (
-            !request.IsIllegal
-            && (prefixes > (idol ? 1 : 2) || suffixes > (idol ? 1 : 2) || enchantments > 2)
+            request.Affixes.Count + request.VariantIds.Count + (request.Corruption == null ? 0 : 1)
+            > AffixLimits.MaxTotal
         )
             throw new InvalidOperationException(
-                "Too many ordinary prefixes or suffixes for this item."
+                "An item holds at most " + AffixLimits.MaxTotal + " affixes in total."
             );
         var itemContext = new ForceDropLegalAffixes(
             request.ItemType,
@@ -214,7 +212,7 @@ public static class ForceDropItemCreator
             );
         byte rarity = (byte)request.Rarity;
         if (rarity < 7)
-            rarity = (byte)ordinaryCount;
+            rarity = AffixLimits.RarityForOrdinaryCount(ordinaryCount);
         else if (ordinaryCount > 0)
             rarity = 9;
         var item = new ItemDataUnpacked

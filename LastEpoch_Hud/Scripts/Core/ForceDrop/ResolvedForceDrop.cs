@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using LastEpoch_Hud.Scripts.Core.Items;
 
 namespace LastEpoch_Hud.Scripts.Core.ForceDrop;
 
@@ -146,6 +147,10 @@ public sealed class ResolvedForceDrop
             )
         )
             throw new ArgumentException("Corruption must use its own distinct corruption seal.");
+        if (Affixes.Count + VariantIds.Count + (corruption == null ? 0 : 1) > AffixLimits.MaxTotal)
+            throw new ArgumentException(
+                "An item holds at most " + AffixLimits.MaxTotal + " affixes in total."
+            );
     }
 
     static IReadOnlyList<int> CopyRolls(IEnumerable<int> source, string name)

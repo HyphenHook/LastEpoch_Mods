@@ -1,3 +1,5 @@
+using LastEpoch_Hud.Scripts.Core.Items;
+
 namespace LastEpoch_Hud.Scripts.Core.ModUI.Sliders;
 
 /// <summary>Slider limits of the Items menu sliders, copied from the legacy prefab.</summary>
@@ -17,10 +19,10 @@ public static class ItemSliderLimits
 
     // Source: Slider_Items_Drop_NbAffixes_Min / _Max
     // Prefab says fractional; whole on purpose (user decision 2026-10-12).
-    public static readonly SliderRange DropAffixCount = new(0f, 6f, true);
+    public static readonly SliderRange DropAffixCount = new(0f, AffixLimits.MaxTotal, true);
 
     // Source: no prefab slider; former ItemsDropPage fallback (0..2, whole), commit 99141da
-    public static readonly SliderRange DropIdolAffixCount = new(0f, 2f, true);
+    public static readonly SliderRange DropIdolAffixCount = new(0f, AffixLimits.MaxTotal, true);
 
     // Source: Slider_Items_Drop_AffixesTiers_Min / _Max
     public static readonly SliderRange DropAffixTiers = new(0f, 6f, true);

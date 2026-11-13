@@ -1,4 +1,5 @@
 using System;
+using LastEpoch_Hud.Scripts.Core.Items;
 using LastEpoch_Hud.Scripts.Core.ModUI;
 using LastEpoch_Hud.Scripts.Core.ModUI.Sliders;
 using LastEpoch_Hud.Scripts.ModUI.Shell;
@@ -134,10 +135,8 @@ internal static class ItemsCraftingSlotPage
             v => Save_Manager.instance.data.Items.CraftingSlot.Seal_Value = v
         );
 
-        AddAffix(card, 0);
-        AddAffix(card, 1);
-        AddAffix(card, 2);
-        AddAffix(card, 3);
+        for (int affix = 0; affix < AffixLimits.OrdinarySlots; affix++)
+            AddAffix(card, affix);
 
         AddUnique(card, 0);
         AddUnique(card, 1);
@@ -275,7 +274,12 @@ internal static class ItemsCraftingSlotPage
             0 => Save_Manager.instance.data.Items.CraftingSlot.Enable_Affix_0_Tier,
             1 => Save_Manager.instance.data.Items.CraftingSlot.Enable_Affix_1_Tier,
             2 => Save_Manager.instance.data.Items.CraftingSlot.Enable_Affix_2_Tier,
-            _ => Save_Manager.instance.data.Items.CraftingSlot.Enable_Affix_3_Tier,
+            3 => Save_Manager.instance.data.Items.CraftingSlot.Enable_Affix_3_Tier,
+            4 => Save_Manager.instance.data.Items.CraftingSlot.Enable_Affix_4_Tier,
+            5 => Save_Manager.instance.data.Items.CraftingSlot.Enable_Affix_5_Tier,
+            6 => Save_Manager.instance.data.Items.CraftingSlot.Enable_Affix_6_Tier,
+            7 => Save_Manager.instance.data.Items.CraftingSlot.Enable_Affix_7_Tier,
+            _ => Save_Manager.instance.data.Items.CraftingSlot.Enable_Affix_8_Tier,
         };
 
     private static bool ReadAffixValueEnabled(int i) =>
@@ -284,7 +288,12 @@ internal static class ItemsCraftingSlotPage
             0 => Save_Manager.instance.data.Items.CraftingSlot.Enable_Affix_0_Value,
             1 => Save_Manager.instance.data.Items.CraftingSlot.Enable_Affix_1_Value,
             2 => Save_Manager.instance.data.Items.CraftingSlot.Enable_Affix_2_Value,
-            _ => Save_Manager.instance.data.Items.CraftingSlot.Enable_Affix_3_Value,
+            3 => Save_Manager.instance.data.Items.CraftingSlot.Enable_Affix_3_Value,
+            4 => Save_Manager.instance.data.Items.CraftingSlot.Enable_Affix_4_Value,
+            5 => Save_Manager.instance.data.Items.CraftingSlot.Enable_Affix_5_Value,
+            6 => Save_Manager.instance.data.Items.CraftingSlot.Enable_Affix_6_Value,
+            7 => Save_Manager.instance.data.Items.CraftingSlot.Enable_Affix_7_Value,
+            _ => Save_Manager.instance.data.Items.CraftingSlot.Enable_Affix_8_Value,
         };
 
     private static float ReadAffixTier(int i) =>
@@ -293,7 +302,12 @@ internal static class ItemsCraftingSlotPage
             0 => Save_Manager.instance.data.Items.CraftingSlot.Affix_0_Tier,
             1 => Save_Manager.instance.data.Items.CraftingSlot.Affix_1_Tier,
             2 => Save_Manager.instance.data.Items.CraftingSlot.Affix_2_Tier,
-            _ => Save_Manager.instance.data.Items.CraftingSlot.Affix_3_Tier,
+            3 => Save_Manager.instance.data.Items.CraftingSlot.Affix_3_Tier,
+            4 => Save_Manager.instance.data.Items.CraftingSlot.Affix_4_Tier,
+            5 => Save_Manager.instance.data.Items.CraftingSlot.Affix_5_Tier,
+            6 => Save_Manager.instance.data.Items.CraftingSlot.Affix_6_Tier,
+            7 => Save_Manager.instance.data.Items.CraftingSlot.Affix_7_Tier,
+            _ => Save_Manager.instance.data.Items.CraftingSlot.Affix_8_Tier,
         };
 
     private static float ReadAffixValue(int i) =>
@@ -302,7 +316,12 @@ internal static class ItemsCraftingSlotPage
             0 => Save_Manager.instance.data.Items.CraftingSlot.Affix_0_Value,
             1 => Save_Manager.instance.data.Items.CraftingSlot.Affix_1_Value,
             2 => Save_Manager.instance.data.Items.CraftingSlot.Affix_2_Value,
-            _ => Save_Manager.instance.data.Items.CraftingSlot.Affix_3_Value,
+            3 => Save_Manager.instance.data.Items.CraftingSlot.Affix_3_Value,
+            4 => Save_Manager.instance.data.Items.CraftingSlot.Affix_4_Value,
+            5 => Save_Manager.instance.data.Items.CraftingSlot.Affix_5_Value,
+            6 => Save_Manager.instance.data.Items.CraftingSlot.Affix_6_Value,
+            7 => Save_Manager.instance.data.Items.CraftingSlot.Affix_7_Value,
+            _ => Save_Manager.instance.data.Items.CraftingSlot.Affix_8_Value,
         };
 
     private static bool ReadUniqueEnabled(int i) =>
@@ -340,8 +359,18 @@ internal static class ItemsCraftingSlotPage
             s.Enable_Affix_1_Tier = v;
         else if (i == 2)
             s.Enable_Affix_2_Tier = v;
-        else
+        else if (i == 3)
             s.Enable_Affix_3_Tier = v;
+        else if (i == 4)
+            s.Enable_Affix_4_Tier = v;
+        else if (i == 5)
+            s.Enable_Affix_5_Tier = v;
+        else if (i == 6)
+            s.Enable_Affix_6_Tier = v;
+        else if (i == 7)
+            s.Enable_Affix_7_Tier = v;
+        else
+            s.Enable_Affix_8_Tier = v;
         Save_Manager.instance.data.Items.CraftingSlot = s;
     }
 
@@ -354,8 +383,18 @@ internal static class ItemsCraftingSlotPage
             s.Enable_Affix_1_Value = v;
         else if (i == 2)
             s.Enable_Affix_2_Value = v;
-        else
+        else if (i == 3)
             s.Enable_Affix_3_Value = v;
+        else if (i == 4)
+            s.Enable_Affix_4_Value = v;
+        else if (i == 5)
+            s.Enable_Affix_5_Value = v;
+        else if (i == 6)
+            s.Enable_Affix_6_Value = v;
+        else if (i == 7)
+            s.Enable_Affix_7_Value = v;
+        else
+            s.Enable_Affix_8_Value = v;
         Save_Manager.instance.data.Items.CraftingSlot = s;
     }
 
@@ -368,8 +407,18 @@ internal static class ItemsCraftingSlotPage
             s.Affix_1_Tier = v;
         else if (i == 2)
             s.Affix_2_Tier = v;
-        else
+        else if (i == 3)
             s.Affix_3_Tier = v;
+        else if (i == 4)
+            s.Affix_4_Tier = v;
+        else if (i == 5)
+            s.Affix_5_Tier = v;
+        else if (i == 6)
+            s.Affix_6_Tier = v;
+        else if (i == 7)
+            s.Affix_7_Tier = v;
+        else
+            s.Affix_8_Tier = v;
         Save_Manager.instance.data.Items.CraftingSlot = s;
     }
 
@@ -382,8 +431,18 @@ internal static class ItemsCraftingSlotPage
             s.Affix_1_Value = v;
         else if (i == 2)
             s.Affix_2_Value = v;
-        else
+        else if (i == 3)
             s.Affix_3_Value = v;
+        else if (i == 4)
+            s.Affix_4_Value = v;
+        else if (i == 5)
+            s.Affix_5_Value = v;
+        else if (i == 6)
+            s.Affix_6_Value = v;
+        else if (i == 7)
+            s.Affix_7_Value = v;
+        else
+            s.Affix_8_Value = v;
         Save_Manager.instance.data.Items.CraftingSlot = s;
     }
 
@@ -446,11 +505,21 @@ internal static class ItemsCraftingSlotPage
             s.Enable_Affix_1_Tier =
             s.Enable_Affix_2_Tier =
             s.Enable_Affix_3_Tier =
+            s.Enable_Affix_4_Tier =
+            s.Enable_Affix_5_Tier =
+            s.Enable_Affix_6_Tier =
+            s.Enable_Affix_7_Tier =
+            s.Enable_Affix_8_Tier =
                 false;
         s.Enable_Affix_0_Value =
             s.Enable_Affix_1_Value =
             s.Enable_Affix_2_Value =
             s.Enable_Affix_3_Value =
+            s.Enable_Affix_4_Value =
+            s.Enable_Affix_5_Value =
+            s.Enable_Affix_6_Value =
+            s.Enable_Affix_7_Value =
+            s.Enable_Affix_8_Value =
                 false;
         s.Enable_UniqueMod_0 =
             s.Enable_UniqueMod_1 =

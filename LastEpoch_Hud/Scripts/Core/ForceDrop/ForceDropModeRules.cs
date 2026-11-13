@@ -31,7 +31,7 @@ public static class ForceDropModeRules
             || (
                 itemType >= 0
                 && itemType <= 24
-                && rarity < 7
+                // Every rarity can carry a Primordial seal, uniques, sets and legendaries included.
                 && family == ForceDropAffixFamily.Standard
             )
         );
