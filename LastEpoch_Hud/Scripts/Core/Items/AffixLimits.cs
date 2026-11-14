@@ -32,6 +32,18 @@ public static class AffixLimits
     /// </summary>
     public const byte MaxCountRarity = 6;
 
+    /// <summary>Most ordinary affixes on one item. The regular seal, the Primordial seal and the corruption affix come on top.</summary>
+    public const int MaxOrdinary = 6;
+
+    /// <summary>Most prefixes, and most suffixes, among an item's ordinary affixes.</summary>
+    public const int MaxPerSide = 3;
+
+    /// <summary>
+    /// The rarity byte an item can safely carry on the ground and in the Bazaar: the game cannot load 5 or 6, so
+    /// items with five or six ordinary affixes carry 4 and keep every affix.
+    /// </summary>
+    public static byte LoadableRarity(int ordinaryCount) => (byte)Math.Min(RarityForOrdinaryCount(ordinaryCount), (byte)4);
+
     /// <summary>Rarity byte of a non-unique item that holds this many ordinary affixes.</summary>
     public static byte RarityForOrdinaryCount(int ordinaryCount) =>
         (byte)Math.Min(Math.Max(ordinaryCount, 0), MaxCountRarity);

@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using Il2Cpp;
+using LastEpoch_Hud.Scripts.Core.Items;
 
 namespace LastEpoch_Hud.Scripts.Mods.Economy;
 
@@ -35,6 +36,7 @@ internal static class BazaarItemFactory
         WeaversWill, // a unique that levels with Weaver's Will instead of legendary potential
         FpBase, // a magic or rare item with a lot of forging potential left, kept for crafting
         QuadExalted, // four T6/T7 affixes, no primordial: almost never seen
+        SixAffix, // five or six ordinary affixes from a crafter, with or without a seal, a primordial affix or corruption
         Legendary, // a unique that already spent its legendary potential on extra affixes
     }
 
@@ -65,6 +67,7 @@ internal static class BazaarItemFactory
         (Kind.WeaversWill, 6),
         (Kind.Legendary, 8),
         (Kind.QuadExalted, 0.15),
+        (Kind.SixAffix, 3.2),
         (Kind.FpBase, 4), // scarce: most players craft their own
         (Kind.WeaverIdol, 30),
         (Kind.HereticalIdol, 30),
@@ -175,7 +178,7 @@ internal static class BazaarItemFactory
 
     private static bool IsCustom(Kind kind) =>
         kind == Kind.SealedGear || kind == Kind.Experimental || kind == Kind.PrimordialSix
-        || kind == Kind.Personal || kind == Kind.QuadExalted || kind == Kind.WeaverIdol || kind == Kind.HereticalIdol;
+        || kind == Kind.Personal || kind == Kind.QuadExalted || kind == Kind.SixAffix || kind == Kind.WeaverIdol || kind == Kind.HereticalIdol;
 
     public static Rolled Roll(GenerateItems gen, int stall, int[] stallTypes, int ilvl, Random rng)
     {
@@ -274,6 +277,37 @@ internal static class BazaarItemFactory
                     Primordialise(item, rng);
                     rolled.Note = "Primordial";
                     break;
+            }
+
+            if (kind == Kind.SixAffix)
+            {
+                // Some are corrupted. Then the rarity byte is set so the game can load the item: five and six
+                // affixes carry rarity 4 and keep every affix.
+                if (BazaarCustomItems.LastSixCorrupted)
+                {
+                    Corrupt(item, rng, rolled);
+                }
+                int ordinary = item.affixes.ToArray().Count(a => a != null && !a.IsSealed);
+                item.rarity = AffixLimits.LoadableRarity(ordinary);
+                item.sockets = (byte)item.affixes.Count;
+                item.RefreshIDAndValues();
+                // A listing must survive being packed and read back, or it would lose affixes or potential on the
+                // way to the shelf. Say exactly what changed if it does not.
+                var restored = new ItemDataUnpacked(item.GetID());
+                string changed = restored.affixes.Count != item.affixes.Count
+                    ? "affixes " + item.affixes.Count + "->" + restored.affixes.Count
+                    : restored.forgingPotential != item.forgingPotential
+                        ? "forging potential " + item.forgingPotential + "->" + restored.forgingPotential
+                        : restored.legendaryPotential != item.legendaryPotential || restored.weaversWill != item.weaversWill
+                            ? "legendary/weaver potential"
+                            : "";
+                if (changed.Length > 0)
+                {
+                    Fail(kind, "six-affix item changed when packed (" + changed + ", rarity " + item.rarity + ", " + ordinary + " ordinary, "
+                        + (item.affixes.ToArray().Any(x => x != null && x.IsSealed) ? "sealed" : "no seal") + ")");
+                    return null;
+                }
+                rolled.Note = "Six affixes" + (rolled.Note.Length > 0 ? "; " + rolled.Note : "");
             }
 
             bool unique = item.rarity >= 7;

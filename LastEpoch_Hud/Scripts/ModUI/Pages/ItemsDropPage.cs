@@ -100,6 +100,45 @@ internal static class ItemsDropPage
             () => Save_Manager.instance.data.Items.Drop.AffixCount_Max,
             v => Save_Manager.instance.data.Items.Drop.AffixCount_Max = v
         );
+        AddToggle(
+            card,
+            "ExtraAffixes",
+            "Extra Affixes (5 and 6)",
+            () => Save_Manager.instance.data.Items.Drop.Enable_ExtraAffixes,
+            v => Save_Manager.instance.data.Items.Drop.Enable_ExtraAffixes = v
+        );
+        var fifthSlider = page.AddSlider(
+            card,
+            "ExtraAffix5",
+            "Chance of a 5th affix (%)",
+            string.Empty,
+            0f,
+            100f,
+            true,
+            () => HasSave() ? Save_Manager.instance.data.Items.Drop.ExtraAffix5Chance : 0f,
+            value =>
+            {
+                if (HasSave())
+                    Save_Manager.instance.data.Items.Drop.ExtraAffix5Chance = value;
+            }
+        );
+        var sixthSlider = page.AddSlider(
+            card,
+            "ExtraAffix6",
+            "Chance of a 6th affix (%)",
+            string.Empty,
+            0f,
+            100f,
+            true,
+            () => HasSave() ? Save_Manager.instance.data.Items.Drop.ExtraAffix6Chance : 0f,
+            value =>
+            {
+                if (HasSave())
+                    Save_Manager.instance.data.Items.Drop.ExtraAffix6Chance = value;
+            }
+        );
+        page.SetVisibleWhen(fifthSlider, () => HasSave() && Save_Manager.instance.data.Items.Drop.Enable_ExtraAffixes);
+        page.SetVisibleWhen(sixthSlider, () => HasSave() && Save_Manager.instance.data.Items.Drop.Enable_ExtraAffixes);
         AddRange(
             card,
             "IdolAffixCount",

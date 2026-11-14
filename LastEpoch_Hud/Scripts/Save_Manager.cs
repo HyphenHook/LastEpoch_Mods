@@ -191,6 +191,9 @@ public class Save_Manager : MonoBehaviour
                     Enable_AffixCount = false,
                     AffixCount_Min = 0,
                     AffixCount_Max = 4,
+                    Enable_ExtraAffixes = false,
+                    ExtraAffix5Chance = 12,
+                    ExtraAffix6Chance = 25,
                     Enable_IdolAffixCount = false,
                     IdolAffixCount_Min = 0,
                     IdolAffixCount_Max = 2,
@@ -745,6 +748,11 @@ public class Save_Manager : MonoBehaviour
             public bool Enable_AffixCount;
             public float AffixCount_Min;
             public float AffixCount_Max;
+
+            // Items with five and six ordinary affixes (never more than three prefixes or three suffixes).
+            public bool Enable_ExtraAffixes;
+            public float ExtraAffix5Chance; // percent: a four-affix drop gains a fifth
+            public float ExtraAffix6Chance; // percent: a five-affix item gains a sixth
 
             public bool Enable_IdolAffixCount;
             public float IdolAffixCount_Min;
