@@ -31,6 +31,7 @@ public class Main : MelonLoader.MelonMod
             )
         );
         LoggerInstance.Msg("[Offline] Click Play Offline to continue. Online actions are blocked.");
+        Scripts.Dev.InspectorServer.Start(HarmonyInstance);
     }
 
     public override void OnSceneWasLoaded(int buildIndex, string sceneName)
@@ -50,6 +51,7 @@ public class Main : MelonLoader.MelonMod
         {
             Base.Init();
         }
+        Scripts.Dev.InspectorServer.Tick();
         Scripts.Mods.Economy.OfflineBazaarMarket.Tick();
         Scripts.Mods.Economy.BazaarRefresh.Tick();
         Scripts.Mods.Items.Crafting.Items_RecombinatorWindow.Tick();
@@ -65,6 +67,7 @@ public class Main : MelonLoader.MelonMod
 
     public override void OnApplicationQuit()
     {
+        Scripts.Dev.InspectorServer.Stop();
         Scripts.Mods.Economy.OfflineBazaarMarket.SaveOnQuit();
         Caching.ClearCache();
     }
