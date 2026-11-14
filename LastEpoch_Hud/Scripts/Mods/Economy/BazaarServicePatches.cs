@@ -7,6 +7,7 @@ using Il2CppCysharp.Threading.Tasks;
 using Il2CppEHG.Multiplayer;
 using Il2CppLE.Data;
 using Il2CppLE.Services.Bazaar;
+using Il2CppLE.UI.Bazaar;
 using Il2CppLE.UI.PanelSystem;
 using Il2CppOperationResult;
 using Newtonsoft.Json.Linq;
@@ -28,6 +29,7 @@ internal sealed class BazaarQuery
     public int? MinWw, MaxWw, MinLp, MaxLp;
     public int[] UniqueIds = Array.Empty<int>();
     public bool? Primordial;
+    public int Corrupted; // 0 any, 1 only corrupted, 2 only not corrupted (the dropdown: ANY / YES / NO)
     public int Tier6, Tier7, NonSealedTier6, NonSealedTier7;
 
     // "At least RequiredCount of these affixes, each rolled at least MinRoll."
@@ -49,6 +51,8 @@ internal sealed class BazaarQuery
         if (MinLp.HasValue && l.LegendaryPotential < MinLp.Value) return false;
         if (MaxLp.HasValue && l.LegendaryPotential > MaxLp.Value) return false;
         if (Primordial.HasValue && l.PrimordialSealed != Primordial.Value) return false;
+        if (Corrupted == 1 && !l.Corrupted) return false;
+        if (Corrupted == 2 && l.Corrupted) return false;
         if (UniqueIds.Length > 0 && !UniqueIds.Contains(l.UniqueId)) return false;
         foreach (var group in AffixGroups)
         {
@@ -109,6 +113,21 @@ internal sealed class BazaarQuery
             q.NonSealedTier6 = Int(obj, "nonsealedtier6affixcount") ?? 0;
             q.NonSealedTier7 = Int(obj, "nonsealedtier7affixcount") ?? 0;
             q.UniqueIds = Ints(obj, "uniquesfilters");
+            JToken corrupted = Find(obj, "iscorrupted");
+            q.Corrupted = corrupted is JValue cv && cv.Value is bool cb && cb ? 1 : 0;
+            // the request cannot tell ANY from NO (both arrive as false), so ask the filter itself
+            try
+            {
+                var filter = UnityEngine.Object.FindObjectOfType<Il2CppLE.UI.Bazaar.FilterUI>();
+                if (filter != null && filter.corruptedSelection != null)
+                {
+                    var flag = filter.corruptedSelection.SelectedFlag;
+                    q.Corrupted = flag == Il2CppLE.UI.Bazaar.BazaarItemFlag.YES ? 1 : flag == Il2CppLE.UI.Bazaar.BazaarItemFlag.NO ? 2 : 0;
+                }
+            }
+            catch (Exception)
+            {
+            }
             JToken primordial = Find(obj, "isprimordial");
             if (primordial != null)
             {
@@ -546,6 +565,66 @@ public class BazaarItemPricesPatch
             new Result<Il2CppLE.Data.Responses.GetBazaarItemPricesResponse, BazaarOperationError>(response)
         );
         return false;
+    }
+}
+
+/// <summary>
+/// The sell panel's suggested price. Offline there are no market samples, so it is the mod's own appraisal of the
+/// item placed in the slot, and it is put into the asking price box like the game does with a real suggestion.
+/// </summary>
+[HarmonyPatch(typeof(PriceSuggestionUI), nameof(PriceSuggestionUI.ItemIsSupportedByPriceSuggestions))]
+public class BazaarPriceSupportedPatch
+{
+    [HarmonyPrefix]
+    private static bool Prefix(ref bool __result)
+    {
+        if (GameplayEnvironment.IsOnlinePlay)
+        {
+            return true;
+        }
+        __result = true;
+        return false;
+    }
+}
+
+[HarmonyPatch(typeof(PriceSuggestionUI), nameof(PriceSuggestionUI.UpdatePriceSuggestionUI))]
+public class BazaarPriceSuggestionPatch
+{
+    [HarmonyPrefix]
+    private static bool Prefix(PriceSuggestionUI __instance, ItemDataUnpacked item)
+    {
+        if (GameplayEnvironment.IsOnlinePlay || item.IsNullOrDestroyed() || __instance.IsNullOrDestroyed())
+        {
+            return true;
+        }
+        try
+        {
+            ItemData data = item.TryCast<ItemData>();
+            if (data == null)
+            {
+                return true;
+            }
+            long fair = BazaarPricing.Appraise(data, item.LvlReq, data.corrupted).Fair;
+            if (!__instance._priceSuggestionLoader.IsNullOrDestroyed())
+            {
+                __instance._priceSuggestionLoader.SetActive(false);
+            }
+            if (!__instance._priceSuggestionValueWrapper.IsNullOrDestroyed())
+            {
+                __instance._priceSuggestionValueWrapper.SetActive(true);
+            }
+            if (!__instance._priceSuggestionValue.IsNullOrDestroyed())
+            {
+                __instance._priceSuggestionValue.text = fair.ToString("N0");
+            }
+            __instance.PriceSuggested?.Invoke(fair);
+            return false;
+        }
+        catch (Exception ex)
+        {
+            OfflineBazaarMarket.Crumb("price suggestion failed: " + ex.Message);
+            return true;
+        }
     }
 }
 

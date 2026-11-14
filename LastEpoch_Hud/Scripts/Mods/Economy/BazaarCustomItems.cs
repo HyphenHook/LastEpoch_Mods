@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using Il2Cpp;
 using LastEpoch_Hud.Scripts.Core.ForceDrop;
+using LastEpoch_Hud.Scripts.Core.Items;
 using LastEpoch_Hud.Scripts.ModUI.ForceDrop;
 using LastEpoch_Hud.Scripts.Mods.Items.Requirements;
 
@@ -26,6 +27,7 @@ internal static class BazaarCustomItems
         WeaverIdol, // small generic idol with at least one weaver affix
         HereticalIdol, // enchanted class idol: 2 normal + 2 enchanted affixes
         QuadExalted, // four T6/T7 affixes and no primordial: the rarest drop there is
+        SixAffix, // five or six ordinary affixes (never more than three prefixes or suffixes): a crafter's masterpiece
     }
 
     private sealed class SubBase
@@ -40,6 +42,95 @@ internal static class BazaarCustomItems
     private static readonly double[] ExaltedTierWeights = { 0, 0, 0, 3, 12, 40, 45 };
     private static readonly double[] TopTierWeights = { 0, 0, 0, 0, 0, 60, 40 }; // T6 or T7 only
     private static readonly double[] LowTierWeights = { 40, 35, 25, 0, 0, 0, 0 };
+
+    // A crafter's six-affix item: mostly well-crafted T4 to T6, a found T7 now and then.
+    private static readonly double[] CrafterTierWeights = { 1, 3, 8, 20, 32, 24, 12 };
+
+    private static int _sixExtra;
+
+    /// <summary>
+    /// Adds ordinary affixes to a finished item, with a crafter's tiers, never more than three prefixes or three
+    /// suffixes. Returns how many were added.
+    /// </summary>
+    private static int AddExtraOrdinary(ItemDataUnpacked item, int count, Random rng)
+    {
+        int added = 0;
+        try
+        {
+            int baseType = item.itemType;
+            int subType = item.subType;
+            List<AffixList.Affix> pool = Pool(baseType, subType, false, false);
+            int prefixes = 0, suffixes = 0;
+            foreach (ItemAffix a in item.affixes.ToArray())
+            {
+                if (a == null || a.IsSealed)
+                {
+                    continue;
+                }
+                if (a.affixType == AffixList.AffixType.PREFIX)
+                {
+                    prefixes++;
+                }
+                else if (a.affixType == AffixList.AffixType.SUFFIX)
+                {
+                    suffixes++;
+                }
+            }
+            var existing = item.affixes.ToArray().Where(a => a != null).Select(a => (int)a.affixId).ToList();
+            for (int n = 0; n < count; n++)
+            {
+                var legal = new ForceDropLegalAffixes(baseType, subType, 2, existing);
+                AffixList.Affix chosen = null;
+                for (int tries = 0; tries < 120 && pool.Count > 0; tries++)
+                {
+                    AffixList.Affix def = WeightedPick(pool, rng);
+                    if (def == null || def.specialAffixType != AffixList.SpecialAffixType.Standard || existing.Contains(def.affixId))
+                    {
+                        continue;
+                    }
+                    if ((def.type == AffixList.AffixType.PREFIX && prefixes >= AffixLimits.MaxPerSide)
+                        || (def.type == AffixList.AffixType.SUFFIX && suffixes >= AffixLimits.MaxPerSide))
+                    {
+                        continue;
+                    }
+                    if (legal.OrdinaryReason(def, false, false).Length == 0)
+                    {
+                        chosen = def;
+                        break;
+                    }
+                }
+                if (chosen == null)
+                {
+                    break;
+                }
+                int tier = DisplayTier(chosen, rng, CrafterTierWeights);
+                item.affixes.Add(new ItemAffix((ushort)chosen.affixId, (byte)Math.Max(0, tier - 1), (byte)Roll(rng, 0.7), (byte)baseType, SealedAffixType.None));
+                existing.Add(chosen.affixId);
+                if (chosen.type == AffixList.AffixType.PREFIX)
+                {
+                    prefixes++;
+                }
+                else if (chosen.type == AffixList.AffixType.SUFFIX)
+                {
+                    suffixes++;
+                }
+                added++;
+            }
+            if (added > 0)
+            {
+                item.sockets = (byte)item.affixes.Count;
+                item.RefreshIDAndValues();
+            }
+        }
+        catch (Exception ex)
+        {
+            Fail(Kind.SixAffix, "extra affixes: " + ex.Message);
+        }
+        return added;
+    }
+
+    /// <summary>True when the last six-affix item built was meant to be corrupted: the factory does that part.</summary>
+    public static bool LastSixCorrupted { get; private set; }
 
     private static readonly Dictionary<int, List<SubBase>> _subs = new();
     private static readonly Dictionary<string, List<AffixList.Affix>> _pools = new();
@@ -61,7 +152,16 @@ internal static class BazaarCustomItems
                 Fail(kind, "no plan: " + _why);
                 return null;
             }
-            return ForceDropItemCreator.Create(request);
+            ItemDataUnpacked made = ForceDropItemCreator.Create(request);
+            if (kind == Kind.SixAffix && _sixExtra > 0 && made != null)
+            {
+                if (AddExtraOrdinary(made, _sixExtra, rng) == 0)
+                {
+                    Fail(kind, "no legal extra affix could be added");
+                    return null;
+                }
+            }
+            return made;
         }
         catch (Exception ex)
         {
@@ -144,7 +244,7 @@ internal static class BazaarCustomItems
     {
         _failures.TryGetValue(kind, out int n);
         _failures[kind] = n + 1;
-        if (n < 4)
+        if (n < 12)
         {
             OfflineBazaarMarket.Crumb("custom: " + kind + " failed (" + (why.Length > 200 ? why.Substring(0, 200) : why) + ")");
         }
@@ -154,6 +254,7 @@ internal static class BazaarCustomItems
 
     private static ResolvedForceDrop Plan(Kind kind, int stall, int[] stallTypes, Random rng)
     {
+        _sixExtra = 0;
         bool idol = kind == Kind.WeaverIdol || kind == Kind.HereticalIdol;
         int baseType = PickBaseType(kind, stall, stallTypes, rng);
         SubBase sub = PickSub(kind, stall, baseType, rng);
@@ -290,6 +391,63 @@ internal static class BazaarCustomItems
                     }
                 }
                 return Request(baseType, sub, chosen, rng.Next(0, 10), 2);
+            }
+            case Kind.SixAffix:
+            {
+                // 5 or 6 ordinary affixes, three prefixes and three suffixes at most. Seals, the primordial affix and
+                // corruption come on top of them, and a crafter may have used any of them or none.
+                int count = rng.NextDouble() < 0.6 ? 5 : 6;
+                // The creator packs and re-reads every item it makes and refuses a seal-less one with five or six
+                // ordinary affixes. So it makes four, and the rest are added afterwards (see AddExtraOrdinary).
+                int built = Math.Min(count, 4);
+                _sixExtra = count - built;
+                double v = rng.NextDouble();
+                // plain 34%, sealed 24%, primordial (always with its regular seal, as on the endgame six) 22%,
+                // corrupted 12%, corrupted and sealed 8%
+                bool regularSeal = (v >= 0.34 && v < 0.80) || v >= 0.92;
+                bool primordial = v >= 0.58 && v < 0.80;
+                LastSixCorrupted = v >= 0.80;
+                if (primordial)
+                {
+                    AffixList.Affix seed = Pick(d => Standard(d) && d.tiers != null && d.tiers.Count >= 8);
+                    if (seed == null)
+                    {
+                        return null;
+                    }
+                    Add(seed, 8, 0.85, ForceDropSeal.Primordial);
+                }
+                int prefixes = 0, suffixes = 0;
+                bool SideOpen(AffixList.Affix d) =>
+                    d.type == AffixList.AffixType.PREFIX ? prefixes < AffixLimits.MaxPerSide
+                    : d.type == AffixList.AffixType.SUFFIX ? suffixes < AffixLimits.MaxPerSide
+                    : true;
+                for (int i = 0; i < built; i++)
+                {
+                    AffixList.Affix d = Pick(x => Standard(x) && SideOpen(x));
+                    double[] weights = i < 2 && rng.NextDouble() < 0.25 ? ExaltedTierWeights : CrafterTierWeights;
+                    if (d == null || !Add(d, DisplayTier(d, rng, weights), 0.7))
+                    {
+                        return null;
+                    }
+                    if (d.type == AffixList.AffixType.PREFIX)
+                    {
+                        prefixes++;
+                    }
+                    else if (d.type == AffixList.AffixType.SUFFIX)
+                    {
+                        suffixes++;
+                    }
+                }
+                if (regularSeal)
+                {
+                    AffixList.Affix sealedDef = Pick(Standard, sealedAffix: true);
+                    if (sealedDef == null)
+                    {
+                        return null;
+                    }
+                    Add(sealedDef, DisplayTier(sealedDef, rng, CrafterTierWeights), 0.7, ForceDropSeal.Regular);
+                }
+                return Request(baseType, sub, chosen, rng.Next(0, 6), 2);
             }
             case Kind.Personal:
             {

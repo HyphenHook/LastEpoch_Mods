@@ -13,13 +13,27 @@ public class RecombinatorMathTests
         return r.NextDouble;
     }
 
+    private static RecombAffix P(int id, int tier, int placement, int source = 0) =>
+        new() { AffixId = id, DisplayedTier = tier, Weight = 1, Source = source, Placement = placement };
+
     [Fact]
-    public void SelectionMustHaveOneToFourDifferentAffixes()
+    public void SelectionMustHaveOneToSixDifferentAffixes()
     {
         Assert.NotEqual("", RecombinatorMath.Validate(new List<RecombAffix>()));
         Assert.NotEqual("", RecombinatorMath.Validate(new[] { A(1, 3), A(1, 3, 1, 1) }));
-        Assert.NotEqual("", RecombinatorMath.Validate(new[] { A(1, 1), A(2, 1), A(3, 1), A(4, 1), A(5, 1) }));
+        Assert.NotEqual("", RecombinatorMath.Validate(new[] { A(1, 1), A(2, 1), A(3, 1), A(4, 1), A(5, 1), A(6, 1), A(7, 1) }));
         Assert.Equal("", RecombinatorMath.Validate(new[] { A(1, 3), A(2, 4) }));
+        Assert.Equal("", RecombinatorMath.Validate(new[] { A(1, 1), A(2, 1), A(3, 1), A(4, 1), A(5, 1), A(6, 1) }));
+    }
+
+    [Fact]
+    public void NoMoreThanThreePrefixesOrThreeSuffixes()
+    {
+        var fourPrefixes = new[] { P(1, 3, 1), P(2, 3, 1), P(3, 3, 1), P(4, 3, 1) };
+        var threeAndThree = new[] { P(1, 3, 1), P(2, 3, 1), P(3, 3, 1), P(4, 3, 2), P(5, 3, 2), P(6, 3, 2) };
+        Assert.NotEqual("", RecombinatorMath.Validate(fourPrefixes));
+        Assert.Equal("", RecombinatorMath.Validate(threeAndThree));
+        Assert.Equal(0, RecombinatorMath.SuccessChance(fourPrefixes));
     }
 
     [Fact]
@@ -50,24 +64,60 @@ public class RecombinatorMathTests
     [Fact]
     public void ChanceStaysBetweenZeroAndOne()
     {
-        var worst = new[] { A(1, 7), A(2, 7), A(3, 7), A(4, 7) };
+        var worst = new[] { A(1, 7), A(2, 7), A(3, 7), A(4, 7), A(5, 7), A(6, 7) };
         double p = RecombinatorMath.SuccessChance(worst);
         Assert.InRange(p, 0.0, 1.0);
-        Assert.True(p < 0.1);
+        Assert.True(p < 0.01);
         Assert.Equal(0, RecombinatorMath.SuccessChance(new List<RecombAffix>()));
     }
 
     [Fact]
-    public void ResultCountStaysNearTheAverageOfTheItems()
+    public void SixAffixesAreStillWithinReachWhenTheyAreLowTier()
+    {
+        var six = Enumerable.Range(1, 6).Select(i => A(i, 3)).ToList();
+        double p = RecombinatorMath.SuccessChance(six);
+        Assert.InRange(p, 0.2, 0.5);
+        Assert.True(p < RecombinatorMath.SuccessChance(six.Take(4).ToList()));
+    }
+
+    [Fact]
+    public void KeepingMoreAffixesIsAlwaysHarderUpToSix()
+    {
+        double previous = 2;
+        for (int n = 1; n <= 6; n++)
+        {
+            double p = RecombinatorMath.SuccessChance(Enumerable.Range(1, n).Select(i => A(i, 4)).ToList());
+            Assert.True(p < previous);
+            previous = p;
+        }
+    }
+
+    [Fact]
+    public void ResultCountIsTheAverageOfTheTwoItems()
     {
         var rng = Seeded(1);
-        var counts = new Dictionary<int, int>();
-        for (int i = 0; i < 4000; i++)
+        for (int i = 0; i < 200; i++)
         {
-            int c = RecombinatorMath.ResultCount(4, 4, 8, rng);
+            Assert.Equal(4, RecombinatorMath.ResultCount(4, 4, 12, rng));
+            Assert.Equal(5, RecombinatorMath.ResultCount(4, 6, 12, rng));
+            Assert.Equal(6, RecombinatorMath.ResultCount(6, 6, 12, rng));
+            Assert.InRange(RecombinatorMath.ResultCount(3, 4, 12, rng), 3, 4);
+        }
+    }
+
+    [Fact]
+    public void AVariedResultUsuallyKeepsTheAverageAndSometimesDiffersByOne()
+    {
+        var rng = Seeded(11);
+        var counts = new Dictionary<int, int>();
+        for (int i = 0; i < 6000; i++)
+        {
+            int c = RecombinatorMath.ResultCount(4, 6, 12, rng, varied: true);
             counts[c] = counts.GetValueOrDefault(c) + 1;
         }
-        Assert.True(counts[4] > counts.GetValueOrDefault(1) * 5);
+        Assert.InRange(counts[5], 3900, 4500); // about 70%
+        Assert.InRange(counts[4], 700, 1100); // about 15%
+        Assert.InRange(counts[6], 700, 1100);
         Assert.True(counts.Keys.All(k => k >= 1 && k <= RecombinatorMath.MaxAffixes));
     }
 
@@ -89,6 +139,24 @@ public class RecombinatorMathTests
         Assert.Equal(3, drawn.Count);
         Assert.Equal(3, drawn.Select(a => a.AffixId).Distinct().Count());
         Assert.Equal(4, RecombinatorMath.Draw(pool, 10, Seeded(4)).Count); // only four different affixes exist
+    }
+
+    [Fact]
+    public void DrawNeverGivesMoreThanThreeOfOneSide()
+    {
+        var pool = Enumerable.Range(1, 8).Select(i => P(i, 3, 1)).Concat(Enumerable.Range(20, 8).Select(i => P(i, 3, 2))).ToList();
+        var rng = Seeded(12);
+        for (int i = 0; i < 300; i++)
+        {
+            var drawn = RecombinatorMath.Draw(pool, 6, rng);
+            Assert.Equal(6, drawn.Count);
+            Assert.Equal(3, drawn.Count(a => a.Placement == 1));
+            Assert.Equal(3, drawn.Count(a => a.Placement == 2));
+        }
+        // with two prefixes already placed, only one more prefix may come
+        var more = RecombinatorMath.Draw(pool, 6, rng, prefixes: 2, suffixes: 0);
+        Assert.True(more.Count(a => a.Placement == 1) <= 1);
+        Assert.True(more.Count(a => a.Placement == 2) <= 3);
     }
 
     [Fact]
@@ -130,15 +198,10 @@ public class RecombinatorMathTests
     }
 
     [Fact]
-    public void ARegularSealTakesOneSlotOnThatBase()
+    public void SealsAreNotCountedAmongTheOrdinaryAffixes()
     {
-        Assert.Equal(3, RecombinatorMath.Capacity(true));
-        Assert.Equal(4, RecombinatorMath.Capacity(false));
-        var four = new[] { A(1, 3), A(2, 3), A(3, 3), A(4, 3) };
-        double open = RecombinatorMath.SuccessChance(four, 4, 4);
-        double oneSealed = RecombinatorMath.SuccessChance(four, 3, 4);
-        Assert.Equal(open / 2, oneSealed, 6);
-        Assert.Equal(0, RecombinatorMath.SuccessChance(four, 3, 3));
+        Assert.Equal(6, RecombinatorMath.Capacity(true));
+        Assert.Equal(6, RecombinatorMath.Capacity(false));
     }
 
     [Fact]
@@ -169,6 +232,28 @@ public class RecombinatorMathTests
         var items = new[] { A(1, 5), A(2, 5) };
         Assert.True(RecombinatorMath.Gold(items, true) > RecombinatorMath.Gold(items, false));
         Assert.True(RecombinatorMath.Embers(items, true) >= RecombinatorMath.Embers(items, false));
+    }
+
+    [Fact]
+    public void PrimordialRaisesTheChanceByOneAndAHalfButNeverPastOne()
+    {
+        var picks = new[] { A(1, 5), A(2, 5) };
+        double plain = RecombinatorMath.SuccessChance(picks);
+        double boosted = RecombinatorMath.SuccessChance(picks, 4, 4, primordial: true);
+        Assert.Equal(plain * 1.5, boosted, 6);
+        Assert.True(RecombinatorMath.SuccessChance(new[] { A(1, 1) }, 4, 4, true) <= 1.0);
+        Assert.True(RecombinatorMath.SurvivalChance(new[] { A(1, 1) }, true) <= 1.0);
+    }
+
+    [Fact]
+    public void PrimordialBonesStartAt2500AndScaleLikeGold()
+    {
+        var small = new[] { A(1, 2), A(2, 2) };
+        var big = new[] { A(1, 6), A(2, 6), A(3, 6), A(4, 6) };
+        Assert.True(RecombinatorMath.Bones(small, false) >= 2500);
+        Assert.True(RecombinatorMath.Bones(big, false) > RecombinatorMath.Bones(small, false));
+        Assert.True(RecombinatorMath.Bones(big, true) > RecombinatorMath.Bones(big, false));
+        Assert.Equal(2500, RecombinatorMath.Bones(new List<RecombAffix>(), false));
     }
 
     [Fact]

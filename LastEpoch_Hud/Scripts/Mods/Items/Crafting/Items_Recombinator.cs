@@ -32,6 +32,26 @@ internal static class Items_Recombinator
         public List<RecombAffix> All => AffixesA.Concat(AffixesB).ToList();
     }
 
+    /// <summary>The class an item is made for (0 when it fits any class).</summary>
+    internal static int ClassOf(ItemData item)
+    {
+        try
+        {
+            foreach (ItemList.BaseEquipmentItem baseItem in ItemList.get().EquippableItems)
+            {
+                if ((int)baseItem.type == item.itemType && item.subType < baseItem.subItems.Count)
+                {
+                    return (int)baseItem.subItems[item.subType].classRequirement;
+                }
+            }
+            return 0;
+        }
+        catch (Exception)
+        {
+            return 0;
+        }
+    }
+
     /// <summary>Why these two items cannot be recombined, or an empty string.</summary>
     public static string WhyNot(ItemData a, ItemData b)
     {
@@ -42,6 +62,10 @@ internal static class Items_Recombinator
         if (a.itemType != b.itemType)
         {
             return "Both items must be the same type of item.";
+        }
+        if (ClassOf(a) != ClassOf(b))
+        {
+            return "Both items must be for the same class.";
         }
         foreach (ItemData item in new[] { a, b })
         {
@@ -106,6 +130,7 @@ internal static class Items_Recombinator
                 AffixId = x.affixId,
                 DisplayedTier = x.affixTier + 1,
                 Weight = def == null ? 1 : Math.Max(0.01, def.weighting),
+                Placement = def == null ? 0 : def.type == AffixList.AffixType.PREFIX ? 1 : def.type == AffixList.AffixType.SUFFIX ? 2 : 0,
                 Source = source,
                 LegalOnA = source == 0 ? legalOnOwn : legalOnOther,
                 LegalOnB = source == 1 ? legalOnOwn : legalOnOther,
@@ -114,7 +139,7 @@ internal static class Items_Recombinator
     }
 
     /// <summary>Can this affix sit on that item's base, alongside the affixes it would have?</summary>
-    private static bool Legal(AffixList.Affix def, ItemData onto, int affixId)
+    internal static bool Legal(AffixList.Affix def, ItemData onto, int affixId)
     {
         if (def == null)
         {
@@ -136,7 +161,7 @@ internal static class Items_Recombinator
     /// Recombines the two items. In the deterministic mode <paramref name="selected" /> are the affixes wanted: they
     /// are kept when the merge succeeds, and otherwise the result is an indeterministic one. Returns the new item.
     /// </summary>
-    public static ItemData Recombine(Offer offer, bool deterministic, IReadOnlyList<RecombAffix> selected, out bool exact, out string note)
+    public static ItemData Recombine(Offer offer, bool deterministic, IReadOnlyList<RecombAffix> selected, out bool exact, out string note, bool primordial = false)
     {
         exact = false;
         note = "";
@@ -147,19 +172,32 @@ internal static class Items_Recombinator
         int capacity = baseIndex == 0 ? offer.CapacityA : offer.CapacityB;
         var pool = offer.All.Where(x => x.LegalOn(baseIndex)).ToList();
 
+        // The result holds the average number of affixes of the two items.
+        // The average of the two items. The indeterministic mode usually lands on it and sometimes strays by one;
+        // the deterministic mode always keeps it.
+        int count = RecombinatorMath.ResultCount(offer.AffixesA.Count, offer.AffixesB.Count, pool.Count, Rng, capacity, varied: !deterministic);
+
         List<RecombAffix> chosen;
         if (deterministic && selected != null && selected.Count > 0
             && RecombinatorMath.Validate(selected, capacity).Length == 0
             && selected.All(x => x.LegalOn(baseIndex))
-            && Rng() < RecombinatorMath.SurvivalChance(selected))
+            && Rng() < RecombinatorMath.SurvivalChance(selected, primordial))
         {
             chosen = selected.ToList();
             exact = true;
             note = "The recombination succeeded.";
+            // Slots the pick leaves open are filled at random from what the items offer.
+            var taken = new HashSet<int>(chosen.Select(x => x.AffixId));
+            var rest = pool.Where(x => !taken.Contains(x.AffixId)).ToList();
+            chosen.AddRange(RecombinatorMath.Draw(
+                rest,
+                Math.Min(Math.Max(0, count - chosen.Count), capacity - chosen.Count),
+                Rng,
+                chosen.Count(x => x.Placement == 1),
+                chosen.Count(x => x.Placement == 2)));
         }
         else
         {
-            int count = RecombinatorMath.ResultCount(offer.AffixesA.Count, offer.AffixesB.Count, pool.Count, Rng, capacity);
             chosen = RecombinatorMath.Draw(pool, count, Rng);
             note = deterministic ? "The recombination failed: the result is a random mix." : "Recombined.";
         }
@@ -195,7 +233,7 @@ internal static class Items_Recombinator
             result.affixes.Add(new ItemAffix((ushort)source.affixId, source.affixTier, source.affixRoll, result.itemType, SealedAffixType.None));
         }
         int ordinary = result.affixes.ToArray().Count(x => x != null && !x.IsSealed);
-        result.rarity = AffixLimits.RarityForOrdinaryCount(ordinary);
+        result.rarity = AffixLimits.LoadableRarity(ordinary); // five and six affixes load as rarity 4 and keep every affix
         result.sockets = (byte)result.affixes.Count;
         result.RefreshIDAndValues();
         return result;
