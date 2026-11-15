@@ -20,6 +20,12 @@ internal static class OrbArt
         return Load(resource);
     }
 
+    /// <summary>A named image of the mod: orb_slot_empty, forge_slot_frame, forge_button_frame, glow_violet and so on.</summary>
+    public static Sprite Named(string name) => Load(name);
+
+    /// <summary>The orb, drained of colour, for when there are none left.</summary>
+    public static Sprite OrbGrey() => Load("orb_encapsulation_grey");
+
     /// <summary>The small blue diamond that marks a fractured affix.</summary>
     public static Sprite Diamond() => Load("diamond_fractured");
 

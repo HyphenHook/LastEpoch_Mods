@@ -25,8 +25,11 @@ internal static class Items_AdvancedForgeWindow
     private const string ButtonName = "AdvancedForgeButton";
     private const string RootName = "AdvancedForgeWindow";
 
-    private const float Left = 48, WinW = 670, IconW = 140, IconH = 196, OrbSize = 76;
-    private const float OrbY = 96, SlotY = 220;
+    private const float Left = 48, WinW = 670, OrbSize = 92;
+    private const float FrameW = 220, FrameH = 293; // the ornate slot frame
+    private const float ItemW = 117, ItemH = 199; // what the frame leaves for the item
+    private const float ForgeW = 210, ForgeH = 70; // the Forge button
+    private const float OrbY = 100, SlotY = 206;
     private static float CenterX => Left + WinW / 2;
 
     // ---------------------------------------------------------------- state
@@ -473,83 +476,55 @@ internal static class Items_AdvancedForgeWindow
 
     // ---------------------------------------------------------------- the item slot
 
-    private static RectTransform slotRect;
+    private static RectTransform slotRect; // the whole ornate frame
+    private static RectTransform itemRect; // what the frame leaves for the item
 
-    private static void SlotBox(ItemData data, float x, float y)
+    private static void SlotBox(ItemData data)
     {
-        Image box = R.MakeImage(Content, "Slot", new Color(0.05f, 0.04f, 0.035f, 0.97f));
-        RectTransform br = box.rectTransform;
+        Image frame = R.MakeImage(Content, "SlotFrame", Color.white);
+        frame.sprite = OrbArt.Named("forge_slot_frame");
+        frame.preserveAspect = false;
+        RectTransform br = frame.rectTransform;
         br.anchorMin = br.anchorMax = new Vector2(0, 1);
         br.pivot = new Vector2(0, 1);
-        br.anchoredPosition = new Vector2(x, -y);
-        br.sizeDelta = new Vector2(IconW, IconH);
-        dynamic.Add(box.gameObject);
+        br.anchoredPosition = new Vector2(CenterX - FrameW / 2, -SlotY);
+        br.sizeDelta = new Vector2(FrameW, FrameH);
+        dynamic.Add(frame.gameObject);
         slotRect = br;
+
+        var holder = new GameObject("Item");
+        RectTransform hr = holder.AddComponent<RectTransform>();
+        holder.transform.SetParent(frame.transform, false);
+        hr.anchorMin = hr.anchorMax = new Vector2(0.5f, 0.5f);
+        hr.pivot = new Vector2(0.5f, 0.5f);
+        hr.anchoredPosition = Vector2.zero;
+        hr.sizeDelta = new Vector2(ItemW, ItemH);
+        itemRect = hr;
         if (data != null)
         {
             Icon shown = IconFor(data);
-            if (shown == null || shown.Back == null)
-            {
-                box.color = Color.Lerp(new Color(0.05f, 0.04f, 0.035f, 0.97f), R.ItemColor(data), 0.2f);
-            }
             if (shown != null)
             {
                 if (shown.Back != null)
                 {
-                    Image back = R.MakeImage(box.transform, "ItemBack", shown.BackColor);
+                    Image back = R.MakeImage(holder.transform, "ItemBack", shown.BackColor);
                     back.sprite = shown.Back;
                     back.raycastTarget = false;
-                    Stretch(back.rectTransform, 4);
+                    Stretch(back.rectTransform, 2);
                 }
                 if (shown.Content != null)
                 {
-                    Image content = R.MakeImage(box.transform, "ItemIcon", Color.white);
+                    Image content = R.MakeImage(holder.transform, "ItemIcon", Color.white);
                     content.sprite = shown.Content;
                     content.preserveAspect = true;
                     content.raycastTarget = false;
-                    Stretch(content.rectTransform, 14);
+                    Stretch(content.rectTransform, 12);
                 }
             }
         }
-        SlotFrame(box, data != null ? R.ItemColor(data) : (Color?)null);
-        Button button = box.gameObject.AddComponent<Button>();
+        Button button = frame.gameObject.AddComponent<Button>();
         button.transition = Selectable.Transition.None;
         button.onClick.AddListener((UnityEngine.Events.UnityAction)ClickSlot);
-    }
-
-    /// <summary>The forge's own frame pieces round a slot, with a thin line of the item's rarity colour just inside.</summary>
-    private static void SlotFrame(Image box, Color? rarity)
-    {
-        float th = 8f;
-        for (int side = 0; side < 4; side++)
-        {
-            EdgeSprite e = edges[side];
-            if (e == null || e.Sprite == null)
-            {
-                continue;
-            }
-            th = Mathf.Min(e.Thickness, 12f);
-            Image img = R.MakeImage(box.transform, "Border", e.Color);
-            img.sprite = e.Sprite;
-            img.type = e.Type;
-            img.raycastTarget = false;
-            RectTransform r = img.rectTransform;
-            switch (side)
-            {
-                case 0: r.anchorMin = new Vector2(0, 1); r.anchorMax = new Vector2(1, 1); r.pivot = new Vector2(0.5f, 1); r.sizeDelta = new Vector2(0, th); break;
-                case 1: r.anchorMin = new Vector2(0, 0); r.anchorMax = new Vector2(1, 0); r.pivot = new Vector2(0.5f, 0); r.sizeDelta = new Vector2(0, th); break;
-                case 2: r.anchorMin = new Vector2(0, 0); r.anchorMax = new Vector2(0, 1); r.pivot = new Vector2(0, 0.5f); r.sizeDelta = new Vector2(th, 0); break;
-                default: r.anchorMin = new Vector2(1, 0); r.anchorMax = new Vector2(1, 1); r.pivot = new Vector2(1, 0.5f); r.sizeDelta = new Vector2(th, 0); break;
-            }
-            r.anchoredPosition = Vector2.zero;
-        }
-        Color line = rarity ?? new Color(0.5f, 0.4f, 0.24f);
-        line.a = 0.9f;
-        Transform ft = box.transform;
-        R.Part(ft, "RarityTop", line, new Vector2(0, 1), new Vector2(1, 1), new Vector2(0.5f, 1), new Vector2(0, -th), new Vector2(-2 * th, 2));
-        R.Part(ft, "RarityBottom", line, new Vector2(0, 0), new Vector2(1, 0), new Vector2(0.5f, 0), new Vector2(0, th), new Vector2(-2 * th, 2));
-        R.Part(ft, "RarityLeft", line, new Vector2(0, 0), new Vector2(0, 1), new Vector2(0, 0.5f), new Vector2(th, 0), new Vector2(2, -2 * th));
-        R.Part(ft, "RarityRight", line, new Vector2(1, 0), new Vector2(1, 1), new Vector2(1, 0.5f), new Vector2(-th, 0), new Vector2(2, -2 * th));
     }
 
     private static void ClickSlot()
@@ -594,62 +569,176 @@ internal static class Items_AdvancedForgeWindow
         }
     }
 
-    // ---------------------------------------------------------------- the orbs
+    // ---------------------------------------------------------------- the orbs and the Forge button
 
-    private static readonly List<(RectTransform Rect, AdvancedMaterial Material)> orbRects = new();
+    private sealed class OrbView
+    {
+        public RectTransform Rect;
+        public Image Frame, Art, Glow;
+        public AdvancedMaterial Material;
+        public bool Have;
+    }
+
+    private static readonly List<OrbView> orbViews = new();
+    private static string selectedKey;
+    private static RectTransform forgeRect;
+    private static Image forgeImage;
+    private static TextMeshProUGUI forgeLabel;
 
     private static void OrbRow()
     {
-        orbRects.Clear();
+        orbViews.Clear();
         int n = AdvancedMaterials.All.Count;
-        float total = n * OrbSize + (n - 1) * 16;
+        float total = n * OrbSize + (n - 1) * 14;
         float x = CenterX - total / 2;
-        Label("Orbs", CenterX - 150, OrbY - 30, 300, 22, 15, Gold, TextAlignmentOptions.Center);
+        Label("Orbs", CenterX - 150, OrbY - 26, 300, 20, 15, Gold, TextAlignmentOptions.Center);
         foreach (AdvancedMaterial m in AdvancedMaterials.All)
         {
             int have = AdvancedMaterials.Count(m.Key);
-            Image box = R.MakeImage(Content, "Orb_" + m.Key, new Color(0.035f, 0.03f, 0.03f, 0.97f));
-            RectTransform br = box.rectTransform;
+            Image frame = R.MakeImage(Content, "Orb_" + m.Key, Color.white);
+            frame.sprite = OrbArt.Named("orb_slot_empty");
+            RectTransform br = frame.rectTransform;
             br.anchorMin = br.anchorMax = new Vector2(0, 1);
             br.pivot = new Vector2(0, 1);
             br.anchoredPosition = new Vector2(x, -OrbY);
             br.sizeDelta = new Vector2(OrbSize, OrbSize);
-            dynamic.Add(box.gameObject);
-            Image art = R.MakeImage(box.transform, "Art", have > 0 ? Color.white : new Color(1, 1, 1, 0.35f));
-            art.sprite = OrbArt.Get(m.Key, m.Tint, m.Glow);
+            dynamic.Add(frame.gameObject);
+
+            Image glow = R.MakeImage(frame.transform, "Glow", new Color(1f, 1f, 1f, 0.5f));
+            glow.sprite = OrbArt.Named("glow_violet");
+            glow.raycastTarget = false;
+            RectTransform gr = glow.rectTransform;
+            gr.anchorMin = gr.anchorMax = new Vector2(0.5f, 0.5f);
+            gr.pivot = new Vector2(0.5f, 0.5f);
+            gr.anchoredPosition = new Vector2(0, 4);
+            gr.sizeDelta = new Vector2(OrbSize * 0.92f, OrbSize * 0.92f);
+
+            Image art = R.MakeImage(frame.transform, "Art", Color.white);
             art.preserveAspect = true;
             art.raycastTarget = false;
-            Stretch(art.rectTransform, 5);
-            SlotFrame(box, m.Glow * 0.8f);
-            GameObject count = Label(have.ToString("N0"), OrbSize - 54, OrbSize - 22, 50, 20, 15, have > 0 ? Color.white : Dim, TextAlignmentOptions.BottomRight, box.transform);
-            dynamic.Remove(count); // it goes with the box
+            RectTransform ar = art.rectTransform;
+            ar.anchorMin = ar.anchorMax = new Vector2(0.5f, 0.5f);
+            ar.pivot = new Vector2(0.5f, 0.5f);
+            ar.anchoredPosition = new Vector2(0, 4);
+            ar.sizeDelta = new Vector2(OrbSize * 0.56f, OrbSize * 0.56f);
+
+            Label(have.ToString("N0"), OrbSize - 46, OrbSize - 22, 38, 16, 13, have > 0 ? Color.white : Dim, TextAlignmentOptions.BottomRight, frame.transform);
             string key = m.Key;
-            Button b = box.gameObject.AddComponent<Button>();
+            Button b = frame.gameObject.AddComponent<Button>();
             b.transition = Selectable.Transition.None;
-            b.onClick.AddListener((UnityEngine.Events.UnityAction)(() => UseOrb(key)));
-            orbRects.Add((br, m));
-            x += OrbSize + 16;
+            b.onClick.AddListener((UnityEngine.Events.UnityAction)(() => SelectOrb(key)));
+            orbViews.Add(new OrbView { Rect = br, Frame = frame, Art = art, Glow = glow, Material = m, Have = have > 0 });
+            x += OrbSize + 14;
+        }
+        if (selectedKey != null && AdvancedMaterials.Count(selectedKey) < 1)
+        {
+            selectedKey = null;
+        }
+        ApplyOrbStates();
+    }
+
+    /// <summary>
+    /// An orb slot is empty, hovered (a violet ring) or selected (a violet sphere that pulses behind the orb). An orb
+    /// that has run out is grey and cannot be selected.
+    /// </summary>
+    private static void ApplyOrbStates()
+    {
+        for (int i = 0; i < orbViews.Count; i++)
+        {
+            OrbView v = orbViews[i];
+            if (v.Frame == null)
+            {
+                continue;
+            }
+            bool selected = v.Have && selectedKey == v.Material.Key;
+            bool hover = v.Have && !selected && hoveredNow == i;
+            v.Frame.sprite = OrbArt.Named(selected ? "orb_slot_filled" : hover ? "orb_slot_hover" : "orb_slot_empty");
+            v.Art.sprite = v.Have ? OrbArt.Get(v.Material.Key, v.Material.Tint, v.Material.Glow) : OrbArt.OrbGrey();
+            v.Glow.enabled = selected;
         }
     }
 
-    private static void UseOrb(string key)
+    private static void PulseOrbs()
+    {
+        float t = Time.unscaledTime;
+        foreach (OrbView v in orbViews)
+        {
+            if (v.Glow != null && v.Glow.enabled)
+            {
+                float k = 0.5f + 0.5f * Mathf.Sin(t * 3.2f);
+                v.Glow.color = new Color(1f, 1f, 1f, 0.28f + 0.42f * k);
+                v.Glow.rectTransform.localScale = Vector3.one * (0.94f + 0.14f * k);
+            }
+        }
+    }
+
+    private static void SelectOrb(string key)
+    {
+        if (animating || AdvancedMaterials.Count(key) < 1)
+        {
+            return; // an orb that has run out cannot be selected
+        }
+        selectedKey = selectedKey == key ? null : key;
+        status = "";
+        dirty = true;
+    }
+
+    private static bool ForgeReady() => selectedKey != null && item != null && Items_Encapsulation.WhyNot(item).Length == 0;
+
+    private static void ForgeButton()
+    {
+        float y = SlotY + FrameH + 4;
+        Image img = R.MakeImage(Content, "ForgeButton", Color.white);
+        img.sprite = OrbArt.Named("forge_button_frame");
+        RectTransform r = img.rectTransform;
+        r.anchorMin = r.anchorMax = new Vector2(0, 1);
+        r.pivot = new Vector2(0, 1);
+        r.anchoredPosition = new Vector2(CenterX - ForgeW / 2, -y);
+        r.sizeDelta = new Vector2(ForgeW, ForgeH);
+        dynamic.Add(img.gameObject);
+        forgeRect = r;
+        forgeImage = img;
+        GameObject label = Label("Forge", 0, 0, ForgeW, ForgeH, 20, Gold, TextAlignmentOptions.Center, img.transform);
+        forgeLabel = label.GetComponent<TextMeshProUGUI>();
+        RectTransform lr = label.GetComponent<RectTransform>();
+        lr.anchorMin = Vector2.zero;
+        lr.anchorMax = Vector2.one;
+        lr.offsetMin = lr.offsetMax = Vector2.zero;
+        Button b = img.gameObject.AddComponent<Button>();
+        b.transition = Selectable.Transition.None;
+        b.onClick.AddListener((UnityEngine.Events.UnityAction)ForgeClicked);
+        TintForge(false);
+    }
+
+    private static void TintForge(bool hover)
+    {
+        if (forgeImage == null)
+        {
+            return;
+        }
+        bool ready = ForgeReady() && !animating;
+        float k = !ready ? 0.5f : hover ? 1.25f : 1f;
+        forgeImage.color = new Color(Mathf.Min(1f, k), Mathf.Min(1f, k), Mathf.Min(1f, k), ready ? 1f : 0.9f);
+        if (forgeLabel != null)
+        {
+            forgeLabel.color = ready ? new Color(1f, 0.9f, 0.55f) : new Color(0.6f, 0.58f, 0.55f);
+        }
+    }
+
+    private static void ForgeClicked()
     {
         if (animating)
         {
             return;
         }
-        string why;
-        if (AdvancedMaterials.Count(key) < 1)
+        string why = "";
+        if (selectedKey == null)
         {
-            why = "You have no " + AdvancedMaterials.All.Find(m => m.Key == key)?.Name + "s.";
+            why = "Select an orb first.";
         }
-        else if (key == AdvancedMaterials.EncapsulationOrb)
+        else if (selectedKey == AdvancedMaterials.EncapsulationOrb)
         {
             why = Items_Encapsulation.WhyNot(item);
-        }
-        else
-        {
-            why = "";
         }
         if (why.Length > 0)
         {
@@ -658,7 +747,7 @@ internal static class Items_AdvancedForgeWindow
             dirty = true;
             return;
         }
-        StartHammer(key);
+        StartHammer(selectedKey);
     }
 
     // ---------------------------------------------------------------- the window
@@ -672,17 +761,21 @@ internal static class Items_AdvancedForgeWindow
         ClearDynamic();
         CloseTooltips();
         slotRect = null;
+        itemRect = null;
+        forgeImage = null;
 
         OrbRow();
-        SlotBox(item, CenterX - IconW / 2, SlotY);
+        SlotBox(item);
+        ForgeButton();
 
+        float statusY = SlotY + FrameH + ForgeH + 8;
         if (status.Length > 0)
         {
-            Label(status, CenterX - 260, SlotY + IconH + 12, 520, 40, 14, statusColour, TextAlignmentOptions.Top, caps: false);
+            Label(status, CenterX - 260, statusY, 520, 40, 14, statusColour, TextAlignmentOptions.Top, caps: false);
         }
         if (item != null)
         {
-            AffixPlates(SlotY + IconH + 78);
+            AffixPlates(statusY + 62);
         }
     }
 
@@ -896,43 +989,45 @@ internal static class Items_AdvancedForgeWindow
         Vector2 mouse = Input.mousePosition;
         UnityEngine.Camera cam = PointerCamera();
         int target = -1;
-        for (int i = 0; i < orbRects.Count; i++)
+        for (int i = 0; i < orbViews.Count; i++)
         {
-            if (orbRects[i].Rect != null && RectTransformUtility.RectangleContainsScreenPoint(orbRects[i].Rect, mouse, cam))
+            if (orbViews[i].Rect != null && RectTransformUtility.RectangleContainsScreenPoint(orbViews[i].Rect, mouse, cam))
             {
                 target = i;
                 break;
             }
         }
-        if (target < 0 && !animating && item != null && slotRect != null && RectTransformUtility.RectangleContainsScreenPoint(slotRect, mouse, cam))
+        if (target < 0 && !animating && item != null && itemRect != null && RectTransformUtility.RectangleContainsScreenPoint(itemRect, mouse, cam))
         {
             target = -2;
         }
-        if (target == hoveredNow)
+        TintForge(forgeRect != null && RectTransformUtility.RectangleContainsScreenPoint(forgeRect, mouse, cam));
+        if (target != hoveredNow)
         {
-            return;
-        }
-        if (tooltipOpen)
-        {
-            CloseTooltips();
-        }
-        hoveredNow = target;
-        try
-        {
-            if (target >= 0)
+            if (tooltipOpen)
             {
-                // an orb is shown with the game's own tooltip, through the item it stands in for on the ground
-                OpenGameTooltip(Drop.OrbDrop.TooltipCarrier(), orbRects[target].Rect);
+                CloseTooltips();
             }
-            else if (target == -2)
+            hoveredNow = target;
+            try
             {
-                OpenGameTooltip(item, slotRect);
+                if (target >= 0)
+                {
+                    // an orb is shown with the game's own tooltip, through the item it stands in for on the ground
+                    OpenGameTooltip(Drop.OrbDrop.TooltipCarrier(), orbViews[target].Rect);
+                }
+                else if (target == -2)
+                {
+                    OpenGameTooltip(item, itemRect);
+                }
+            }
+            catch (Exception ex)
+            {
+                Main.logger_instance?.Warning("Advanced Forge tooltip failed: " + ex.Message);
             }
         }
-        catch (Exception ex)
-        {
-            Main.logger_instance?.Warning("Advanced Forge tooltip failed: " + ex.Message);
-        }
+        ApplyOrbStates();
+        PulseOrbs();
     }
 
     // ---------------------------------------------------------------- the hammer
@@ -958,7 +1053,7 @@ internal static class Items_AdvancedForgeWindow
 
     private static readonly List<Spark> sparks = new();
 
-    private static Vector2 SlotCentre => new(CenterX, -(SlotY + IconH / 2));
+    private static Vector2 SlotCentre => new(CenterX, -(SlotY + FrameH / 2));
     private const float StrikeAngle = 38f, RaisedAngle = -34f, WindupAngle = -58f;
 
     private static GameObject Effect(string name)
@@ -1033,12 +1128,12 @@ internal static class Items_AdvancedForgeWindow
 
         GameObject f = Effect("Flash");
         RectTransform fr = f.GetComponent<RectTransform>();
-        fr.anchoredPosition = new Vector2(CenterX - IconW / 2, -SlotY);
-        fr.sizeDelta = new Vector2(IconW, IconH);
+        fr.anchoredPosition = new Vector2(CenterX - ItemW / 2, -(SlotY + (FrameH - ItemH) / 2));
+        fr.sizeDelta = new Vector2(ItemW, ItemH);
         flash = R.MakeImage(f.transform, "F", new Color(glow.r, glow.g, glow.b, 0f));
         flash.raycastTarget = false;
         Stretch(flash.rectTransform, 0);
-        shakeBase = new Vector2(CenterX - IconW / 2, -SlotY);
+        shakeBase = new Vector2(CenterX - FrameW / 2, -SlotY);
     }
 
     private static float Ease(float u) => u * u * (3f - 2f * u);
@@ -1117,6 +1212,10 @@ internal static class Items_AdvancedForgeWindow
         }
         status = message;
         statusColour = ok ? Good : Bad;
+        if (selectedKey != null && AdvancedMaterials.Count(selectedKey) < 1)
+        {
+            selectedKey = null; // that was the last one
+        }
         Color a = m != null ? m.Glow : Color.white;
         Color b = ok ? Color.white : new Color(1f, 0.55f, 0.4f);
         Vector2 at = SlotCentre;
