@@ -160,6 +160,8 @@ internal static class Items_FractureGuard
     [HarmonyPatch]
     private static class TooltipPatch
     {
+        private static readonly System.Text.RegularExpressions.Regex Tint = new("</?color[^>]*>", System.Text.RegularExpressions.RegexOptions.Compiled);
+
         private static MethodBase TargetMethod() =>
             typeof(TooltipItemManager).GetMethods(BindingFlags.Public | BindingFlags.Static)
                 .FirstOrDefault(m => m.Name == "FormatAffix" && m.GetParameters().Length > 1 && m.GetParameters()[1].ParameterType == typeof(ItemAffix));
@@ -171,7 +173,9 @@ internal static class Items_FractureGuard
             {
                 if (!string.IsNullOrEmpty(__result) && Items_Fracture.IsFractured(__0, __1))
                 {
-                    __result = "<color=#8fd8ff>◆</color> " + __result;
+                    // the whole line in the orb's light blue: the game's own colours inside it are taken out
+                    string plain = Tint.Replace(__result, "");
+                    __result = "<color=#8fd8ff>◆ " + plain + "</color>";
                 }
             }
             catch (Exception)
