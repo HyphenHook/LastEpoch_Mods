@@ -27,6 +27,18 @@ internal static class ItemsDropPage
             "Give 5 Encapsulation Orbs (testing)",
             () => Scripts.Mods.Items.Crafting.AdvancedMaterials.Add(Scripts.Mods.Items.Crafting.AdvancedMaterials.EncapsulationOrb, 5)
         );
+        page.AddButton(
+            card,
+            "DropOrb",
+            "Drop an Encapsulation Orb at my feet (testing)",
+            () =>
+            {
+                if (!Refs_Manager.player_actor.IsNullOrDestroyed())
+                {
+                    Scripts.Mods.Items.Drop.OrbDrop.Drop(Refs_Manager.player_actor.position());
+                }
+            }
+        );
         AddExclusiveRarity(card, "ForceUnique", "Force Unique", 0);
         AddExclusiveRarity(card, "ForceSet", "Force Set", 1);
         // The legacy rarity-9 override produces unrelated unique identities.
