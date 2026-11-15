@@ -38,6 +38,14 @@ internal static class Items_Encapsulation
         {
             return "Put an item in the slot first.";
         }
+        if (item.corrupted)
+        {
+            return "Corrupted items cannot be fractured.";
+        }
+        if (item.rarity == 9)
+        {
+            return "Legendary items cannot be fractured.";
+        }
         if (item.rarity == 7 || item.rarity == 8)
         {
             return "Unique and set items cannot be fractured.";

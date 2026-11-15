@@ -31,9 +31,9 @@ internal static class AdvancedMaterials
             Key = EncapsulationOrb,
             Name = "Encapsulation Orb",
             Description = "Fractures one random affix of the item. A fractured affix is part of the item: no "
-                + "crafting can change or remove it. The item needs at least four affixes, and can only be fractured once.",
+                + "crafting can change or remove it. The item needs at least four affixes, must not be corrupted, legendary, unique or set, and can only be fractured once.",
             Effect = "Fractures a random affix",
-            Rules = new[] { "Item needs at least four affixes", "Can only be used once on an item", "Every affix is equally likely" },
+            Rules = new[] { "Item needs at least four affixes", "Not corrupted, legendary, unique or set", "Can only be used once on an item", "Every affix is equally likely" },
             Flavour = "What the orb holds, it keeps.",
             Tint = new Color(0.9f, 0.5f, 0.15f),
             Glow = new Color(1f, 0.7f, 0.3f),
