@@ -23,6 +23,9 @@ internal static class OrbDrop
     private const string OrbName = "<color=#8fd8ff>Encapsulation Orb</color>";
     private static readonly System.Random Rng = new();
 
+    // TESTING: every enemy has this chance to drop an orb. Set to null for the real chances.
+    private static readonly double? TestChance = 0.5;
+
     public static bool IsOrb(ItemData item) => !item.IsNullOrDestroyed() && item.individualID == Marker;
 
     private static ItemData Carrier()
@@ -100,7 +103,7 @@ internal static class OrbDrop
                 {
                     return;
                 }
-                double chance = OrbDropMath.Chance((int)enemy.getRarity(), enemy.isBossOrMiniboss());
+                double chance = TestChance ?? OrbDropMath.Chance((int)enemy.getRarity(), enemy.isBossOrMiniboss());
                 if (Rng.NextDouble() < chance)
                 {
                     Drop(enemy.position());
