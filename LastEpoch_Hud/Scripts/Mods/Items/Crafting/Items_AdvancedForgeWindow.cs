@@ -320,7 +320,7 @@ internal static class Items_AdvancedForgeWindow
         dynamic.Clear();
     }
 
-    private static GameObject Label(string text, float x, float y, float w, float h, float size, Color color, TextAlignmentOptions align, Transform parent = null, List<GameObject> keep = null)
+    private static GameObject Label(string text, float x, float y, float w, float h, float size, Color color, TextAlignmentOptions align, Transform parent = null, List<GameObject> keep = null, bool caps = true)
     {
         GameObject go = Object.Instantiate(labelTemplate, parent ?? Content, false);
         R.StripGameLogic(go);
@@ -335,7 +335,8 @@ internal static class Items_AdvancedForgeWindow
         {
             t.font = font;
         }
-        t.fontStyle = FontStyles.Normal; // the forge title style is lower case
+        // short labels are in capitals, as the game's own are; wording and sentences are not
+        t.fontStyle = caps && text.Length <= 28 && !text.Contains("\n") ? FontStyles.UpperCase : FontStyles.Normal;
         t.text = text;
         t.fontSize = size;
         t.color = color;
@@ -603,7 +604,7 @@ internal static class Items_AdvancedForgeWindow
         int n = AdvancedMaterials.All.Count;
         float total = n * OrbSize + (n - 1) * 16;
         float x = CenterX - total / 2;
-        Label("Orbs", CenterX - 150, OrbY - 34, 300, 26, 20, Gold, TextAlignmentOptions.Center);
+        Label("Orbs", CenterX - 150, OrbY - 30, 300, 22, 15, Gold, TextAlignmentOptions.Center);
         foreach (AdvancedMaterial m in AdvancedMaterials.All)
         {
             int have = AdvancedMaterials.Count(m.Key);
@@ -677,11 +678,11 @@ internal static class Items_AdvancedForgeWindow
 
         if (status.Length > 0)
         {
-            Label(status, CenterX - 260, SlotY + IconH + 14, 520, 44, 17, statusColour, TextAlignmentOptions.Top);
+            Label(status, CenterX - 260, SlotY + IconH + 12, 520, 40, 14, statusColour, TextAlignmentOptions.Top, caps: false);
         }
         if (item != null)
         {
-            AffixPlates(SlotY + IconH + 70);
+            AffixPlates(SlotY + IconH + 78);
         }
     }
 
@@ -691,9 +692,36 @@ internal static class Items_AdvancedForgeWindow
     {
         public string Text;
         public int Tier;
-        public string Kind;
-        public bool Fractured, Sealed;
-        public int Lines;
+        public bool Fractured;
+        public int Group; // 0 prefix, 1 suffix, 2 sealed, 3 primordial, 4 corrupted
+        public int Rows;
+    }
+
+    private static readonly string[] GroupName = { "Prefixes", "Suffixes", "Sealed", "Primordial", "Corrupted" };
+
+    private static readonly Color[] GroupColour =
+    {
+        new(0.93f, 0.76f, 0.38f), // prefix: gold
+        new(0.42f, 0.82f, 0.74f), // suffix: teal
+        new(0.68f, 0.52f, 0.92f), // sealed: violet
+        new(0.95f, 0.5f, 0.3f), // primordial: ember
+        new(0.82f, 0.28f, 0.5f), // corrupted: crimson
+    };
+
+    private static readonly Color FracturedColour = new(0.45f, 0.8f, 1f);
+
+    private const float PlateW = 306, TextW = PlateW - 62 - 16, PlateFont = 12;
+
+    /// <summary>How many rows of text a wording takes in the width of a plate.</summary>
+    private static int RowsOf(string text)
+    {
+        int perRow = Math.Max(10, (int)(TextW / (PlateFont * 0.5f)));
+        int rows = 0;
+        foreach (string part in text.Split('\n'))
+        {
+            rows += Math.Max(1, (part.Length + perRow - 1) / perRow);
+        }
+        return Math.Min(rows, 5);
     }
 
     private static List<Line> ReadAffixes()
@@ -714,79 +742,113 @@ internal static class Items_AdvancedForgeWindow
                     text = TooltipItemManager.FormatAffix(data, a, TooltipMode.DefaultInfo, TooltipItemManager.SlotType.CRAFTING,
                         false, -1, -1, false, false, ValueRangeFormat.None, true, false);
                     text = LineBreaks.Replace(ColourTags.Replace(text ?? "", ""), "\n");
-                    text = string.Join("\n", text.Split('\n').Select(l => l.Trim().TrimStart('\u25C6', ' ')).Where(l => l.Length > 0));
+                    text = string.Join("\n", text.Split('\n').Select(l => l.Trim()).Where(l => l.Length > 0));
                 }
             }
             catch (Exception)
             {
             }
-            string kind = a.IsSealedPrimordial ? "Primordial" : a.IsSealed ? "Sealed" : a.affixType == AffixList.AffixType.PREFIX ? "Prefix" : "Suffix";
+            int group = a.IsSealedCorrupted ? 4 : a.IsSealedPrimordial ? 3 : a.IsSealed ? 2 : a.affixType == AffixList.AffixType.PREFIX ? 0 : 1;
             list.Add(new Line
             {
                 Text = text,
                 Tier = a.DisplayTier,
-                Kind = kind,
+                Group = group,
                 Fractured = Items_Fracture.IsFractured(item, a),
-                Sealed = a.IsSealed,
-                Lines = Math.Min(3, text.Split('\n').Length),
+                Rows = RowsOf(text),
             });
         }
-        // prefixes first, then suffixes, then the seals
-        return list.OrderBy(l => l.Sealed ? 2 : l.Kind == "Prefix" ? 0 : 1).ToList();
+        return list;
     }
 
-    /// <summary>The affixes as plates in two columns under the item: tier, wording, and what kind of affix it is.</summary>
+    /// <summary>
+    /// The affixes as plates under the item: prefixes in a column on the left, suffixes on the right, and below them the
+    /// sealed, primordial and corrupted ones. Each kind has its own colour; a fractured affix is blue with a diamond.
+    /// </summary>
     private static void AffixPlates(float top)
     {
-        const float plateW = 306, gap = 12, pad = 10;
-        List<Line> lines = ReadAffixes();
-        float x0 = CenterX - plateW - gap / 2;
+        const float gap = 12;
+        List<Line> all = ReadAffixes();
+        float leftX = CenterX - PlateW - gap / 2, rightX = CenterX + gap / 2;
         float y = top;
-        Label("Affixes", CenterX - 100, y - 30, 200, 24, 17, Gold, TextAlignmentOptions.Center);
-        for (int i = 0; i < lines.Count; i += 2)
+
+        float prefixEnd = Column(all.Where(l => l.Group == 0).ToList(), leftX, y, 0);
+        float suffixEnd = Column(all.Where(l => l.Group == 1).ToList(), rightX, y, 1);
+        y = Math.Max(prefixEnd, suffixEnd);
+
+        List<Line> special = all.Where(l => l.Group >= 2).ToList();
+        if (special.Count > 0)
         {
-            float h = 0;
-            for (int k = i; k < Math.Min(i + 2, lines.Count); k++)
+            y += 8;
+            Label("Sealed, primordial and corrupted", CenterX - 200, y, 400, 20, 13, new Color(0.72f, 0.66f, 0.8f), TextAlignmentOptions.Center);
+            y += 24;
+            for (int i = 0; i < special.Count; i += 2)
             {
-                h = Math.Max(h, 34 + lines[k].Lines * 16);
-            }
-            for (int k = i; k < Math.Min(i + 2, lines.Count); k++)
-            {
-                Line l = lines[k];
-                float x = x0 + (k - i) * (plateW + gap);
-                Color edge = l.Fractured ? new Color(0.45f, 0.8f, 1f) : l.Sealed ? new Color(0.6f, 0.45f, 0.78f) : new Color(0.42f, 0.36f, 0.24f);
-                Image plate = R.MakeImage(Content, "AffixPlate", l.Fractured ? new Color(0.04f, 0.075f, 0.1f, 0.92f) : new Color(0.04f, 0.034f, 0.03f, 0.9f));
-                plate.raycastTarget = false;
-                RectTransform pr = plate.rectTransform;
-                pr.anchorMin = pr.anchorMax = new Vector2(0, 1);
-                pr.pivot = new Vector2(0, 1);
-                pr.anchoredPosition = new Vector2(x, -y);
-                pr.sizeDelta = new Vector2(plateW, h);
-                dynamic.Add(plate.gameObject);
-                Transform t = plate.transform;
-                R.Part(t, "Bar", edge, new Vector2(0, 0), new Vector2(0, 1), new Vector2(0, 0.5f), Vector2.zero, new Vector2(4, 0));
-                R.Part(t, "Top", edge * 0.5f, new Vector2(0, 1), new Vector2(1, 1), new Vector2(0.5f, 1), Vector2.zero, new Vector2(0, 1));
-                R.Part(t, "Bottom", edge * 0.5f, new Vector2(0, 0), new Vector2(1, 0), new Vector2(0.5f, 0), Vector2.zero, new Vector2(0, 1));
-                Label("T" + l.Tier, pad + 4, pad - 2, 34, 18, 12, new Color(0.62f, 0.6f, 0.56f), TextAlignmentOptions.Left, t);
-                Label(l.Kind, pad + 4, pad + 14, 56, 16, 10, new Color(0.5f, 0.48f, 0.44f), TextAlignmentOptions.Left, t);
-                Label(l.Text, pad + 62, pad - 2, plateW - 62 - pad - 4, h - 12, 13,
-                    l.Fractured ? new Color(0.6f, 0.9f, 1f) : l.Sealed ? new Color(0.8f, 0.72f, 0.92f) : new Color(0.88f, 0.84f, 0.76f),
-                    TextAlignmentOptions.TopLeft, t);
-                if (l.Fractured)
+                float h = 0;
+                for (int k = i; k < Math.Min(i + 2, special.Count); k++)
                 {
-                    Label("Fractured", plateW - 80, h - 20, 72, 16, 10, new Color(0.45f, 0.8f, 1f), TextAlignmentOptions.Right, t);
-                    Image diamond = R.MakeImage(t, "Diamond", Color.white);
-                    diamond.sprite = OrbArt.Diamond();
-                    diamond.preserveAspect = true;
-                    diamond.raycastTarget = false;
-                    RectTransform dr = diamond.rectTransform;
-                    dr.anchorMin = dr.anchorMax = new Vector2(1, 0);
-                    dr.pivot = new Vector2(1, 0);
-                    dr.anchoredPosition = new Vector2(-pad - 54, 6);
-                    dr.sizeDelta = new Vector2(14, 14);
+                    h = Math.Max(h, PlateHeight(special[k]));
                 }
+                for (int k = i; k < Math.Min(i + 2, special.Count); k++)
+                {
+                    Plate(special[k], k - i == 0 ? leftX : rightX, y, h);
+                }
+                y += h + 8;
             }
+        }
+    }
+
+    private static float PlateHeight(Line l) => 20 + l.Rows * 15;
+
+    /// <summary>One column of plates under a coloured heading. Returns where it ends.</summary>
+    private static float Column(List<Line> lines, float x, float y, int group)
+    {
+        Color colour = GroupColour[group];
+        Label(GroupName[group], x, y - 24, PlateW, 20, 14, colour, TextAlignmentOptions.Center);
+        R.Part(Content, "Rule", colour * 0.6f, new Vector2(0, 1), new Vector2(0, 1), new Vector2(0, 1), new Vector2(x + 40, -(y - 4)), new Vector2(PlateW - 80, 1));
+        foreach (Line l in lines)
+        {
+            float h = PlateHeight(l);
+            Plate(l, x, y, h);
             y += h + 8;
+        }
+        return y;
+    }
+
+    private static void Plate(Line l, float x, float y, float h)
+    {
+        const float pad = 10;
+        Color accent = l.Fractured ? FracturedColour : GroupColour[l.Group];
+        Image plate = R.MakeImage(Content, "AffixPlate", l.Fractured ? new Color(0.035f, 0.07f, 0.095f, 0.93f) : new Color(0.04f, 0.034f, 0.03f, 0.92f));
+        plate.raycastTarget = false;
+        RectTransform pr = plate.rectTransform;
+        pr.anchorMin = pr.anchorMax = new Vector2(0, 1);
+        pr.pivot = new Vector2(0, 1);
+        pr.anchoredPosition = new Vector2(x, -y);
+        pr.sizeDelta = new Vector2(PlateW, h);
+        dynamic.Add(plate.gameObject);
+        Transform t = plate.transform;
+        R.Part(t, "Bar", accent, new Vector2(0, 0), new Vector2(0, 1), new Vector2(0, 0.5f), Vector2.zero, new Vector2(4, 0));
+        R.Part(t, "Top", accent * 0.45f, new Vector2(0, 1), new Vector2(1, 1), new Vector2(0.5f, 1), Vector2.zero, new Vector2(0, 1));
+        R.Part(t, "Bottom", accent * 0.45f, new Vector2(0, 0), new Vector2(1, 0), new Vector2(0.5f, 0), Vector2.zero, new Vector2(0, 1));
+        Label("T" + l.Tier, pad + 4, 8, 40, 16, 12, accent, TextAlignmentOptions.Left, t);
+        GameObject text = Label(l.Text, pad + 48, 8, TextW + 14, h - 12, PlateFont,
+            l.Fractured ? new Color(0.62f, 0.9f, 1f) : new Color(0.88f, 0.84f, 0.76f), TextAlignmentOptions.TopLeft, t, caps: false);
+        TextMeshProUGUI tmp = text.GetComponent<TextMeshProUGUI>();
+        tmp.enableAutoSizing = true; // a long wording shrinks to fit the plate instead of running over it
+        tmp.fontSizeMin = 8;
+        tmp.fontSizeMax = PlateFont;
+        if (l.Fractured)
+        {
+            Image diamond = R.MakeImage(t, "Diamond", Color.white);
+            diamond.sprite = OrbArt.Diamond();
+            diamond.preserveAspect = true;
+            diamond.raycastTarget = false;
+            RectTransform dr = diamond.rectTransform;
+            dr.anchorMin = dr.anchorMax = new Vector2(1, 1);
+            dr.pivot = new Vector2(1, 1);
+            dr.anchoredPosition = new Vector2(-6, -6);
+            dr.sizeDelta = new Vector2(14, 14);
         }
     }
 

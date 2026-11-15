@@ -148,29 +148,65 @@ internal static class Items_FractureTooltip
             return;
         }
         ItemAffix affix = Items_Fracture.FracturedOf(w.Item);
-        if (affix == null || string.IsNullOrEmpty(affix.affixName))
+        if (affix == null)
+        {
+            return;
+        }
+        // The tooltip lists prefixes and suffixes in the item's own order, so the fractured affix is the row at its
+        // position; an affix whose displayed wording differs from its name (many do) is still found.
+        TextMeshProUGUI row = RowOf(w.Ui, w.Item, affix);
+        if (row != null)
+        {
+            Mark(row);
+            return;
+        }
+        if (string.IsNullOrEmpty(affix.affixName))
         {
             return;
         }
         string wanted = affix.affixName.ToLowerInvariant();
         foreach (TextMeshProUGUI t in AffixTexts(w.Ui))
         {
-            if (t == null || string.IsNullOrEmpty(t.text) || !t.gameObject.activeInHierarchy)
+            if (t != null && !string.IsNullOrEmpty(t.text) && t.gameObject.activeInHierarchy
+                && AllTags.Replace(t.text, "").ToLowerInvariant().Contains(wanted))
             {
-                continue;
-            }
-            if (t.text.Contains(Blue))
-            {
-                AddDiamond(t);
-                continue;
-            }
-            string plain = AllTags.Replace(t.text, "").Trim();
-            if (plain.Length > 0 && plain.ToLowerInvariant().Contains(wanted))
-            {
-                t.text = "<color=#" + Blue + ">" + Tags.Replace(t.text, "") + "</color>";
-                AddDiamond(t);
-                Main.logger_instance?.Msg("Fracture tooltip: marked \"" + plain + "\".");
+                Mark(t);
             }
         }
+    }
+
+    private static TextMeshProUGUI RowOf(UITooltipItem ui, ItemData item, ItemAffix affix)
+    {
+        TextMeshProUGUI Find(Il2CppSystem.Collections.Generic.List<ItemAffix> own, Il2CppSystem.Collections.Generic.List<UITooltipItemAffix> rows)
+        {
+            if (own == null || rows == null)
+            {
+                return null;
+            }
+            for (int i = 0; i < own.Count && i < rows.Count; i++)
+            {
+                if (own[i] != null && own[i].affixId == affix.affixId)
+                {
+                    UITooltipItemAffix row = rows[i];
+                    return row.IsNullOrDestroyed() || row._text.IsNullOrDestroyed() || !row._text.gameObject.activeInHierarchy ? null : row._text;
+                }
+            }
+            return null;
+        }
+        return Find(item.GetNonSealedPrefixes(), ui.prefixesText) ?? Find(item.GetNonSealedSuffixes(), ui.suffixesText);
+    }
+
+    private static void Mark(TextMeshProUGUI t)
+    {
+        if (string.IsNullOrEmpty(t.text))
+        {
+            return;
+        }
+        if (!t.text.Contains(Blue))
+        {
+            t.text = "<color=#" + Blue + ">" + Tags.Replace(t.text, "") + "</color>";
+            Main.logger_instance?.Msg("Fracture tooltip: marked \"" + AllTags.Replace(t.text, "").Trim() + "\".");
+        }
+        AddDiamond(t);
     }
 }

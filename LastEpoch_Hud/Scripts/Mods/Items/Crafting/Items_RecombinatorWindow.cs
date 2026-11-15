@@ -507,7 +507,7 @@ internal static class Items_RecombinatorWindow
         {
             t.font = font;
         }
-        t.fontStyle = FontStyles.Normal; // the forge title style is lower case
+        t.fontStyle = text.Length <= 28 && !text.Contains("\n") ? FontStyles.UpperCase : FontStyles.Normal; // short labels in capitals, as the game's own
         t.fontSize = size;
         t.color = color;
         t.alignment = align;
