@@ -156,42 +156,4 @@ internal static class Items_FractureGuard
     }
 
     // ------------------------------------------------------------------ marking it in the tooltip
-
-    [HarmonyPatch]
-    private static class TooltipPatch
-    {
-        private static readonly System.Text.RegularExpressions.Regex Tint = new("</?color[^>]*>", System.Text.RegularExpressions.RegexOptions.Compiled);
-
-        private static bool _logged;
-
-        private static MethodBase TargetMethod()
-        {
-            MethodBase found = typeof(TooltipItemManager).GetMethods(BindingFlags.Public | BindingFlags.Static)
-                .FirstOrDefault(m => m.Name == "FormatAffix" && m.GetParameters().Length > 1 && m.GetParameters()[1].ParameterType == typeof(ItemAffix));
-            Main.logger_instance?.Msg("Fracture tooltip: FormatAffix " + (found == null ? "NOT FOUND" : "patched"));
-            return found;
-        }
-
-        [HarmonyPostfix]
-        private static void Postfix(ItemDataUnpacked __0, ItemAffix __1, ref string __result)
-        {
-            try
-            {
-                if (!_logged)
-                {
-                    _logged = true;
-                    Main.logger_instance?.Msg("Fracture tooltip: FormatAffix is being called.");
-                }
-                if (!string.IsNullOrEmpty(__result) && Items_Fracture.IsFractured(__0, __1))
-                {
-                    // the whole line in the orb's light blue: the game's own colours inside it are taken out
-                    string plain = Tint.Replace(__result, "");
-                    __result = "<color=#8fd8ff>◆ " + plain + "</color>";
-                }
-            }
-            catch (Exception)
-            {
-            }
-        }
-    }
 }

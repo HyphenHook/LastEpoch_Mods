@@ -774,7 +774,16 @@ internal static class Items_AdvancedForgeWindow
                     TextAlignmentOptions.TopLeft, t);
                 if (l.Fractured)
                 {
-                    Label("◆ Fractured", plateW - 90, h - 20, 82, 16, 10, new Color(0.45f, 0.8f, 1f), TextAlignmentOptions.Right, t);
+                    Label("Fractured", plateW - 80, h - 20, 72, 16, 10, new Color(0.45f, 0.8f, 1f), TextAlignmentOptions.Right, t);
+                    Image diamond = R.MakeImage(t, "Diamond", Color.white);
+                    diamond.sprite = OrbArt.Diamond();
+                    diamond.preserveAspect = true;
+                    diamond.raycastTarget = false;
+                    RectTransform dr = diamond.rectTransform;
+                    dr.anchorMin = dr.anchorMax = new Vector2(1, 0);
+                    dr.pivot = new Vector2(1, 0);
+                    dr.anchoredPosition = new Vector2(-pad - 54, 6);
+                    dr.sizeDelta = new Vector2(14, 14);
                 }
             }
             y += h + 8;
