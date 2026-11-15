@@ -11,6 +11,9 @@ internal static class Items_Encapsulation
 {
     private static readonly Random Rng = new();
 
+    /// <summary>The affix the last orb fractured.</summary>
+    public static int LastFractured = -1;
+
     /// <summary>The item in the forge's main slot, or null.</summary>
     public static ItemData ForgeItem()
     {
@@ -33,7 +36,7 @@ internal static class Items_Encapsulation
     {
         if (item.IsNullOrDestroyed())
         {
-            return "Put an item in the forge first.";
+            return "Put an item in the slot first.";
         }
         if (item.rarity == 7 || item.rarity == 8)
         {
@@ -42,10 +45,9 @@ internal static class Items_Encapsulation
         return EncapsulationMath.WhyNot(Ordinary(item).Count, Items_Fracture.FracturedAffix(item) >= 0);
     }
 
-    /// <summary>Uses one orb on the forge item. Returns whether it worked, with a message for the player.</summary>
-    public static bool Use(out string message)
+    /// <summary>Uses one orb on the item. Returns whether it worked, with a message for the player.</summary>
+    public static bool UseOn(ItemData item, out string message)
     {
-        ItemData item = ForgeItem();
         message = WhyNot(item);
         if (message.Length > 0)
         {
@@ -62,6 +64,7 @@ internal static class Items_Encapsulation
         Items_Fracture.Registry.Set(item.individualID, chosen.affixId);
         Items_Fracture.Save();
         message = "Fractured: " + (string.IsNullOrEmpty(chosen.affixName) ? "an affix" : chosen.affixName);
+        LastFractured = chosen.affixId;
         Main.logger_instance?.Msg("Encapsulation Orb: fractured affix " + chosen.affixId + " (" + chosen.affixName + ")");
         return true;
     }

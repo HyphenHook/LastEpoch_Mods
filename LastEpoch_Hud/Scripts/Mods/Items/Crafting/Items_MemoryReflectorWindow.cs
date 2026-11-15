@@ -163,6 +163,7 @@ internal static class Items_MemoryReflectorWindow
                 return;
             }
             Items_RecombinatorWindow.Close();
+            Items_AdvancedForgeWindow.Close();
             if (!Build(forge, forge.transform.parent))
             {
                 return;

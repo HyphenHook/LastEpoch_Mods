@@ -12,7 +12,11 @@ internal sealed class AdvancedMaterial
     public string Key;
     public string Name;
     public string Description;
-    public Color Tint = Color.white;
+    public Color Tint = Color.white; // the colour of the orb's core
+    public Color Glow = Color.white; // its light
+    public string Effect; // what it does, as one short line
+    public string[] Rules = new string[0]; // what the item needs
+    public string Flavour = "";
 }
 
 /// <summary>The advanced crafting materials the player holds, saved with the mod. Each is designed one at a time.</summary>
@@ -26,9 +30,13 @@ internal static class AdvancedMaterials
         {
             Key = EncapsulationOrb,
             Name = "Encapsulation Orb",
-            Description = "Fractures one random affix of the item in the forge. A fractured affix is part of the item: no "
+            Description = "Fractures one random affix of the item. A fractured affix is part of the item: no "
                 + "crafting can change or remove it. The item needs at least four affixes, and can only be fractured once.",
-            Tint = new Color(0.55f, 0.85f, 1f),
+            Effect = "Fractures a random affix",
+            Rules = new[] { "Item needs at least four affixes", "Can only be used once on an item", "Every affix is equally likely" },
+            Flavour = "What the orb holds, it keeps.",
+            Tint = new Color(0.16f, 0.5f, 0.82f),
+            Glow = new Color(0.5f, 0.88f, 1f),
         },
     };
 

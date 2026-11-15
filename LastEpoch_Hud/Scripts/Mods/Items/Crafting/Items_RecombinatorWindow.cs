@@ -304,6 +304,7 @@ internal static class Items_RecombinatorWindow
                 return;
             }
             Items_MemoryReflectorWindow.Close();
+            Items_AdvancedForgeWindow.Close();
             Transform parent = forge.transform.parent;
             if (!Build(forge, parent))
             {
