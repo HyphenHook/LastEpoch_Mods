@@ -49,7 +49,8 @@ internal static class Items_RecombinatorWindow
     private static bool resultRevealed;
     private static float revealAt;
 
-    private const float IconW = 140, IconH = 196, InY = 128, ResY = 476;
+    private const float IconW = RecombKit.ResW, IconH = RecombKit.ItemH, InY = RecombKit.InY;
+    private static float ResY => RecombKit.ResY;
     private const float Left = 48, ColW = 320, Gap = 30;
 
     private sealed class Icon
@@ -217,6 +218,7 @@ internal static class Items_RecombinatorWindow
             if (IsOpen)
             {
                 TickAnimations();
+                RecombKit.Preload();
                 TickHover();
                 TickIcons();
                 TickRows();
@@ -246,10 +248,7 @@ internal static class Items_RecombinatorWindow
                     {
                         SpawnCrack();
                     }
-                    else
-                    {
-                        SpawnFlash();
-                    }
+                    // (the colour flash of a good result is the kit's, and plays on its own)
                 }
             }
         }
@@ -343,7 +342,7 @@ internal static class Items_RecombinatorWindow
         CloseTooltip();
         ClearGhosts();
         pouring = false;
-        ResetTunnel();
+        RecombKit.Stop();
         pendingFlash = false;
         Array.Clear(pourItems, 0, 2);
         ReturnItems();
@@ -564,172 +563,11 @@ internal static class Items_RecombinatorWindow
     private static readonly Color Bad = new(0.9f, 0.4f, 0.35f);
     private static readonly Color Picked = new(1f, 0.85f, 0.45f);
 
-    private static float SlotX(int i) => Left + 130 + i * 270; // two boxes spread with equal gaps
+    private static float SlotX(int i) => (i == 0 ? RecombKit.InCx0 : RecombKit.InCx1) - RecombKit.InW / 2; // the left edge of an input box
     private const float WinW = 670;
-    private const float SlotBottom = InY + IconH;
-    private const float RunY = SlotBottom + 46; // where the two pipes turn in toward the centre
+    private static float RunY => RecombKit.PipeLevel; // where the two pipes run in toward the centre
 
     private static float CenterX => Left + WinW / 2;
-
-    /// <summary>The trench from one item box: down, out to the side, down past the affixes, in to the centre.</summary>
-    private static List<Vector2> TrenchPoints(int side, bool intoSlot)
-    {
-        float c = SlotX(side) + IconW / 2;
-        return new List<Vector2>
-        {
-            new(c, SlotBottom), new(c, RunY), new(CenterX, RunY),
-            new(CenterX, intoSlot ? ResY + IconH / 2 : ResY),
-        };
-    }
-
-    private static GameObject tunnelRoot;
-    private static readonly List<float> trenchAlong = new(); // how far along its side's path each inner block sits, 0..1
-    private static readonly List<int> trenchSide = new();
-    private static readonly List<Color> trenchBase = new();
-
-    private static void TunnelBlock(Vector2 at, float w, float h, float rotation, Color color, bool track, int side, float along)
-    {
-        Image img = MakeImage(tunnelRoot.transform, "Rock", color);
-        img.raycastTarget = false;
-        RectTransform r = img.rectTransform;
-        r.anchorMin = r.anchorMax = new Vector2(0, 1);
-        r.pivot = new Vector2(0.5f, 0.5f);
-        r.anchoredPosition = new Vector2(at.x, -at.y);
-        r.sizeDelta = new Vector2(w, h);
-        r.localRotation = Quaternion.Euler(0, 0, rotation);
-        if (track)
-        {
-            trenchInner.Add(img);
-            trenchBase.Add(color);
-            trenchSide.Add(side);
-            trenchAlong.Add(along);
-        }
-    }
-
-    /// <summary>
-    /// The soul pipes: old, grimy iron pipes with a lit channel inside. Nothing is a clean line: the body is built
-    /// from uneven blocks, the edges are chipped, there is rust and soot, and the bolted flanges are worn. Built once.
-    /// The channel is made of short pieces so the embers can light it as they pass.
-    /// </summary>
-    private static void Trenches()
-    {
-        if (tunnelRoot != null)
-        {
-            return;
-        }
-        tunnelRoot = new GameObject("Tunnel");
-        RectTransform tr = tunnelRoot.AddComponent<RectTransform>();
-        tunnelRoot.transform.SetParent(Content, false);
-        tr.anchorMin = Vector2.zero;
-        tr.anchorMax = Vector2.one;
-        tr.offsetMin = tr.offsetMax = Vector2.zero;
-        trenchInner.Clear();
-        trenchAlong.Clear();
-        trenchSide.Clear();
-        trenchBase.Clear();
-
-        var rng = new System.Random(9137);
-        float R(float lo, float hi) => lo + (float)rng.NextDouble() * (hi - lo);
-        Color Iron() { float v = R(0.05f, 0.10f); return new Color(v, v * 0.92f, v * 0.84f); }
-        Color rust = new(0.21f, 0.095f, 0.045f);
-        Color soot = new(0.014f, 0.013f, 0.012f);
-        Color dullBolt = new(0.36f, 0.29f, 0.20f);
-        const float pipe = 17f, flangeEvery = 66f, step = 6f;
-
-        for (int pass = 0; pass < 4; pass++)
-        {
-            for (int side = 0; side < 2; side++)
-            {
-                List<Vector2> pts = TrenchPoints(side, false);
-                float total = PathLength(pts);
-                float walked = 0;
-                for (int i = 0; i + 1 < pts.Count; i++)
-                {
-                    Vector2 d = pts[i + 1] - pts[i];
-                    float len = d.magnitude;
-                    if (len < 0.01f)
-                    {
-                        continue;
-                    }
-                    bool horizontal = Mathf.Abs(d.x) > Mathf.Abs(d.y);
-                    Vector2 dir = d / len;
-                    Vector2 across = horizontal ? new Vector2(0, 1) : new Vector2(1, 0); // y points down, so this is the underside
-                    for (float t = -pipe / 2; t <= len + pipe / 2; t += step)
-                    {
-                        Vector2 at = pts[i] + dir * t;
-                        float along = Mathf.Clamp01((walked + t) / total);
-                        if (pass == 0)
-                        {
-                            // body: uneven blocks of dark iron, slightly out of line
-                            float alongSize = R(6.5f, 9f), acrossSize = pipe + R(-1.5f, 2f);
-                            TunnelBlock(at + across * R(-0.9f, 0.9f), horizontal ? alongSize : acrossSize, horizontal ? acrossSize : alongSize, R(-2.5f, 2.5f), Iron(), false, side, along);
-                            // the underside is sooty
-                            TunnelBlock(at + across * (pipe / 2 - 2f), horizontal ? 7f : 3.5f, horizontal ? 3.5f : 7f, 0, new Color(0.03f, 0.028f, 0.026f), false, side, along);
-                            // a few worn glints on the upper edge, never a clean line
-                            if (rng.NextDouble() < 0.4)
-                            {
-                                float glint = R(0.15f, 0.24f);
-                                TunnelBlock(at - across * (pipe / 2 - 1.5f), horizontal ? R(3f, 6f) : R(1.2f, 2f), horizontal ? R(1.2f, 2f) : R(3f, 6f), 0, new Color(glint, glint * 0.9f, glint * 0.78f), false, side, along);
-                            }
-                            // chips knocked out of the silhouette
-                            if (rng.NextDouble() < 0.22)
-                            {
-                                float sgn = rng.NextDouble() < 0.5 ? -1f : 1f;
-                                TunnelBlock(at + across * sgn * (pipe / 2 + 0.5f), R(2f, 4f), R(2f, 4f), R(0f, 45f), soot, false, side, along);
-                            }
-                        }
-                        else if (pass == 1)
-                        {
-                            // grime: rust and soot patches
-                            if (rng.NextDouble() < 0.2)
-                            {
-                                Color g = rng.NextDouble() < 0.5 ? rust : soot;
-                                g.a = R(0.45f, 0.85f);
-                                TunnelBlock(at + across * R(-pipe / 2, pipe / 2), R(3f, 9f), R(3f, 8f), R(0f, 90f), g, false, side, along);
-                            }
-                        }
-                        else if (pass == 2)
-                        {
-                            // the channel: a dim ember glow that brightens as embers pass
-                            if (t >= 0 && t <= len)
-                            {
-                                float v = R(0.8f, 1.15f);
-                                Color baseColour = new(0.10f * v, 0.032f * v, 0.016f * v);
-                                TunnelBlock(at + across * R(-0.8f, 0.8f), (horizontal ? 9f : 8f) + R(-1f, 1f), (horizontal ? 8f : 9f) + R(-1f, 1f), R(-3f, 3f), baseColour, true, side, along);
-                            }
-                        }
-                    }
-                    if (pass == 3)
-                    {
-                        // flanges: worn bands with dull bolts and a rust streak
-                        for (float t = flangeEvery / 2 + R(-6f, 6f); t < len - 10; t += flangeEvery)
-                        {
-                            Vector2 at = pts[i] + dir * t;
-                            float v = R(0.11f, 0.17f);
-                            Color band = new(v, v * 0.84f, v * 0.7f);
-                            TunnelBlock(at, (horizontal ? 9f : pipe + 8f) + R(-1f, 1f), (horizontal ? pipe + 8f : 9f) + R(-1f, 1f), R(-3f, 3f), band, false, side, 0);
-                            TunnelBlock(at - across * (pipe / 2 + 2f), 3.5f, 3.5f, R(0f, 45f), dullBolt, false, side, 0);
-                            TunnelBlock(at + across * (pipe / 2 + 2f), 3.5f, 3.5f, R(0f, 45f), dullBolt, false, side, 0);
-                            TunnelBlock(at + across * R(-6f, 6f), R(2f, 4f), R(5f, 11f), R(-20f, 20f), rust, false, side, 0);
-                        }
-                    }
-                    walked += len;
-                }
-                if (pass == 3)
-                {
-                    // worn elbow caps at the bends
-                    foreach (Vector2 at in pts)
-                    {
-                        float v = R(0.10f, 0.15f);
-                        TunnelBlock(at, 23f + R(-1f, 1f), 23f + R(-1f, 1f), R(-8f, 8f), new Color(v, v * 0.84f, v * 0.7f), false, side, 0);
-                        TunnelBlock(at, 8f, 8f, R(30f, 60f), dullBolt, false, side, 0);
-                        TunnelBlock(at, 4f, 4f, R(30f, 60f), soot, false, side, 0);
-                        TunnelBlock(at + new Vector2(R(-7f, 7f), R(-7f, 7f)), R(3f, 7f), R(3f, 6f), R(0f, 90f), rust, false, side, 0);
-                    }
-                }
-            }
-        }
-    }
 
     private static void Refresh()
     {
@@ -742,7 +580,7 @@ internal static class Items_RecombinatorWindow
         rows.Clear();
         cageRoot = null;
 
-        Trenches();
+        RecombKit.Ensure(Content);
 
         // the two item boxes, evenly spread, with each item's name above
         for (int i = 0; i < 2; i++)
@@ -772,7 +610,7 @@ internal static class Items_RecombinatorWindow
         {
             BoneCage(CenterX - IconW / 2, ResY);
         }
-        float y = ResY + IconH + 30;
+        float y = RecombKit.Bottom + 8;
         List<RecombAffix> picks = Picks();
         if (offer == null)
         {
@@ -848,6 +686,7 @@ internal static class Items_RecombinatorWindow
         {
             Label(message, Left, y + 176, WinW, 40, 17, Gold, TextAlignmentOptions.Top);
         }
+        RecombKit.Raise();
     }
 
     // ---------------------------------------------------------------- item slots, tooltips, animation
@@ -1223,12 +1062,24 @@ internal static class Items_RecombinatorWindow
     /// <summary>A forge-style item slot: the item's own icon and background, the forge's border, a click action.</summary>
     private static void SlotBox(ItemData item, int id, float x, float y, Action click)
     {
+        // the ornate frame of the kit, which the item box sits in
+        Rect fr = RecombKit.Frame(id);
+        Image frame = MakeImage(Content, "SlotFrame", Color.white);
+        frame.sprite = RecombArt.Base(RecombKit.FrameComponent(id));
+        frame.raycastTarget = false;
+        RectTransform frr = frame.rectTransform;
+        frr.anchorMin = frr.anchorMax = new Vector2(0, 1);
+        frr.pivot = new Vector2(0, 1);
+        frr.anchoredPosition = new Vector2(fr.x, -fr.y);
+        frr.sizeDelta = new Vector2(fr.width, fr.height);
+        dynamic.Add(frame.gameObject);
+
         Image box = MakeImage(Content, "Slot", new Color(0.05f, 0.04f, 0.035f, 0.97f));
         RectTransform br = box.rectTransform;
         br.anchorMin = br.anchorMax = new Vector2(0, 1);
         br.pivot = new Vector2(0, 1);
         br.anchoredPosition = new Vector2(x, -y);
-        br.sizeDelta = new Vector2(IconW, IconH);
+        br.sizeDelta = new Vector2(id == 2 ? IconW : RecombKit.InW, IconH);
         dynamic.Add(box.gameObject);
         slotGroups[id] = box.gameObject.AddComponent<CanvasGroup>();
         slotBoxes[id] = br;
@@ -1263,7 +1114,6 @@ internal static class Items_RecombinatorWindow
             slotRects[id] = br;
             slotItems[id] = item;
         }
-        SlotFrame(box, item != null ? ItemColor(item) : (Color?)null);
         Button button = box.gameObject.AddComponent<Button>();
         button.transition = Selectable.Transition.None;
         button.onClick.AddListener(click);
@@ -1592,66 +1442,29 @@ internal static class Items_RecombinatorWindow
         return total;
     }
 
-    /// <summary>Soul embers leave both items, run along the trenches and sink into the result.</summary>
-    private static void StartPour(bool crushBones)
+    /// <summary>The kit's effect runs: the slots power up, the pipes flow, the essence pools and pours into the result.</summary>
+    private static void StartPour(bool crushBones, bool flash)
     {
         FindCurrencyIcons();
         pourBones = crushBones;
-        pourTotal = crushBones ? 3.7f : 2.7f;
+        pourTotal = RecombKit.RevealAt;
         chargeDone = false;
         pouring = true;
         pourStart = Time.unscaledTime;
-        for (int side = 0; side < 2; side++)
-        {
-            // the path in screen coordinates (y up): the pieces are laid out with y down
-            var pts = new List<Vector2>();
-            foreach (Vector2 q in TrenchPoints(side, true))
-            {
-                pts.Add(new Vector2(q.x, -q.y));
-            }
-            pourPath[side] = pts;
-            pourLength[side] = PathLength(pts);
-            for (int n = 0; n < 44; n++)
-            {
-                SpawnEmber(side, pourStart + n * 0.032f + side * 0.015f, UnityEngine.Random.Range(0.75f, 1.1f));
-            }
-        }
         resultRevealed = false;
         revealAt = pourStart + pourTotal;
+        RecombKit.Start(pourStart, flash);
         if (crushBones)
         {
-            // three bones drop into the result and are crushed once the embers have gathered
+            // three bones drop into the result as the essence pours, and are crushed
             Vector2 slotCentre = new(CenterX, -(ResY + IconH / 2));
             for (int i = 0; i < 3; i++)
             {
                 float dx = (i - 1) * 46;
-                Piece bone = NewPiece(true, new Vector2(CenterX + dx, -(RunY + 10)), slotCentre + new Vector2(dx * 0.25f, 0), pourStart + 1.8f + i * 0.14f, 0.5f);
+                Piece bone = NewPiece(true, new Vector2(CenterX + dx, -(RunY + 10)), slotCentre + new Vector2(dx * 0.25f, 0), pourStart + RecombKit.PourAt + i * 0.14f, 0.5f);
                 bone.Spin = (i - 1) * 140;
             }
         }
-    }
-
-    private static void SpawnEmber(int side, float start, float duration)
-    {
-        float mixT = UnityEngine.Random.value; // each ember is somewhere between orange and green
-        Color emberTint = Color.Lerp(new Color(1f, 0.5f, 0.12f, 0.5f), new Color(0.45f, 0.95f, 0.25f, 0.5f), mixT);
-        Image glow = MakeImage(Content, "Ember", emberTint);
-        glow.raycastTarget = false;
-        RectTransform r = glow.rectTransform;
-        r.anchorMin = r.anchorMax = new Vector2(0, 1);
-        r.pivot = new Vector2(0.5f, 0.5f);
-        float emberSize = UnityEngine.Random.Range(12f, 30f);
-        r.sizeDelta = new Vector2(emberSize, emberSize * UnityEngine.Random.Range(0.65f, 1.35f));
-        r.localRotation = Quaternion.Euler(0, 0, UnityEngine.Random.Range(15f, 75f));
-        Image core = MakeImage(glow.transform, "Core", Color.Lerp(new Color(1f, 0.93f, 0.62f, 1f), new Color(0.88f, 1f, 0.62f, 1f), mixT));
-        core.raycastTarget = false;
-        RectTransform cr = core.rectTransform;
-        cr.anchorMin = cr.anchorMax = new Vector2(0.5f, 0.5f);
-        cr.sizeDelta = new Vector2(10, 10);
-        CanvasGroup group = glow.gameObject.AddComponent<CanvasGroup>();
-        group.blocksRaycasts = false;
-        group.alpha = 0;
-        ghosts.Add(new Ghost { Go = glow.gameObject, Rect = r, Group = group, Side = side, Start = start, Duration = duration });
     }
 
     private static void TickAnimations()
@@ -1660,57 +1473,15 @@ internal static class Items_RecombinatorWindow
         TickPieces(now);
         TickCage(now);
         TickCracks(now);
-        if (pouring)
+        RecombKit.Tick(now);
+        if (pouring && now >= pourStart + pourTotal)
         {
-            float t = Mathf.Clamp01((now - pourStart) / pourTotal);
-            float fade = Mathf.Lerp(1f, 0.25f, t);
-            for (int i = 0; i < 2; i++)
-            {
-                if (slotGroups[i] != null)
-                {
-                    slotGroups[i].alpha = fade;
-                }
-            }
-            float ramp = Mathf.Clamp01(t / 0.7f); // the wave front, 0 at the item boxes to 1 at the result
-            float breathe = 0.25f + 0.2f * Mathf.Sin(now * 22f);
-            for (int k = 0; k < trenchInner.Count; k++)
-            {
-                Image img = trenchInner[k];
-                if (img == null)
-                {
-                    continue;
-                }
-                float behind = ramp * 1.15f - trenchAlong[k];
-                float glow = behind <= 0 ? 0f : Mathf.Exp(-behind * 2.2f); // bright at the front, trailing off behind it
-                glow = Mathf.Clamp01(glow + (behind > 0 ? breathe * 0.35f : 0f));
-                // bands of orange and green flow along the pipe with the embers
-                float band = 0.5f + 0.5f * Mathf.Sin(trenchAlong[k] * 16f - now * 7f);
-                Color flow = Color.Lerp(TrenchGlow, new Color(0.5f, 0.95f, 0.25f), band);
-                Color hot = Color.Lerp(flow, new Color(1f, 0.97f, 0.75f), Mathf.Clamp01(glow * glow) * 0.55f);
-                img.color = Color.Lerp(trenchBase[k], hot, glow);
-            }
-            if (!chargeDone && now >= pourStart + pourTotal - 0.75f)
-            {
-                chargeDone = true;
-                Vector2 centre = new(CenterX, -(ResY + IconH / 2));
-                for (int k = 0; k < 40; k++)
-                {
-                    float ang = UnityEngine.Random.Range(0f, Mathf.PI * 2);
-                    float dist = UnityEngine.Random.Range(150f, 280f);
-                    NewSpark(centre + new Vector2(Mathf.Cos(ang), Mathf.Sin(ang)) * dist, centre, now + UnityEngine.Random.Range(0f, 0.25f),
-                        UnityEngine.Random.Range(0.4f, 0.65f), RandomFire(), UnityEngine.Random.Range(4f, 9f), inward: true);
-                }
-            }
-            if (now >= pourStart + pourTotal)
-            {
-                pouring = false;
-                cageReleaseAt = now;
-                ResetTunnel();
-                Array.Clear(pourItems, 0, 2);
-                resultRevealed = resultItem != null;
-                pendingFlash = resultRevealed;
-                dirty = true;
-            }
+            pouring = false;
+            cageReleaseAt = now;
+            Array.Clear(pourItems, 0, 2);
+            resultRevealed = resultItem != null;
+            pendingFlash = resultRevealed;
+            dirty = true;
         }
         for (int i = ghosts.Count - 1; i >= 0; i--)
         {
@@ -1796,17 +1567,6 @@ internal static class Items_RecombinatorWindow
             contentRect.anchoredPosition = amp > 0.05f
                 ? contentBase + new Vector2(UnityEngine.Random.Range(-1f, 1f), UnityEngine.Random.Range(-1f, 1f)) * amp
                 : contentBase;
-        }
-    }
-
-    private static void ResetTunnel()
-    {
-        for (int k = 0; k < trenchInner.Count; k++)
-        {
-            if (trenchInner[k] != null)
-            {
-                trenchInner[k].color = trenchBase[k];
-            }
         }
     }
 
@@ -2505,10 +2265,10 @@ internal static class Items_RecombinatorWindow
             icons[2]?.Dispose();
             icons[2] = BuildIcon(result); // started now so its sprite has loaded by the time it appears
             iconFor[2] = (long)result.Pointer;
-            StartPour(bones > 0);
+            lastFailed = deterministic && !exact;
+            StartPour(bones > 0, !lastFailed);
             selected.Clear();
             message = "";
-            lastFailed = deterministic && !exact;
             dirty = true;
         }
         catch (Exception ex)

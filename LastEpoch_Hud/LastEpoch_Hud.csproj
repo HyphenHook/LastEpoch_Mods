@@ -198,7 +198,9 @@
     </Reference>
   </ItemGroup>
   <ItemGroup>
+    <Compile Remove="Assets\Source\**" />
     <EmbeddedResource Include="Assets\Generated\*.png" LogicalName="Generated.%(Filename)%(Extension)" />
+    <EmbeddedResource Include="Assets\Generated\Recombinator\**\*.png" LogicalName="Recombinator/%(RecursiveDir)%(Filename)%(Extension)" />
   </ItemGroup>
   <ItemGroup>
     <None Update="LastEpoch_Hud\Assets\lastepochmods">
