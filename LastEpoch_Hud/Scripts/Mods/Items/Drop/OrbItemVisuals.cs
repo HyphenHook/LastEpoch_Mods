@@ -72,11 +72,6 @@ internal static class OrbItemVisuals
     /// <summary>The game's own image loads can finish after the patch, so the icon is put back now and then.</summary>
     public static void Tick()
     {
-        // the tooltip is only hidden, never closed, by the game when the pointer moves on: the plate goes with it
-        if (plate != null && (owner.IsNullOrDestroyed() || !owner.gameObject.activeInHierarchy))
-        {
-            ClosePlate();
-        }
         if (Time.unscaledTime < nextRefresh)
         {
             return;
@@ -98,30 +93,47 @@ internal static class OrbItemVisuals
 
     // ------------------------------------------------------------------ the tooltip
 
+    // The game's own item tooltip is used, with its frame, fonts and layout: only what it says is changed.
     private static UITooltipItem owner;
-    private static RectTransform plate;
 
     private static Image[] Images(UITooltipItem ui) => new[]
     {
         ui.itemImage, ui.smallItemImage, ui.mediumItemImage, ui.tallMediumItemImage, ui.largeItemImage, ui.spearItemImage, ui.wideItemImage,
     };
 
-    private static void ClosePlate()
+    private static void Set(TextMeshProUGUI text, string value)
     {
-        if (plate != null)
+        if (!text.IsNullOrDestroyed() && text.text != value)
         {
-            UnityEngine.Object.Destroy(plate.gameObject);
+            text.text = value;
         }
-        plate = null;
-        if (!owner.IsNullOrDestroyed())
+    }
+
+    private static void Rewrite(UITooltipItem ui)
+    {
+        AdvancedMaterial m = Material;
+        Set(ui.nameText, "<cspace=1.65><color=#8FD8FFFF>" + m.Name + "</color></cspace>");
+        Set(ui.typeText, "Advanced Crafting Orb");
+        var body = new System.Text.StringBuilder();
+        body.Append("<color=#8FD8FF>").Append(m.Effect).Append("</color>");
+        foreach (string rule in m.Rules)
         {
-            CanvasGroup g = owner.GetComponent<CanvasGroup>();
-            if (g != null)
+            body.Append("\n").Append("<color=#C8C0AA>").Append(rule).Append("</color>");
+        }
+        Set(ui.implicitText, body.ToString());
+        Set(ui.loreText, m.Flavour.Length > 0 ? "<i>" + m.Flavour + "</i>" : "");
+        if (!ui.goldValueHolder.IsNullOrDestroyed() && ui.goldValueHolder.activeSelf)
+        {
+            ui.goldValueHolder.SetActive(false); // an orb has no vendor price
+        }
+        foreach (Image image in Images(ui))
+        {
+            if (!image.IsNullOrDestroyed() && image.sprite != OrbSprite())
             {
-                g.alpha = 1f;
+                image.overrideSprite = null;
+                image.sprite = OrbSprite();
             }
         }
-        owner = null;
     }
 
     [HarmonyPatch(typeof(UITooltipItem), "SetItemImage",
@@ -137,54 +149,25 @@ internal static class OrbItemVisuals
                 {
                     return; // the comparison tooltip is not the one being hovered
                 }
-                if (__instance == owner)
+                if (OrbDrop.IsOrb(__0?.TryCast<ItemData>()))
                 {
-                    ClosePlate();
+                    owner = __instance;
+                    Rewrite(__instance);
                 }
-                if (!OrbDrop.IsOrb(__0?.TryCast<ItemData>()))
+                else if (__instance == owner)
                 {
-                    return;
-                }
-                Sprite sprite = OrbSprite();
-                foreach (Image image in Images(__instance))
-                {
-                    if (!image.IsNullOrDestroyed())
+                    owner = null;
+                    if (!__instance.goldValueHolder.IsNullOrDestroyed())
                     {
-                        image.overrideSprite = null;
-                        image.sprite = sprite;
+                        __instance.goldValueHolder.SetActive(true);
                     }
                 }
-                ClosePlate();
-                owner = __instance;
-                TMP_FontAsset font = __instance.GetComponentInChildren<TextMeshProUGUI>(true)?.font;
-                plate = OrbTooltipPlate.Build(__instance.transform.parent, font, Material);
-                CanvasGroup group = __instance.GetComponent<CanvasGroup>() ?? __instance.gameObject.AddComponent<CanvasGroup>();
-                group.alpha = 0f; // the rune's own tooltip is there but unseen
-                Sync();
             }
             catch (Exception ex)
             {
                 Main.logger_instance?.Warning("Orb tooltip: " + ex.Message);
             }
         }
-    }
-
-    private static void Sync()
-    {
-        if (plate == null)
-        {
-            return;
-        }
-        if (owner.IsNullOrDestroyed() || !owner.gameObject.activeInHierarchy)
-        {
-            ClosePlate();
-            return;
-        }
-        RectTransform source = owner.GetComponent<RectTransform>();
-        plate.pivot = source.pivot;
-        plate.position = source.position;
-        owner.GetComponent<CanvasGroup>().alpha = 0f;
-        plate.transform.SetAsLastSibling();
     }
 
     [HarmonyPatch(typeof(UITooltipItem), "OnUpdateTick")]
@@ -195,9 +178,9 @@ internal static class OrbItemVisuals
         {
             try
             {
-                if (__instance == owner)
+                if (__instance == owner && __instance.gameObject.activeInHierarchy)
                 {
-                    Sync();
+                    Rewrite(__instance); // the game fills the tooltip in again as it updates
                 }
             }
             catch (Exception)

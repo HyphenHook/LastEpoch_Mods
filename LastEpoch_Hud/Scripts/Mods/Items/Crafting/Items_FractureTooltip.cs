@@ -95,15 +95,33 @@ internal static class Items_FractureTooltip
         {
             wanted.Add(affix.affixName.ToLowerInvariant());
         }
-        foreach (TextMeshProUGUI t in w.Ui.GetComponentsInChildren<TextMeshProUGUI>(false))
+        // the tooltip keeps each affix in a UITooltipItemAffix: look at those and nothing else
+        var lines = new List<TextMeshProUGUI>();
+        void Collect(Il2CppSystem.Collections.Generic.List<UITooltipItemAffix> list)
         {
-            if (t == null || string.IsNullOrEmpty(t.text) || t.text.Contains(Blue))
+            if (list == null)
+            {
+                return;
+            }
+            for (int i = 0; i < list.Count; i++)
+            {
+                if (!list[i].IsNullOrDestroyed() && !list[i]._text.IsNullOrDestroyed())
+                {
+                    lines.Add(list[i]._text);
+                }
+            }
+        }
+        Collect(w.Ui.prefixesText);
+        Collect(w.Ui.suffixesText);
+        Collect(w.Ui.uniqueAffixesText);
+        foreach (TextMeshProUGUI t in lines)
+        {
+            if (t == null || string.IsNullOrEmpty(t.text) || t.text.Contains(Blue) || !t.gameObject.activeInHierarchy)
             {
                 continue;
             }
             string plain = AllTags.Replace(t.text, "").Trim();
-            // one affix is a line or two; a block of several affixes is left alone
-            if (plain.Length == 0 || plain.Length > 160 || plain.Split('\n').Length > 3)
+            if (plain.Length == 0)
             {
                 continue;
             }
