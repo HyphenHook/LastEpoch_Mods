@@ -1,0 +1,432 @@
+{
+  "format": "RGBA PNG transparent",
+  "canvas_px": [
+    512,
+    768
+  ],
+  "slot_canvas_reference_px": [
+    1024,
+    1536
+  ],
+  "orb_center_px": [
+    256,
+    335
+  ],
+  "item_absorption_point_px": [
+    256,
+    505
+  ],
+  "orb_reference_diameter_px": 240,
+  "orb_reference_diameter_at_1024x1536": 480,
+  "atlas": {
+    "columns": 8,
+    "rows": 5,
+    "tile_px": [
+      512,
+      768
+    ]
+  },
+  "frames": [
+    {
+      "frame": 1,
+      "file": "Frames/ForgeEssence_001_Charge.png",
+      "stage": "Charge",
+      "duration_ms": 75,
+      "pivot": [
+        0.5,
+        0.5
+      ]
+    },
+    {
+      "frame": 2,
+      "file": "Frames/ForgeEssence_002_Charge.png",
+      "stage": "Charge",
+      "duration_ms": 75,
+      "pivot": [
+        0.5,
+        0.5
+      ]
+    },
+    {
+      "frame": 3,
+      "file": "Frames/ForgeEssence_003_Charge.png",
+      "stage": "Charge",
+      "duration_ms": 75,
+      "pivot": [
+        0.5,
+        0.5
+      ]
+    },
+    {
+      "frame": 4,
+      "file": "Frames/ForgeEssence_004_Charge.png",
+      "stage": "Charge",
+      "duration_ms": 75,
+      "pivot": [
+        0.5,
+        0.5
+      ]
+    },
+    {
+      "frame": 5,
+      "file": "Frames/ForgeEssence_005_Charge.png",
+      "stage": "Charge",
+      "duration_ms": 75,
+      "pivot": [
+        0.5,
+        0.5
+      ]
+    },
+    {
+      "frame": 6,
+      "file": "Frames/ForgeEssence_006_Charge.png",
+      "stage": "Charge",
+      "duration_ms": 75,
+      "pivot": [
+        0.5,
+        0.5
+      ]
+    },
+    {
+      "frame": 7,
+      "file": "Frames/ForgeEssence_007_Charge.png",
+      "stage": "Charge",
+      "duration_ms": 75,
+      "pivot": [
+        0.5,
+        0.5
+      ]
+    },
+    {
+      "frame": 8,
+      "file": "Frames/ForgeEssence_008_Charge.png",
+      "stage": "Charge",
+      "duration_ms": 75,
+      "pivot": [
+        0.5,
+        0.5
+      ]
+    },
+    {
+      "frame": 9,
+      "file": "Frames/ForgeEssence_009_Shatter.png",
+      "stage": "Shatter",
+      "duration_ms": 60,
+      "pivot": [
+        0.5,
+        0.5
+      ]
+    },
+    {
+      "frame": 10,
+      "file": "Frames/ForgeEssence_010_Shatter.png",
+      "stage": "Shatter",
+      "duration_ms": 60,
+      "pivot": [
+        0.5,
+        0.5
+      ]
+    },
+    {
+      "frame": 11,
+      "file": "Frames/ForgeEssence_011_Shatter.png",
+      "stage": "Shatter",
+      "duration_ms": 60,
+      "pivot": [
+        0.5,
+        0.5
+      ]
+    },
+    {
+      "frame": 12,
+      "file": "Frames/ForgeEssence_012_Shatter.png",
+      "stage": "Shatter",
+      "duration_ms": 60,
+      "pivot": [
+        0.5,
+        0.5
+      ]
+    },
+    {
+      "frame": 13,
+      "file": "Frames/ForgeEssence_013_Shatter.png",
+      "stage": "Shatter",
+      "duration_ms": 60,
+      "pivot": [
+        0.5,
+        0.5
+      ]
+    },
+    {
+      "frame": 14,
+      "file": "Frames/ForgeEssence_014_Shatter.png",
+      "stage": "Shatter",
+      "duration_ms": 60,
+      "pivot": [
+        0.5,
+        0.5
+      ]
+    },
+    {
+      "frame": 15,
+      "file": "Frames/ForgeEssence_015_Shatter.png",
+      "stage": "Shatter",
+      "duration_ms": 60,
+      "pivot": [
+        0.5,
+        0.5
+      ]
+    },
+    {
+      "frame": 16,
+      "file": "Frames/ForgeEssence_016_Shatter.png",
+      "stage": "Shatter",
+      "duration_ms": 60,
+      "pivot": [
+        0.5,
+        0.5
+      ]
+    },
+    {
+      "frame": 17,
+      "file": "Frames/ForgeEssence_017_Absorb.png",
+      "stage": "Absorb",
+      "duration_ms": 70,
+      "pivot": [
+        0.5,
+        0.5
+      ]
+    },
+    {
+      "frame": 18,
+      "file": "Frames/ForgeEssence_018_Absorb.png",
+      "stage": "Absorb",
+      "duration_ms": 70,
+      "pivot": [
+        0.5,
+        0.5
+      ]
+    },
+    {
+      "frame": 19,
+      "file": "Frames/ForgeEssence_019_Absorb.png",
+      "stage": "Absorb",
+      "duration_ms": 70,
+      "pivot": [
+        0.5,
+        0.5
+      ]
+    },
+    {
+      "frame": 20,
+      "file": "Frames/ForgeEssence_020_Absorb.png",
+      "stage": "Absorb",
+      "duration_ms": 70,
+      "pivot": [
+        0.5,
+        0.5
+      ]
+    },
+    {
+      "frame": 21,
+      "file": "Frames/ForgeEssence_021_Absorb.png",
+      "stage": "Absorb",
+      "duration_ms": 70,
+      "pivot": [
+        0.5,
+        0.5
+      ]
+    },
+    {
+      "frame": 22,
+      "file": "Frames/ForgeEssence_022_Absorb.png",
+      "stage": "Absorb",
+      "duration_ms": 70,
+      "pivot": [
+        0.5,
+        0.5
+      ]
+    },
+    {
+      "frame": 23,
+      "file": "Frames/ForgeEssence_023_Absorb.png",
+      "stage": "Absorb",
+      "duration_ms": 70,
+      "pivot": [
+        0.5,
+        0.5
+      ]
+    },
+    {
+      "frame": 24,
+      "file": "Frames/ForgeEssence_024_Absorb.png",
+      "stage": "Absorb",
+      "duration_ms": 70,
+      "pivot": [
+        0.5,
+        0.5
+      ]
+    },
+    {
+      "frame": 25,
+      "file": "Frames/ForgeEssence_025_Absorb.png",
+      "stage": "Absorb",
+      "duration_ms": 70,
+      "pivot": [
+        0.5,
+        0.5
+      ]
+    },
+    {
+      "frame": 26,
+      "file": "Frames/ForgeEssence_026_Absorb.png",
+      "stage": "Absorb",
+      "duration_ms": 70,
+      "pivot": [
+        0.5,
+        0.5
+      ]
+    },
+    {
+      "frame": 27,
+      "file": "Frames/ForgeEssence_027_Absorb.png",
+      "stage": "Absorb",
+      "duration_ms": 70,
+      "pivot": [
+        0.5,
+        0.5
+      ]
+    },
+    {
+      "frame": 28,
+      "file": "Frames/ForgeEssence_028_Absorb.png",
+      "stage": "Absorb",
+      "duration_ms": 70,
+      "pivot": [
+        0.5,
+        0.5
+      ]
+    },
+    {
+      "frame": 29,
+      "file": "Frames/ForgeEssence_029_Residual.png",
+      "stage": "Residual",
+      "duration_ms": 80,
+      "pivot": [
+        0.5,
+        0.5
+      ]
+    },
+    {
+      "frame": 30,
+      "file": "Frames/ForgeEssence_030_Residual.png",
+      "stage": "Residual",
+      "duration_ms": 80,
+      "pivot": [
+        0.5,
+        0.5
+      ]
+    },
+    {
+      "frame": 31,
+      "file": "Frames/ForgeEssence_031_Residual.png",
+      "stage": "Residual",
+      "duration_ms": 80,
+      "pivot": [
+        0.5,
+        0.5
+      ]
+    },
+    {
+      "frame": 32,
+      "file": "Frames/ForgeEssence_032_Residual.png",
+      "stage": "Residual",
+      "duration_ms": 80,
+      "pivot": [
+        0.5,
+        0.5
+      ]
+    },
+    {
+      "frame": 33,
+      "file": "Frames/ForgeEssence_033_Residual.png",
+      "stage": "Residual",
+      "duration_ms": 80,
+      "pivot": [
+        0.5,
+        0.5
+      ]
+    },
+    {
+      "frame": 34,
+      "file": "Frames/ForgeEssence_034_Residual.png",
+      "stage": "Residual",
+      "duration_ms": 80,
+      "pivot": [
+        0.5,
+        0.5
+      ]
+    },
+    {
+      "frame": 35,
+      "file": "Frames/ForgeEssence_035_Residual.png",
+      "stage": "Residual",
+      "duration_ms": 80,
+      "pivot": [
+        0.5,
+        0.5
+      ]
+    },
+    {
+      "frame": 36,
+      "file": "Frames/ForgeEssence_036_Residual.png",
+      "stage": "Residual",
+      "duration_ms": 80,
+      "pivot": [
+        0.5,
+        0.5
+      ]
+    },
+    {
+      "frame": 37,
+      "file": "Frames/ForgeEssence_037_Residual.png",
+      "stage": "Residual",
+      "duration_ms": 80,
+      "pivot": [
+        0.5,
+        0.5
+      ]
+    },
+    {
+      "frame": 38,
+      "file": "Frames/ForgeEssence_038_Residual.png",
+      "stage": "Residual",
+      "duration_ms": 80,
+      "pivot": [
+        0.5,
+        0.5
+      ]
+    },
+    {
+      "frame": 39,
+      "file": "Frames/ForgeEssence_039_Residual.png",
+      "stage": "Residual",
+      "duration_ms": 80,
+      "pivot": [
+        0.5,
+        0.5
+      ]
+    },
+    {
+      "frame": 40,
+      "file": "Frames/ForgeEssence_040_Residual.png",
+      "stage": "Residual",
+      "duration_ms": 80,
+      "pivot": [
+        0.5,
+        0.5
+      ]
+    }
+  ],
+  "duration_total_ms": 2880
+}

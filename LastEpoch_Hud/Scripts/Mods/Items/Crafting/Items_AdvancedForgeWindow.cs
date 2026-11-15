@@ -1099,21 +1099,43 @@ internal static class Items_AdvancedForgeWindow
     private static Image flash;
     private static Vector2 shakeBase;
 
-    // the orb floats down onto the item and charges; it shatters; the shards spiral into the item; the item takes them in
-    private const float FloatEnd = 0.50f, ChargeAt = 0.30f, ShatterAt = 0.90f, SwirlAt = 1.42f, AbsorbAt = 2.02f;
-    private const float ImpactAt = 2.30f, EndAt = 2.80f;
-    private static readonly string[] PhaseName = { "charge", "shatter", "swirl", "absorb" };
-    private static readonly float[] PhaseStart = { ChargeAt, ShatterAt, SwirlAt, AbsorbAt };
-    private static readonly float[] FrameSeconds = { 0.075f, 0.065f, 0.075f, 0.070f };
-    private static readonly float[] PhaseSize = { 230f, 270f, 250f, 260f };
+    // The supplied Essence Shatter VFX: 40 frames, each a whole slot (2:3) with the orb at 43.6% down and the point the
+    // item takes the essence in at 65.8% down. It is shown as one overlay that never moves.
+    private const float VfxW = 221f, VfxH = 332f; // the overlay, sized so its orb is as big as the orb art (104)
+    private const float OrbAtY = 0.436f, ItemAtY = 0.658f;
+    private const float OrbFlyEnd = 0.45f, VfxStart = 0.20f;
+    private static readonly int[] PhaseFrames = { 8, 8, 12, 12 }; // charge, shatter, absorb, residual
+    private static readonly float[] PhaseSeconds = { 0.075f, 0.060f, 0.070f, 0.080f };
+    private static readonly float[] FrameStart = BuildFrameStarts();
+    private static float ShatterAt => VfxStart + PhaseFrames[0] * PhaseSeconds[0];
+    private static float AbsorbAt => ShatterAt + PhaseFrames[1] * PhaseSeconds[1];
+    private static float ResidualAt => AbsorbAt + PhaseFrames[2] * PhaseSeconds[2];
+    private static float VfxEnd => ResidualAt + PhaseFrames[3] * PhaseSeconds[3];
+    private static float ImpactAt => AbsorbAt + 6 * PhaseSeconds[2]; // the merge peaks in frames 23 to 26 of the effect
+    private static float EndAt => VfxEnd + 0.06f;
+
+    private static float[] BuildFrameStarts()
+    {
+        var starts = new float[40];
+        float at = 0;
+        int i = 0;
+        for (int phase = 0; phase < PhaseFrames.Length; phase++)
+        {
+            for (int k = 0; k < PhaseFrames[phase]; k++)
+            {
+                starts[i++] = at;
+                at += PhaseSeconds[phase];
+            }
+        }
+        return starts;
+    }
 
     private static GameObject orbFx;
-    private static Image orbFxImage;
-    private static RectTransform orbFxRect;
-    private static Image vfxImage;
-    private static RectTransform vfxRect;
+    private static Image orbFxImage, backGlow, bloom, ringFx, vfxImage, vfxExtra;
+    private static RectTransform orbFxRect, backGlowRect, bloomRect, ringRect, vfxRect, vfxExtraRect;
     private static Vector2 orbStart;
     private static Sprite[] vfxSheet;
+    private static bool shatterDone, residualDone, absorbDone;
 
     private sealed class Spark
     {
@@ -1126,8 +1148,54 @@ internal static class Items_AdvancedForgeWindow
 
     private static readonly List<Spark> sparks = new();
 
+    /// <summary>A mote of essence that travels from the orb into the item.</summary>
+    private sealed class Mote
+    {
+        public GameObject Go;
+        public RectTransform Rect;
+        public Image Img;
+        public Vector2 From, To;
+        public float Born, Life, Sway, Size;
+    }
+
+    private static readonly List<Mote> motes = new();
+
     private static Vector2 SlotCentre => new(CenterX, -(SlotY + FrameH * ItemCentreFromTop));
-    private static Vector2 HoverPoint => SlotCentre;
+    private static Vector2 OverlayCentre => SlotCentre + new Vector2(0, (ItemAtY - 0.5f) * VfxH);
+    private static Vector2 OrbPoint => OverlayCentre + new Vector2(0, (0.5f - OrbAtY) * VfxH);
+
+    private static Material additive;
+    private static bool additiveTried;
+
+    /// <summary>An additive material for glows, if the game has a shader for it.</summary>
+    private static Material Additive()
+    {
+        if (!additiveTried)
+        {
+            additiveTried = true;
+            foreach (string name in new[] { "Legacy Shaders/Particles/Additive", "Particles/Additive", "Mobile/Particles/Additive", "UI/Additive" })
+            {
+                try
+                {
+                    Shader shader = Shader.Find(name);
+                    if (shader != null)
+                    {
+                        additive = new Material(shader);
+                        Main.logger_instance?.Msg("Advanced Forge: additive glow with " + name);
+                        break;
+                    }
+                }
+                catch (Exception)
+                {
+                }
+            }
+            if (additive == null)
+            {
+                Main.logger_instance?.Msg("Advanced Forge: no additive shader found, glows use normal blending");
+            }
+        }
+        return additive;
+    }
 
     private static GameObject Effect(string name)
     {
@@ -1142,17 +1210,21 @@ internal static class Items_AdvancedForgeWindow
         return go;
     }
 
-    private static Image CentredImage(string name, Sprite sprite, float size, out RectTransform rect)
+    private static Image CentredImage(string name, Sprite sprite, float w, float h, out RectTransform rect, bool glow = false)
     {
         GameObject go = Effect(name);
         rect = go.GetComponent<RectTransform>();
         rect.pivot = new Vector2(0.5f, 0.5f);
-        rect.sizeDelta = new Vector2(size, size);
+        rect.sizeDelta = new Vector2(w, h);
         Image img = R.MakeImage(go.transform, "Image", Color.white);
         img.sprite = sprite;
         img.preserveAspect = true;
         img.raycastTarget = false;
         Stretch(img.rectTransform, 0);
+        if (glow && Additive() != null)
+        {
+            img.material = additive;
+        }
         return img;
     }
 
@@ -1160,14 +1232,15 @@ internal static class Items_AdvancedForgeWindow
     {
         animating = true;
         applied = false;
+        shatterDone = residualDone = absorbDone = false;
         pendingKey = key;
         animStart = Time.unscaledTime;
         status = "";
         CloseTooltips();
-        vfxSheet ??= OrbArt.Sheet("orb_vfx_atlas", 8, 4);
+        vfxSheet ??= OrbArt.Sheet("essence_vfx_atlas", 8, 5);
 
         // where the orb is lifted from: its own slot
-        orbStart = HoverPoint + new Vector2(0, 160);
+        orbStart = OrbPoint + new Vector2(0, 150);
         foreach (OrbView v in orbViews)
         {
             if (v.Material.Key == key && v.Rect != null)
@@ -1176,21 +1249,34 @@ internal static class Items_AdvancedForgeWindow
             }
         }
         AdvancedMaterial m = AdvancedMaterials.All.Find(x => x.Key == key);
-        orbFxImage = CentredImage("FloatingOrb", OrbArt.Get(key, m.Tint, m.Glow), 104f, out orbFxRect);
-        orbFxRect.anchoredPosition = orbStart;
-        orbFx = orbFxRect.gameObject;
 
-        vfxImage = CentredImage("OrbVfx", null, PhaseSize[0], out vfxRect);
-        vfxImage.enabled = false;
-
+        // under everything: the glow of the item as it takes the essence in
         GameObject f = Effect("Flash");
         RectTransform fr = f.GetComponent<RectTransform>();
         fr.anchoredPosition = new Vector2(CenterX - ItemW / 2, SlotCentre.y + ItemH / 2);
         fr.sizeDelta = new Vector2(ItemW, ItemH);
-        flash = R.MakeImage(f.transform, "F", new Color(0.78f, 0.55f, 1f, 0f));
+        flash = R.MakeImage(f.transform, "F", new Color(0.8f, 0.6f, 1f, 0f));
         flash.raycastTarget = false;
         Stretch(flash.rectTransform, 0);
         shakeBase = new Vector2(CenterX - FrameW / 2, -SlotY);
+
+        // a dark violet light behind the orb while it charges
+        backGlow = CentredImage("BackGlow", OrbArt.Named("glow_violet"), 300f, 300f, out backGlowRect, glow: true);
+        backGlow.color = new Color(0.6f, 0.3f, 1f, 0f);
+        backGlowRect.anchoredPosition = OrbPoint;
+
+        orbFxImage = CentredImage("FloatingOrb", OrbArt.Get(key, m.Tint, m.Glow), 104f, 104f, out orbFxRect);
+        orbFxRect.anchoredPosition = orbStart;
+        orbFx = orbFxRect.gameObject;
+
+        vfxImage = CentredImage("EssenceVfx", null, VfxW, VfxH, out vfxRect);
+        vfxImage.enabled = false;
+        vfxRect.anchoredPosition = OverlayCentre;
+        // the same frames again, added on top, for a stronger glow
+        vfxExtra = CentredImage("EssenceVfxGlow", null, VfxW, VfxH, out vfxExtraRect, glow: true);
+        vfxExtra.enabled = false;
+        vfxExtra.color = new Color(0.85f, 0.6f, 1f, 0.35f);
+        vfxExtraRect.anchoredPosition = OverlayCentre;
     }
 
     private static float Ease(float u) => u * u * (3f - 2f * u);
@@ -1199,85 +1285,208 @@ internal static class Items_AdvancedForgeWindow
     {
         float now = Time.unscaledTime;
         TickSparks(now);
+        TickMotes(now);
         if (!animating)
         {
             return;
         }
         float t = now - animStart;
 
-        // the orb: it rises out of its slot onto the item, bobbing there until it breaks
+        // the orb rises out of its slot to its place over the item, and bobs there until it breaks
         if (orbFx != null)
         {
-            float u = Mathf.Clamp01(t / FloatEnd);
-            Vector2 pos = Vector2.Lerp(orbStart, HoverPoint, Ease(u));
-            if (t >= FloatEnd)
+            float u = Mathf.Clamp01(t / OrbFlyEnd);
+            Vector2 pos = Vector2.Lerp(orbStart, OrbPoint, Ease(u));
+            if (t >= OrbFlyEnd)
             {
-                pos.y += Mathf.Sin((t - FloatEnd) * 5.5f) * 3.5f;
+                pos.y += Mathf.Sin((t - OrbFlyEnd) * 5f) * 2.5f;
             }
             orbFxRect.anchoredPosition = pos;
-            float charge = Mathf.Clamp01((t - ChargeAt) / (ShatterAt - ChargeAt));
-            orbFxRect.localScale = Vector3.one * (0.7f + 0.3f * Ease(u) + 0.1f * charge);
-            float fade = t < ShatterAt ? 1f : Mathf.Clamp01(1f - (t - ShatterAt) / 0.10f);
+            float charge = Mathf.Clamp01((t - VfxStart) / (ShatterAt - VfxStart));
+            orbFxRect.localScale = Vector3.one * (0.7f + 0.3f * Ease(u) + 0.08f * charge);
+            float fade = t < ShatterAt ? 1f : Mathf.Clamp01(1f - (t - ShatterAt) / 0.08f);
             orbFxImage.color = new Color(1f, 1f, 1f, fade);
             orbFx.SetActive(fade > 0f);
+
+            // the dark light behind the orb pulses as it charges, and goes at the break
+            float pulse = 0.85f + 0.30f * (0.5f + 0.5f * Mathf.Sin(t * 11f));
+            float glowAlpha = t < ShatterAt ? 0.55f * Mathf.Clamp01((t - 0.05f) / 0.3f) : 0.55f * Mathf.Clamp01(1f - (t - ShatterAt) / 0.2f);
+            backGlow.color = new Color(0.6f, 0.3f, 1f, glowAlpha);
+            backGlowRect.localScale = Vector3.one * pulse;
+            backGlowRect.anchoredPosition = pos;
         }
 
-        // the effect frames: charge and shatter on the orb, the swirl travelling to the item, the absorb on the item
-        int phase = -1;
-        for (int i = PhaseStart.Length - 1; i >= 0; i--)
+        // the effect frames, one overlay on the slot that does not move
+        if (vfxSheet != null && vfxSheet.Length >= 40)
         {
-            if (t >= PhaseStart[i])
+            float into = t - VfxStart;
+            if (into >= 0f && into < FrameStart[39] + PhaseSeconds[3])
             {
-                phase = i;
-                break;
+                int frame = 0;
+                for (int i = 39; i >= 0; i--)
+                {
+                    if (into >= FrameStart[i])
+                    {
+                        frame = i;
+                        break;
+                    }
+                }
+                vfxImage.enabled = true;
+                vfxImage.sprite = vfxSheet[frame];
+                vfxExtra.enabled = true;
+                vfxExtra.sprite = vfxSheet[frame];
             }
-        }
-        if (phase >= 0 && vfxSheet != null && vfxSheet.Length >= 32)
-        {
-            float into = t - PhaseStart[phase];
-            int frame = Mathf.Min(7, (int)(into / FrameSeconds[phase]));
-            vfxImage.enabled = into < FrameSeconds[phase] * 8f + 0.05f;
-            vfxImage.sprite = vfxSheet[phase * 8 + frame];
-            Vector2 at = HoverPoint;
-            if (phase == 2)
+            else
             {
-                at = Vector2.Lerp(HoverPoint, SlotCentre, Ease(Mathf.Clamp01(into / (FrameSeconds[2] * 8f))));
+                vfxImage.enabled = false;
+                vfxExtra.enabled = false;
             }
-            else if (phase == 3)
-            {
-                at = SlotCentre;
-            }
-            vfxRect.anchoredPosition = at;
-            float size = PhaseSize[phase] * (phase == 2 ? Mathf.Lerp(1.1f, 0.85f, into / (FrameSeconds[2] * 8f)) : 1f);
-            vfxRect.sizeDelta = new Vector2(size, size);
         }
 
+        if (!shatterDone && t >= ShatterAt)
+        {
+            shatterDone = true;
+            ShatterBurst(now);
+        }
+        if (!absorbDone && t >= AbsorbAt)
+        {
+            absorbDone = true;
+            SendMotes(now);
+        }
+        if (!residualDone && t >= ResidualAt)
+        {
+            residualDone = true;
+            ResidualSparks(now);
+        }
         if (!applied && t >= ImpactAt)
         {
             applied = true;
             Impact(now);
         }
-        // the item shudders as it takes the orb in, and glows
+
+        // the break: a bloom and a ring spread from the orb
+        if (bloom != null)
+        {
+            float k = Mathf.Clamp01((t - ShatterAt) / 0.16f);
+            bloom.color = new Color(0.9f, 0.75f, 1f, 0.9f * (1f - k) * (t >= ShatterAt ? 1f : 0f));
+            bloomRect.localScale = Vector3.one * (0.5f + 1.1f * k);
+        }
+        if (ringFx != null)
+        {
+            float k = Mathf.Clamp01((t - ShatterAt) / 0.40f);
+            ringFx.color = new Color(1f, 1f, 1f, 0.85f * (1f - k) * (t >= ShatterAt ? 1f : 0f));
+            ringRect.localScale = Vector3.one * (0.3f + 1.2f * Ease(k));
+        }
+
+        // the slot shudders a little at the break, and again as it takes the essence in
         if (slotRect != null)
         {
-            float since = t - ImpactAt;
             Vector2 shake = Vector2.zero;
-            if (since >= 0 && since < 0.45f)
+            float atBreak = t - ShatterAt, atMerge = t - ImpactAt;
+            if (atBreak >= 0 && atBreak < 0.12f)
             {
-                float amp = 5f * (1f - since / 0.45f);
-                shake = new Vector2(UnityEngine.Random.Range(-1f, 1f), UnityEngine.Random.Range(-1f, 1f)) * amp;
+                shake = new Vector2(UnityEngine.Random.Range(-1f, 1f), UnityEngine.Random.Range(-1f, 1f)) * 2.5f;
+            }
+            else if (atMerge >= 0 && atMerge < 0.35f)
+            {
+                shake = new Vector2(UnityEngine.Random.Range(-1f, 1f), UnityEngine.Random.Range(-1f, 1f)) * 3.5f * (1f - atMerge / 0.35f);
             }
             slotRect.anchoredPosition = shakeBase + shake;
         }
+
+        // the item lights up as the essence goes in, at its brightest around the merge
         if (flash != null)
         {
-            float glow = t < AbsorbAt ? 0f : Mathf.Clamp01((t - AbsorbAt) / 0.3f) * Mathf.Clamp01(1f - (t - ImpactAt) / 0.45f);
-            flash.color = new Color(0.78f, 0.55f, 1f, 0.5f * glow);
+            float u = Mathf.InverseLerp(AbsorbAt + 0.1f, ImpactAt + 0.45f, t);
+            float bump = u <= 0f || u >= 1f ? 0f : Mathf.Sin(u * Mathf.PI);
+            flash.color = new Color(0.8f, 0.6f, 1f, 0.5f * bump);
         }
         if (t >= EndAt)
         {
             EndAnimationNow();
             dirty = true;
+        }
+    }
+
+    private static void ShatterBurst(float now)
+    {
+        bloom = CentredImage("Bloom", OrbArt.Named("glow_violet"), 260f, 260f, out bloomRect, glow: true);
+        bloomRect.anchoredPosition = OrbPoint;
+        ringFx = CentredImage("Ring", OrbArt.Named("ring_violet"), 230f, 230f, out ringRect, glow: true);
+        ringRect.anchoredPosition = OrbPoint;
+        for (int i = 0; i < 14; i++)
+        {
+            float ang = UnityEngine.Random.Range(0f, Mathf.PI * 2);
+            AddSpark(OrbPoint, new Color(0.8f, 0.6f, 1f), UnityEngine.Random.Range(2.5f, 5f),
+                new Vector2(Mathf.Cos(ang), Mathf.Sin(ang)) * UnityEngine.Random.Range(80f, 260f), UnityEngine.Random.Range(0.3f, 0.6f));
+        }
+    }
+
+    /// <summary>Little motes of essence leave the broken orb and go down into the item as the trails do.</summary>
+    private static void SendMotes(float now)
+    {
+        for (int i = 0; i < 12; i++)
+        {
+            GameObject go = Effect("Mote");
+            RectTransform r = go.GetComponent<RectTransform>();
+            r.pivot = new Vector2(0.5f, 0.5f);
+            float size = UnityEngine.Random.Range(12f, 22f);
+            r.sizeDelta = new Vector2(size, size);
+            Image img = R.MakeImage(go.transform, "M", new Color(0.85f, 0.65f, 1f, 0f));
+            img.sprite = OrbArt.Named("glow_violet");
+            img.raycastTarget = false;
+            if (Additive() != null)
+            {
+                img.material = additive;
+            }
+            Stretch(img.rectTransform, 0);
+            Vector2 from = OrbPoint + new Vector2(UnityEngine.Random.Range(-34f, 34f), UnityEngine.Random.Range(-20f, 20f));
+            Vector2 to = SlotCentre + new Vector2(UnityEngine.Random.Range(-10f, 10f), UnityEngine.Random.Range(-10f, 10f));
+            motes.Add(new Mote
+            {
+                Go = go, Rect = r, Img = img, From = from, To = to, Size = size,
+                Born = now + UnityEngine.Random.Range(0f, 0.30f), Life = UnityEngine.Random.Range(0.45f, 0.65f),
+                Sway = UnityEngine.Random.Range(-18f, 18f),
+            });
+        }
+    }
+
+    private static void TickMotes(float now)
+    {
+        for (int i = motes.Count - 1; i >= 0; i--)
+        {
+            Mote m = motes[i];
+            float age = now - m.Born;
+            if (m.Go == null || age >= m.Life)
+            {
+                if (m.Go != null)
+                {
+                    Object.Destroy(m.Go);
+                }
+                motes.RemoveAt(i);
+                continue;
+            }
+            if (age < 0)
+            {
+                continue;
+            }
+            float u = age / m.Life;
+            Vector2 pos = Vector2.Lerp(m.From, m.To, Ease(u)) + new Vector2(Mathf.Sin(u * Mathf.PI) * m.Sway, 0);
+            m.Rect.anchoredPosition = pos;
+            m.Rect.localScale = Vector3.one * Mathf.Lerp(1f, 0.4f, u);
+            // they brighten as they leave the orb and fade as they come to the item
+            m.Img.color = new Color(0.85f, 0.65f, 1f, Mathf.Clamp01(u * 5f) * Mathf.Clamp01((1f - u) * 2.5f));
+        }
+    }
+
+    /// <summary>The faint wisps that escape once the item has taken the essence.</summary>
+    private static void ResidualSparks(float now)
+    {
+        for (int i = 0; i < 9; i++)
+        {
+            float ang = UnityEngine.Random.Range(0f, Mathf.PI * 2);
+            AddSpark(SlotCentre, new Color(0.78f, 0.62f, 1f), UnityEngine.Random.Range(2f, 4f),
+                new Vector2(Mathf.Cos(ang), Mathf.Sin(ang) * 0.8f + 0.3f) * UnityEngine.Random.Range(40f, 130f), UnityEngine.Random.Range(0.5f, 0.9f));
         }
     }
 
@@ -1299,7 +1508,7 @@ internal static class Items_AdvancedForgeWindow
         Color a = new Color(0.72f, 0.48f, 1f);
         Color b = ok ? Color.white : new Color(1f, 0.55f, 0.4f);
         Vector2 at = SlotCentre;
-        for (int i = 0; i < 30; i++)
+        for (int i = 0; i < 12; i++)
         {
             float ang = UnityEngine.Random.Range(0f, Mathf.PI * 2);
             float speed = UnityEngine.Random.Range(140f, 520f);
@@ -1363,7 +1572,12 @@ internal static class Items_AdvancedForgeWindow
         orbFx = null;
         orbFxImage = null;
         vfxImage = null;
+        vfxExtra = null;
+        backGlow = null;
+        bloom = null;
+        ringFx = null;
         flash = null;
+        motes.Clear();
         if (slotRect != null)
         {
             slotRect.anchoredPosition = shakeBase;
