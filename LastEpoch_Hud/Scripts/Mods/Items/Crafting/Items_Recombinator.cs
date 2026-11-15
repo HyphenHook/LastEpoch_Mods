@@ -85,8 +85,9 @@ internal static class Items_Recombinator
     public static Offer Describe(ItemData a, ItemData b)
     {
         var offer = new Offer { A = a, B = b };
-        offer.CapacityA = RecombinatorMath.Capacity(HasRegularSeal(a));
-        offer.CapacityB = RecombinatorMath.Capacity(HasRegularSeal(b));
+        // a fractured affix is part of its item's base: it stays, and it takes one of the item's slots
+        offer.CapacityA = RecombinatorMath.Capacity(HasRegularSeal(a)) - (Items_Fracture.FracturedOf(a) != null ? 1 : 0);
+        offer.CapacityB = RecombinatorMath.Capacity(HasRegularSeal(b)) - (Items_Fracture.FracturedOf(b) != null ? 1 : 0);
         List(a, b, 0, offer.AffixesA);
         List(b, a, 1, offer.AffixesB);
         offer.AnyExalted = offer.All.Any(x => x.IsExalted);
@@ -118,9 +119,9 @@ internal static class Items_Recombinator
         AffixList list = AffixList.get();
         foreach (ItemAffix x in own.affixes)
         {
-            if (x == null || x.IsSealed)
+            if (x == null || x.IsSealed || Items_Fracture.IsFractured(own, x))
             {
-                continue; // sealed and primordial affixes stay with their own base
+                continue; // sealed, primordial and fractured affixes stay with their own base
             }
             AffixList.Affix def = list?.GetAffix(x.affixId);
             bool legalOnOwn = Legal(def, own, x.affixId);
@@ -171,6 +172,15 @@ internal static class Items_Recombinator
         ItemData own = baseIndex == 0 ? offer.A : offer.B;
         int capacity = baseIndex == 0 ? offer.CapacityA : offer.CapacityB;
         var pool = offer.All.Where(x => x.LegalOn(baseIndex)).ToList();
+        ItemAffix keptFracture = Items_Fracture.FracturedOf(own); // stays on the result
+        int keptPrefixes = 0, keptSuffixes = 0;
+        if (keptFracture != null)
+        {
+            AffixList.Affix kept = AffixList.get()?.GetAffix(keptFracture.affixId);
+            keptPrefixes = kept?.type == AffixList.AffixType.PREFIX ? 1 : 0;
+            keptSuffixes = kept?.type == AffixList.AffixType.SUFFIX ? 1 : 0;
+            pool = pool.Where(x => x.AffixId != keptFracture.affixId).ToList();
+        }
 
         // The result holds the average number of affixes of the two items.
         // The average of the two items. The indeterministic mode usually lands on it and sometimes strays by one;
@@ -181,6 +191,8 @@ internal static class Items_Recombinator
         if (deterministic && selected != null && selected.Count > 0
             && RecombinatorMath.Validate(selected, capacity).Length == 0
             && selected.All(x => x.LegalOn(baseIndex))
+            && selected.Count(x => x.Placement == 1) + keptPrefixes <= AffixLimits.MaxPerSide
+            && selected.Count(x => x.Placement == 2) + keptSuffixes <= AffixLimits.MaxPerSide
             && Rng() < RecombinatorMath.SurvivalChance(selected, primordial))
         {
             chosen = selected.ToList();
@@ -193,12 +205,12 @@ internal static class Items_Recombinator
                 rest,
                 Math.Min(Math.Max(0, count - chosen.Count), capacity - chosen.Count),
                 Rng,
-                chosen.Count(x => x.Placement == 1),
-                chosen.Count(x => x.Placement == 2)));
+                chosen.Count(x => x.Placement == 1) + keptPrefixes,
+                chosen.Count(x => x.Placement == 2) + keptSuffixes));
         }
         else
         {
-            chosen = RecombinatorMath.Draw(pool, count, Rng);
+            chosen = RecombinatorMath.Draw(pool, count, Rng, keptPrefixes, keptSuffixes);
             note = deterministic ? "The recombination failed: the result is a random mix." : "Recombined.";
         }
 
@@ -212,7 +224,7 @@ internal static class Items_Recombinator
         var drop = new List<ItemAffix>();
         foreach (ItemAffix x in result.affixes)
         {
-            if (x != null && !x.IsSealed)
+            if (x != null && !x.IsSealed && !Items_Fracture.IsFractured(result, x))
             {
                 drop.Add(x);
             }

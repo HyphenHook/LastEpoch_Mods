@@ -84,6 +84,10 @@ internal static class Items_MemoryReflector
                 return "Unique and set items cannot be reflected.";
             }
         }
+        if (!Ordinary(b).Any(x => !Items_Fracture.IsFractured(b, x)))
+        {
+            return "Item B has no affix that can be reflected.";
+        }
         if (IsLegendary(a) || IsLegendary(b))
         {
             if (!(IsLegendary(a) && IsLegendary(b)) || a.uniqueID != b.uniqueID)
@@ -128,7 +132,11 @@ internal static class Items_MemoryReflector
                 Tier = x.affixTier + 1,
                 Placement = def == null ? 0 : def.type == AffixList.AffixType.PREFIX ? 1 : def.type == AffixList.AffixType.SUFFIX ? 2 : 0,
             };
-            if (ownIds.Contains(x.affixId))
+            if (Items_Fracture.IsFractured(b, x))
+            {
+                candidate.Why = "Fractured: part of the item";
+            }
+            else if (ownIds.Contains(x.affixId))
             {
                 candidate.Why = "Item A already has it";
             }

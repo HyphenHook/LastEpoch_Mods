@@ -71,6 +71,24 @@ internal static class Items_Fracture
         return -1;
     }
 
+    /// <summary>The item's fractured affix, or null.</summary>
+    public static ItemAffix FracturedOf(ItemData item)
+    {
+        int id = FracturedAffix(item);
+        if (id < 0)
+        {
+            return null;
+        }
+        foreach (ItemAffix a in item.affixes.ToArray())
+        {
+            if (a != null && a.affixId == id)
+            {
+                return a;
+            }
+        }
+        return null;
+    }
+
     public static bool IsFractured(ItemData item, ItemAffix affix) =>
         affix != null && FracturedAffix(item) == affix.affixId;
 
