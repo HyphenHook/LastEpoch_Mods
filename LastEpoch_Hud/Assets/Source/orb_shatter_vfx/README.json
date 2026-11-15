@@ -1,0 +1,21 @@
+{
+  "frame_width": 256,
+  "frame_height": 256,
+  "columns": 8,
+  "rows": 4,
+  "total_frames": 32,
+  "phase_order": [
+    "charge",
+    "shatter",
+    "swirl",
+    "absorb"
+  ],
+  "suggested_frame_ms": [
+    75,
+    65,
+    75,
+    70
+  ],
+  "playback": "left to right, then top to bottom",
+  "alpha": "transparent PNG; purple particles with black matte removed. For best results use additive or screen blending for VFX."
+}

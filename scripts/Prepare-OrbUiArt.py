@@ -1,6 +1,6 @@
 """Prepares the supplied frame artwork for the Advanced Forge.
 
-    python scripts/Prepare-OrbUiArt.py [folder with the supplied PNGs]
+    python scripts/Prepare-OrbUiArt.py [folder with the supplied PNGs; default LastEpoch_Hud/Assets/Source]
 
 Crops each image to what is drawn, squares the three orb slot states to the same size, shrinks everything to what the
 game needs, and makes a grey copy of the orb and a purple glow. The results land in LastEpoch_Hud/Assets/Generated.
@@ -10,7 +10,7 @@ import sys
 import numpy as np
 from PIL import Image
 
-SRC = sys.argv[1] if len(sys.argv) > 1 else os.path.expanduser('~/Downloads')
+SRC = sys.argv[1] if len(sys.argv) > 1 else os.path.join(os.path.dirname(__file__), '..', 'LastEpoch_Hud', 'Assets', 'Source')
 OUT = os.path.join(os.path.dirname(__file__), '..', 'LastEpoch_Hud', 'Assets', 'Generated')
 os.makedirs(OUT, exist_ok=True)
 

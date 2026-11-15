@@ -1,6 +1,6 @@
 """Packs the supplied orb shatter frames into one atlas for the Advanced Forge.
 
-    python scripts/Build-OrbVfxAtlas.py <folder with charge, shatter, swirl and absorb sub-folders>
+    python scripts/Build-OrbVfxAtlas.py [folder with charge, shatter, swirl and absorb sub-folders; default LastEpoch_Hud/Assets/Source/orb_shatter_vfx]
 
 Eight columns, one row per phase: charge, shatter, swirl, absorb. 256 by 256 each.
 """
@@ -8,7 +8,7 @@ import os
 import sys
 from PIL import Image
 
-SRC = sys.argv[1]
+SRC = sys.argv[1] if len(sys.argv) > 1 else os.path.join(os.path.dirname(__file__), '..', 'LastEpoch_Hud', 'Assets', 'Source', 'orb_shatter_vfx')
 OUT = os.path.join(os.path.dirname(__file__), '..', 'LastEpoch_Hud', 'Assets', 'Generated')
 os.makedirs(OUT, exist_ok=True)
 
