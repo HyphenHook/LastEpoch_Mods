@@ -36,10 +36,10 @@ def square(im, side):
 for state in ('empty', 'hover', 'filled'):
     square(crop(load('orb_slot_%s.png' % state)), 256).save(os.path.join(OUT, 'orb_slot_%s.png' % state))
 
-# The slot frame is cut down to its border: the dark panel with a slim rim round it, and not the long spikes. The panel
-# is 580 by 990 in the supplied image; it is drawn at 140 by 196, the size of an item's box, with the rim just showing.
-frame = load('Ornate Violet Crystal Slot Frame.png').crop((190, 190, 890, 1290))
-frame = frame.resize((338, 436), Image.LANCZOS)
+# the whole slot frame, as supplied
+frame = load('Ornate Violet Crystal Slot Frame.png')
+frame = frame.crop(frame.getchannel('A').getbbox())  # the faint tips of the spikes count here
+frame = frame.resize((int(frame.width * 560 / frame.height), 560), Image.LANCZOS)
 frame.save(os.path.join(OUT, 'forge_slot_frame.png'))
 button = crop(load('Ornate Violet Crystal Button Frame.png'))
 button = button.resize((600, int(button.height * 600 / button.width)), Image.LANCZOS)

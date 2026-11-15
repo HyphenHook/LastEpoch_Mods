@@ -26,8 +26,9 @@ internal static class Items_AdvancedForgeWindow
     private const string RootName = "AdvancedForgeWindow";
 
     private const float Left = 48, WinW = 670, OrbSize = 92;
-    private const float FrameW = 169, FrameH = 218; // the ornate slot frame
-    private const float ItemW = 140, ItemH = 196; // what the frame leaves for the item
+    private const float FrameW = 190, FrameH = 256; // the whole ornate slot frame
+    private const float ItemW = 102, ItemH = 175; // the dark panel inside it, which is the item's box
+    private const float ItemCentreFromTop = 0.5f; // the panel's middle, as a share of the frame's height
     private const float ForgeW = 210, ForgeH = 70; // the Forge button
     private const float OrbY = 100, SlotY = 206;
     private static float CenterX => Left + WinW / 2;
@@ -339,6 +340,7 @@ internal static class Items_AdvancedForgeWindow
             t.font = font;
         }
         // all text of the window is in capitals, in the game's own font
+        t.enableAutoSizing = false; // the size given is the size shown
         t.fontStyle = FontStyles.UpperCase;
         t.text = text;
         t.fontSize = size;
@@ -497,7 +499,7 @@ internal static class Items_AdvancedForgeWindow
         holder.transform.SetParent(frame.transform, false);
         hr.anchorMin = hr.anchorMax = new Vector2(0.5f, 0.5f);
         hr.pivot = new Vector2(0.5f, 0.5f);
-        hr.anchoredPosition = Vector2.zero;
+        hr.anchoredPosition = new Vector2(0, FrameH * (0.5f - ItemCentreFromTop));
         hr.sizeDelta = new Vector2(ItemW, ItemH);
         itemRect = hr;
         if (data != null)
@@ -518,7 +520,7 @@ internal static class Items_AdvancedForgeWindow
                     content.sprite = shown.Content;
                     content.preserveAspect = true;
                     content.raycastTarget = false;
-                    Stretch(content.rectTransform, 14);
+                    Stretch(content.rectTransform, 10);
                 }
             }
         }
@@ -645,7 +647,7 @@ internal static class Items_AdvancedForgeWindow
 
             // the count sits at the bottom right of the orb itself (the orb fills the middle 56% of the slot), a little way off it
             float orbRight = OrbSize / 2 + OrbSize * 0.28f, orbBottom = OrbSize / 2 + OrbSize * 0.28f;
-            GameObject count = Label(have.ToString("N0"), orbRight + 2 - 28, orbBottom + 1 - 13, 28, 13, 8, have > 0 ? Color.white : Dim, TextAlignmentOptions.BottomRight, frame.transform);
+            GameObject count = Label(have.ToString("N0"), orbRight + 2 - 30, orbBottom + 1 - 14, 30, 14, 10, have > 0 ? Color.white : Dim, TextAlignmentOptions.BottomRight, frame.transform);
             TMP_FontAsset countFont = CountFont();
             if (countFont != null)
             {
@@ -1124,8 +1126,8 @@ internal static class Items_AdvancedForgeWindow
 
     private static readonly List<Spark> sparks = new();
 
-    private static Vector2 SlotCentre => new(CenterX, -(SlotY + FrameH / 2));
-    private static Vector2 HoverPoint => new(CenterX, -(SlotY + FrameH * 0.34f));
+    private static Vector2 SlotCentre => new(CenterX, -(SlotY + FrameH * ItemCentreFromTop));
+    private static Vector2 HoverPoint => SlotCentre;
 
     private static GameObject Effect(string name)
     {
@@ -1183,7 +1185,7 @@ internal static class Items_AdvancedForgeWindow
 
         GameObject f = Effect("Flash");
         RectTransform fr = f.GetComponent<RectTransform>();
-        fr.anchoredPosition = new Vector2(CenterX - ItemW / 2, -(SlotY + (FrameH - ItemH) / 2));
+        fr.anchoredPosition = new Vector2(CenterX - ItemW / 2, SlotCentre.y + ItemH / 2);
         fr.sizeDelta = new Vector2(ItemW, ItemH);
         flash = R.MakeImage(f.transform, "F", new Color(0.78f, 0.55f, 1f, 0f));
         flash.raycastTarget = false;
