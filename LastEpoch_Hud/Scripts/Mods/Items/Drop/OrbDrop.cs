@@ -40,6 +40,33 @@ internal static class OrbDrop
         return tooltipCarrier;
     }
 
+    private static bool _carrierLogged;
+
+    /// <summary>
+    /// The rune the orb stands in for. The ground beam, colour and sound come from it, so it is one of the golden runes:
+    /// Ascendance, or failing that Creation.
+    /// </summary>
+    private static ushort CarrierSubtype(ItemList.BaseNonEquipmentItem runes)
+    {
+        foreach (string wanted in new[] { "Ascendance", "Creation" })
+        {
+            for (int i = 0; i < runes.subItems.Count; i++)
+            {
+                string name = Refs_Manager.item_list.GetItemName(RuneType, runes.subItems[i].subTypeID);
+                if (name != null && name.IndexOf(wanted, StringComparison.OrdinalIgnoreCase) >= 0)
+                {
+                    if (!_carrierLogged)
+                    {
+                        _carrierLogged = true;
+                        Main.logger_instance?.Msg("Encapsulation Orb: dropping as " + name);
+                    }
+                    return (ushort)runes.subItems[i].subTypeID;
+                }
+            }
+        }
+        return (ushort)runes.subItems[0].subTypeID;
+    }
+
     private static ItemData Carrier()
     {
         ItemList.BaseNonEquipmentItem runes = null;
@@ -60,7 +87,7 @@ internal static class OrbDrop
             LvlReq = 0,
             classReq = ItemList.ClassRequirement.Any,
             itemType = RuneType,
-            subType = (ushort)runes.subItems[0].subTypeID,
+            subType = CarrierSubtype(runes),
             rarity = 0,
             sockets = 0,
             uniqueID = 0,
