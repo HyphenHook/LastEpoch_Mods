@@ -643,7 +643,9 @@ internal static class Items_AdvancedForgeWindow
             ar.anchoredPosition = Vector2.zero;
             ar.sizeDelta = new Vector2(OrbSize * 0.56f, OrbSize * 0.56f);
 
-            GameObject count = Label(have.ToString("N0"), OrbSize - 40, OrbSize - 21, 32, 14, 10, have > 0 ? Color.white : Dim, TextAlignmentOptions.BottomRight, frame.transform);
+            // the count sits at the bottom right of the orb itself (the orb fills the middle 56% of the slot), a little way off it
+            float orbRight = OrbSize / 2 + OrbSize * 0.28f, orbBottom = OrbSize / 2 + OrbSize * 0.28f;
+            GameObject count = Label(have.ToString("N0"), orbRight + 2 - 28, orbBottom + 1 - 13, 28, 13, 8, have > 0 ? Color.white : Dim, TextAlignmentOptions.BottomRight, frame.transform);
             TMP_FontAsset countFont = CountFont();
             if (countFont != null)
             {
