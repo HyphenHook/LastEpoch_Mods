@@ -28,6 +28,18 @@ internal static class OrbDrop
 
     public static bool IsOrb(ItemData item) => !item.IsNullOrDestroyed() && item.individualID == Marker;
 
+    private static ItemData tooltipCarrier;
+
+    /// <summary>An orb-marked item for tooltips, so the game's own tooltip (rewritten for orbs) can show it anywhere.</summary>
+    internal static ItemData TooltipCarrier()
+    {
+        if (tooltipCarrier.IsNullOrDestroyed())
+        {
+            tooltipCarrier = Carrier();
+        }
+        return tooltipCarrier;
+    }
+
     private static ItemData Carrier()
     {
         ItemList.BaseNonEquipmentItem runes = null;

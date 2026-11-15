@@ -792,10 +792,8 @@ internal static class Items_AdvancedForgeWindow
 
     // ---------------------------------------------------------------- hover: the orbs' own tooltip and the item's
 
-    private static readonly List<GameObject> tip = new();
-    private static int hoveredOrb = -1;
-    private static bool hoveredItem;
-    private static RectTransform tipRect;
+    private static int hoveredNow = -1; // an orb's index, -2 for the item, -1 for nothing
+    private static bool tooltipOpen;
 
     private static UnityEngine.Camera PointerCamera()
     {
@@ -805,19 +803,10 @@ internal static class Items_AdvancedForgeWindow
 
     private static void CloseTooltips()
     {
-        foreach (GameObject go in tip)
+        hoveredNow = -1;
+        if (tooltipOpen)
         {
-            if (go != null)
-            {
-                Object.Destroy(go);
-            }
-        }
-        tip.Clear();
-        tipRect = null;
-        hoveredOrb = -1;
-        if (hoveredItem)
-        {
-            hoveredItem = false;
+            tooltipOpen = false;
             try
             {
                 TooltipItemManager.ForceClose();
@@ -828,87 +817,60 @@ internal static class Items_AdvancedForgeWindow
         }
     }
 
+    /// <summary>Opens the game's own item tooltip for the item, beside the rectangle.</summary>
+    private static void OpenGameTooltip(ItemData data, RectTransform at)
+    {
+        TooltipItemManager manager = Object.FindObjectOfType<TooltipItemManager>();
+        ItemDataUnpacked unpacked = data?.TryCast<ItemDataUnpacked>();
+        if (manager != null && unpacked != null)
+        {
+            manager.OpenTooltip(unpacked, TooltipItemManager.SlotType.CRAFTING, Vector2.zero, at.position, at.gameObject, at.rect.size);
+            tooltipOpen = true;
+        }
+    }
+
     private static void TickHover()
     {
         Vector2 mouse = Input.mousePosition;
         UnityEngine.Camera cam = PointerCamera();
-        int orb = -1;
+        int target = -1;
         for (int i = 0; i < orbRects.Count; i++)
         {
             if (orbRects[i].Rect != null && RectTransformUtility.RectangleContainsScreenPoint(orbRects[i].Rect, mouse, cam))
             {
-                orb = i;
+                target = i;
                 break;
             }
         }
-        bool overItem = !animating && item != null && slotRect != null && RectTransformUtility.RectangleContainsScreenPoint(slotRect, mouse, cam);
-        if (orb != hoveredOrb)
+        if (target < 0 && !animating && item != null && slotRect != null && RectTransformUtility.RectangleContainsScreenPoint(slotRect, mouse, cam))
         {
-            foreach (GameObject go in tip)
-            {
-                if (go != null)
-                {
-                    Object.Destroy(go);
-                }
-            }
-            tip.Clear();
-            tipRect = null;
-            hoveredOrb = orb;
-            if (orb >= 0)
-            {
-                BuildOrbTooltip(orbRects[orb].Material);
-            }
+            target = -2;
         }
-        if (tipRect != null)
-        {
-            PlaceTooltip(mouse, cam);
-        }
-        if (overItem != hoveredItem)
-        {
-            hoveredItem = overItem;
-            try
-            {
-                if (overItem)
-                {
-                    TooltipItemManager manager = Object.FindObjectOfType<TooltipItemManager>();
-                    ItemDataUnpacked data = item.TryCast<ItemDataUnpacked>();
-                    if (manager != null && data != null)
-                    {
-                        manager.OpenTooltip(data, TooltipItemManager.SlotType.CRAFTING, Vector2.zero, slotRect.position, slotRect.gameObject, slotRect.rect.size);
-                    }
-                }
-                else
-                {
-                    TooltipItemManager.ForceClose();
-                }
-            }
-            catch (Exception ex)
-            {
-                Main.logger_instance?.Warning("Advanced Forge tooltip failed: " + ex.Message);
-            }
-        }
-    }
-
-    private static void BuildOrbTooltip(AdvancedMaterial m)
-    {
-        tipRect = OrbTooltipPlate.Build(Content, bodyFont ?? headFont, m);
-        tip.Add(tipRect.gameObject);
-    }
-
-    private static void PlaceTooltip(Vector2 mouse, UnityEngine.Camera cam)
-    {
-        RectTransform content = Content.GetComponent<RectTransform>();
-        if (!RectTransformUtility.ScreenPointToLocalPointInRectangle(content, mouse, cam, out Vector2 local))
+        if (target == hoveredNow)
         {
             return;
         }
-        Rect rect = content.rect;
-        float x = local.x - rect.xMin + 22;
-        float y = local.y - rect.yMax - 18;
-        // keep it inside the window
-        x = Mathf.Min(x, rect.width - tipRect.sizeDelta.x - 8);
-        y = Mathf.Max(y, -(rect.height - 8));
-        tipRect.anchoredPosition = new Vector2(Mathf.Max(8, x), y);
+        if (tooltipOpen)
+        {
+            CloseTooltips();
+        }
+        hoveredNow = target;
+        try
+        {
+            if (target >= 0)
+            {
+                // an orb is shown with the game's own tooltip, through the item it stands in for on the ground
+                OpenGameTooltip(Drop.OrbDrop.TooltipCarrier(), orbRects[target].Rect);
+            }
+            else if (target == -2)
+            {
+                OpenGameTooltip(item, slotRect);
+            }
+        }
+        catch (Exception ex)
+        {
+            Main.logger_instance?.Warning("Advanced Forge tooltip failed: " + ex.Message);
+        }
     }
 
     // ---------------------------------------------------------------- the hammer
