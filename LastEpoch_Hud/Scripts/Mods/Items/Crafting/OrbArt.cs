@@ -40,6 +40,38 @@ internal static class OrbArt
         return sprite;
     }
 
+    private static readonly Dictionary<string, Sprite[]> Sheets = new();
+
+    /// <summary>
+    /// A sheet of equal frames as sprites, left to right and then top to bottom (the first frame is the top left).
+    /// </summary>
+    public static Sprite[] Sheet(string name, int columns, int rows)
+    {
+        if (Sheets.TryGetValue(name, out Sprite[] cached) && cached.Length > 0 && cached[0] != null)
+        {
+            return cached;
+        }
+        var frames = new Sprite[columns * rows];
+        Sprite whole = Load(name);
+        if (whole != null)
+        {
+            Texture2D texture = whole.texture;
+            float w = texture.width / (float)columns, h = texture.height / (float)rows;
+            for (int row = 0; row < rows; row++)
+            {
+                for (int col = 0; col < columns; col++)
+                {
+                    var rect = new Rect(col * w, texture.height - (row + 1) * h, w, h);
+                    Sprite frame = Sprite.Create(texture, rect, new Vector2(0.5f, 0.5f), 100f);
+                    frame.hideFlags = HideFlags.HideAndDontSave;
+                    frames[row * columns + col] = frame;
+                }
+            }
+        }
+        Sheets[name] = frames;
+        return frames;
+    }
+
     private static Sprite Read(string name)
     {
         try

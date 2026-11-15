@@ -790,7 +790,7 @@ internal static class Items_AdvancedForgeWindow
             dirty = true;
             return;
         }
-        StartHammer(selectedKey);
+        StartForgeFx(selectedKey);
     }
 
     // ---------------------------------------------------------------- the window
@@ -1087,17 +1087,31 @@ internal static class Items_AdvancedForgeWindow
         PulseOrbs();
     }
 
-    // ---------------------------------------------------------------- the hammer
+    // ---------------------------------------------------------------- the forging effect
 
     private static readonly List<GameObject> effects = new();
     private static bool animating;
     private static float animStart;
     private static string pendingKey;
     private static bool applied;
-    private static GameObject hammer;
-    private static Image hammerHead, flash;
-    private static CanvasGroup hammerGroup;
+    private static Image flash;
     private static Vector2 shakeBase;
+
+    // the orb floats down onto the item and charges; it shatters; the shards spiral into the item; the item takes them in
+    private const float FloatEnd = 0.50f, ChargeAt = 0.30f, ShatterAt = 0.90f, SwirlAt = 1.42f, AbsorbAt = 2.02f;
+    private const float ImpactAt = 2.30f, EndAt = 2.80f;
+    private static readonly string[] PhaseName = { "charge", "shatter", "swirl", "absorb" };
+    private static readonly float[] PhaseStart = { ChargeAt, ShatterAt, SwirlAt, AbsorbAt };
+    private static readonly float[] FrameSeconds = { 0.075f, 0.065f, 0.075f, 0.070f };
+    private static readonly float[] PhaseSize = { 230f, 270f, 250f, 260f };
+
+    private static GameObject orbFx;
+    private static Image orbFxImage;
+    private static RectTransform orbFxRect;
+    private static Image vfxImage;
+    private static RectTransform vfxRect;
+    private static Vector2 orbStart;
+    private static Sprite[] vfxSheet;
 
     private sealed class Spark
     {
@@ -1111,7 +1125,7 @@ internal static class Items_AdvancedForgeWindow
     private static readonly List<Spark> sparks = new();
 
     private static Vector2 SlotCentre => new(CenterX, -(SlotY + FrameH / 2));
-    private const float StrikeAngle = 38f, RaisedAngle = -34f, WindupAngle = -58f;
+    private static Vector2 HoverPoint => new(CenterX, -(SlotY + FrameH * 0.34f));
 
     private static GameObject Effect(string name)
     {
@@ -1126,19 +1140,21 @@ internal static class Items_AdvancedForgeWindow
         return go;
     }
 
-    private static Image Piece(Transform parent, string name, Color colour, float w, float h, Vector2 pos, Vector2 pivot)
+    private static Image CentredImage(string name, Sprite sprite, float size, out RectTransform rect)
     {
-        Image img = R.MakeImage(parent, name, colour);
+        GameObject go = Effect(name);
+        rect = go.GetComponent<RectTransform>();
+        rect.pivot = new Vector2(0.5f, 0.5f);
+        rect.sizeDelta = new Vector2(size, size);
+        Image img = R.MakeImage(go.transform, "Image", Color.white);
+        img.sprite = sprite;
+        img.preserveAspect = true;
         img.raycastTarget = false;
-        RectTransform r = img.rectTransform;
-        r.anchorMin = r.anchorMax = new Vector2(0.5f, 0);
-        r.pivot = pivot;
-        r.sizeDelta = new Vector2(w, h);
-        r.anchoredPosition = pos;
+        Stretch(img.rectTransform, 0);
         return img;
     }
 
-    private static void StartHammer(string key)
+    private static void StartForgeFx(string key)
     {
         animating = true;
         applied = false;
@@ -1146,48 +1162,30 @@ internal static class Items_AdvancedForgeWindow
         animStart = Time.unscaledTime;
         status = "";
         CloseTooltips();
+        vfxSheet ??= OrbArt.Sheet("orb_vfx_atlas", 8, 4);
 
-        // the hammer: a worn wooden haft bound in iron, with a heavy dark head. Its grip is where it turns.
-        hammer = Effect("Hammer");
-        hammerGroup = hammer.AddComponent<CanvasGroup>();
-        hammerGroup.blocksRaycasts = false;
-        RectTransform hr = hammer.GetComponent<RectTransform>();
-        hr.pivot = new Vector2(0.5f, 0);
-        hr.sizeDelta = new Vector2(0, 0);
-        Vector2 grip = SlotCentre + new Vector2(112, -138);
-        hr.anchoredPosition = grip;
-        hr.localRotation = Quaternion.Euler(0, 0, RaisedAngle);
-        Transform t = hammer.transform;
-        Piece(t, "HaftShadow", new Color(0, 0, 0, 0.5f), 20, 156, new Vector2(3, -3), new Vector2(0.5f, 0));
-        Piece(t, "Haft", new Color(0.24f, 0.15f, 0.08f), 14, 152, Vector2.zero, new Vector2(0.5f, 0));
-        Piece(t, "HaftLight", new Color(0.4f, 0.27f, 0.14f), 4, 146, new Vector2(-3, 2), new Vector2(0.5f, 0));
-        for (int i = 0; i < 4; i++)
+        // where the orb is lifted from: its own slot
+        orbStart = HoverPoint + new Vector2(0, 160);
+        foreach (OrbView v in orbViews)
         {
-            Piece(t, "Wrap" + i, new Color(0.08f, 0.07f, 0.06f), 17, 5, new Vector2(0, 10 + i * 9), new Vector2(0.5f, 0));
+            if (v.Material.Key == key && v.Rect != null)
+            {
+                orbStart = v.Rect.anchoredPosition + new Vector2(OrbSize / 2, -OrbSize / 2);
+            }
         }
-        Piece(t, "Pommel", new Color(0.13f, 0.12f, 0.11f), 22, 10, new Vector2(0, -2), new Vector2(0.5f, 0));
-        for (int i = 0; i < 2; i++)
-        {
-            Piece(t, "Band" + i, new Color(0.17f, 0.16f, 0.15f), 19, 7, new Vector2(0, 118 + i * 12), new Vector2(0.5f, 0));
-        }
-        // head
-        Piece(t, "HeadShadow", new Color(0, 0, 0, 0.45f), 98, 52, new Vector2(4, 150), new Vector2(0.5f, 0));
-        hammerHead = Piece(t, "Head", new Color(0.2f, 0.2f, 0.22f), 94, 48, new Vector2(0, 152), new Vector2(0.5f, 0));
-        Piece(t, "HeadTop", new Color(0.36f, 0.37f, 0.4f), 90, 7, new Vector2(0, 193), new Vector2(0.5f, 0));
-        Piece(t, "HeadEdgeL", new Color(0.1f, 0.1f, 0.11f), 14, 48, new Vector2(-40, 152), new Vector2(0.5f, 0));
-        Piece(t, "HeadEdgeR", new Color(0.1f, 0.1f, 0.11f), 14, 48, new Vector2(40, 152), new Vector2(0.5f, 0));
-        Piece(t, "HeadBottom", new Color(0.07f, 0.07f, 0.08f), 94, 6, new Vector2(0, 152), new Vector2(0.5f, 0));
         AdvancedMaterial m = AdvancedMaterials.All.Find(x => x.Key == key);
-        Color glow = m != null ? m.Glow : Color.white;
-        Image rune = Piece(t, "Rune", glow, 12, 12, new Vector2(0, 166), new Vector2(0.5f, 0.5f));
-        rune.rectTransform.localRotation = Quaternion.Euler(0, 0, 45);
-        rune.color = new Color(glow.r, glow.g, glow.b, 0.9f);
+        orbFxImage = CentredImage("FloatingOrb", OrbArt.Get(key, m.Tint, m.Glow), 104f, out orbFxRect);
+        orbFxRect.anchoredPosition = orbStart;
+        orbFx = orbFxRect.gameObject;
+
+        vfxImage = CentredImage("OrbVfx", null, PhaseSize[0], out vfxRect);
+        vfxImage.enabled = false;
 
         GameObject f = Effect("Flash");
         RectTransform fr = f.GetComponent<RectTransform>();
         fr.anchoredPosition = new Vector2(CenterX - ItemW / 2, -(SlotY + (FrameH - ItemH) / 2));
         fr.sizeDelta = new Vector2(ItemW, ItemH);
-        flash = R.MakeImage(f.transform, "F", new Color(glow.r, glow.g, glow.b, 0f));
+        flash = R.MakeImage(f.transform, "F", new Color(0.78f, 0.55f, 1f, 0f));
         flash.raycastTarget = false;
         Stretch(flash.rectTransform, 0);
         shakeBase = new Vector2(CenterX - FrameW / 2, -SlotY);
@@ -1204,54 +1202,77 @@ internal static class Items_AdvancedForgeWindow
             return;
         }
         float t = now - animStart;
-        float angle;
-        const float windupEnd = 0.30f, impact = 0.50f, rebound = 0.64f, lift = 1.05f;
-        if (t < windupEnd)
+
+        // the orb: it rises out of its slot onto the item, bobbing there until it breaks
+        if (orbFx != null)
         {
-            angle = Mathf.Lerp(RaisedAngle, WindupAngle, Ease(t / windupEnd));
+            float u = Mathf.Clamp01(t / FloatEnd);
+            Vector2 pos = Vector2.Lerp(orbStart, HoverPoint, Ease(u));
+            if (t >= FloatEnd)
+            {
+                pos.y += Mathf.Sin((t - FloatEnd) * 5.5f) * 3.5f;
+            }
+            orbFxRect.anchoredPosition = pos;
+            float charge = Mathf.Clamp01((t - ChargeAt) / (ShatterAt - ChargeAt));
+            orbFxRect.localScale = Vector3.one * (0.7f + 0.3f * Ease(u) + 0.1f * charge);
+            float fade = t < ShatterAt ? 1f : Mathf.Clamp01(1f - (t - ShatterAt) / 0.10f);
+            orbFxImage.color = new Color(1f, 1f, 1f, fade);
+            orbFx.SetActive(fade > 0f);
         }
-        else if (t < impact)
+
+        // the effect frames: charge and shatter on the orb, the swirl travelling to the item, the absorb on the item
+        int phase = -1;
+        for (int i = PhaseStart.Length - 1; i >= 0; i--)
         {
-            float u = (t - windupEnd) / (impact - windupEnd);
-            angle = Mathf.Lerp(WindupAngle, StrikeAngle, u * u); // it falls, faster and faster
+            if (t >= PhaseStart[i])
+            {
+                phase = i;
+                break;
+            }
         }
-        else if (t < rebound)
+        if (phase >= 0 && vfxSheet != null && vfxSheet.Length >= 32)
         {
-            angle = Mathf.Lerp(StrikeAngle, StrikeAngle - 10f, Ease((t - impact) / (rebound - impact)));
+            float into = t - PhaseStart[phase];
+            int frame = Mathf.Min(7, (int)(into / FrameSeconds[phase]));
+            vfxImage.enabled = into < FrameSeconds[phase] * 8f + 0.05f;
+            vfxImage.sprite = vfxSheet[phase * 8 + frame];
+            Vector2 at = HoverPoint;
+            if (phase == 2)
+            {
+                at = Vector2.Lerp(HoverPoint, SlotCentre, Ease(Mathf.Clamp01(into / (FrameSeconds[2] * 8f))));
+            }
+            else if (phase == 3)
+            {
+                at = SlotCentre;
+            }
+            vfxRect.anchoredPosition = at;
+            float size = PhaseSize[phase] * (phase == 2 ? Mathf.Lerp(1.1f, 0.85f, into / (FrameSeconds[2] * 8f)) : 1f);
+            vfxRect.sizeDelta = new Vector2(size, size);
         }
-        else
-        {
-            angle = Mathf.Lerp(StrikeAngle - 10f, RaisedAngle, Ease(Mathf.Clamp01((t - rebound) / (lift - rebound))));
-        }
-        if (hammer != null)
-        {
-            hammer.GetComponent<RectTransform>().localRotation = Quaternion.Euler(0, 0, angle);
-            hammerGroup.alpha = t < lift - 0.2f ? 1f : Mathf.Clamp01((lift - t) / 0.2f);
-        }
-        if (!applied && t >= impact)
+
+        if (!applied && t >= ImpactAt)
         {
             applied = true;
             Impact(now);
         }
-        // the item jolts, then settles
+        // the item shudders as it takes the orb in, and glows
         if (slotRect != null)
         {
-            float since = t - impact;
+            float since = t - ImpactAt;
             Vector2 shake = Vector2.zero;
             if (since >= 0 && since < 0.45f)
             {
-                float amp = 11f * (1f - since / 0.45f);
+                float amp = 5f * (1f - since / 0.45f);
                 shake = new Vector2(UnityEngine.Random.Range(-1f, 1f), UnityEngine.Random.Range(-1f, 1f)) * amp;
             }
             slotRect.anchoredPosition = shakeBase + shake;
         }
-        if (flash != null && applied)
+        if (flash != null)
         {
-            Color c = flash.color;
-            c.a = Mathf.Clamp01(0.75f * (1f - (t - impact) / 0.4f));
-            flash.color = c;
+            float glow = t < AbsorbAt ? 0f : Mathf.Clamp01((t - AbsorbAt) / 0.3f) * Mathf.Clamp01(1f - (t - ImpactAt) / 0.45f);
+            flash.color = new Color(0.78f, 0.55f, 1f, 0.5f * glow);
         }
-        if (t >= lift)
+        if (t >= EndAt)
         {
             EndAnimationNow();
             dirty = true;
@@ -1273,17 +1294,17 @@ internal static class Items_AdvancedForgeWindow
         {
             selectedKey = null; // that was the last one
         }
-        Color a = m != null ? m.Glow : Color.white;
+        Color a = new Color(0.72f, 0.48f, 1f);
         Color b = ok ? Color.white : new Color(1f, 0.55f, 0.4f);
         Vector2 at = SlotCentre;
-        for (int i = 0; i < 46; i++)
+        for (int i = 0; i < 30; i++)
         {
             float ang = UnityEngine.Random.Range(0f, Mathf.PI * 2);
             float speed = UnityEngine.Random.Range(140f, 520f);
             AddSpark(at, Color.Lerp(a, b, UnityEngine.Random.value), UnityEngine.Random.Range(3f, 7f),
                 new Vector2(Mathf.Cos(ang), Mathf.Sin(ang) * 0.8f + 0.25f) * speed, UnityEngine.Random.Range(0.35f, 0.9f));
         }
-        dirty = false; // the window is rebuilt when the hammer is done, so the item is not redrawn mid-swing
+        dirty = false; // the window is rebuilt when the effect is done, so the item is not redrawn in the middle of it
     }
 
     private static void AddSpark(Vector2 at, Color colour, float size, Vector2 vel, float life)
@@ -1337,10 +1358,10 @@ internal static class Items_AdvancedForgeWindow
         }
         effects.Clear();
         sparks.Clear();
-        hammer = null;
-        hammerHead = null;
+        orbFx = null;
+        orbFxImage = null;
+        vfxImage = null;
         flash = null;
-        hammerGroup = null;
         if (slotRect != null)
         {
             slotRect.anchoredPosition = shakeBase;
