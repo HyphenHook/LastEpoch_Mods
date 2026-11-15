@@ -502,12 +502,12 @@ internal static class Items_RecombinatorWindow
         r.sizeDelta = new Vector2(w, h);
         TextMeshProUGUI t = go.GetComponent<TextMeshProUGUI>();
         t.text = text;
-        TMP_FontAsset font = size >= 18 ? headFont : bodyFont;
+        TMP_FontAsset font = headFont;
         if (font != null)
         {
             t.font = font;
         }
-        t.fontStyle = text.Length <= 28 && !text.Contains("\n") ? FontStyles.UpperCase : FontStyles.Normal; // short labels in capitals, as the game's own
+        t.fontStyle = FontStyles.UpperCase; // all text of the windows is in capitals, in the game's own font
         t.fontSize = size;
         t.color = color;
         t.alignment = align;
@@ -2423,7 +2423,7 @@ internal static class Items_RecombinatorWindow
         name.enableAutoSizing = true; // shrinks to fit the plate rather than being cut off
         name.fontSizeMin = 8;
         name.fontSizeMax = fontSize;
-        name.fontStyle = FontStyles.Normal;
+        name.fontStyle = FontStyles.UpperCase;
         name.text = text;
         row.Name = name;
 

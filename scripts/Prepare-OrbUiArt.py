@@ -20,7 +20,9 @@ def load(name):
 
 
 def crop(im):
-    return im.crop(im.getchannel('A').getbbox())
+    # faint stray pixels would move the box, so only what is clearly drawn counts
+    ys, xs = np.where(np.array(im.getchannel('A')) > 40)
+    return im.crop((int(xs.min()), int(ys.min()), int(xs.max()) + 1, int(ys.max()) + 1))
 
 
 def square(im, side):

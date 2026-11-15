@@ -135,9 +135,10 @@ internal static class Items_FractureTooltip
         image.preserveAspect = true;
         image.raycastTarget = false;
         RectTransform r = image.rectTransform;
-        r.anchorMin = r.anchorMax = new Vector2(0, 1);
+        // in the middle of the affix's height, so a wording of two lines has it between them
+        r.anchorMin = r.anchorMax = new Vector2(0, 0.5f);
         r.pivot = new Vector2(1, 0.5f);
-        r.anchoredPosition = new Vector2(-3, -text.fontSize * 0.65f);
+        r.anchoredPosition = new Vector2(-3, 0);
         r.sizeDelta = new Vector2(text.fontSize * 0.95f, text.fontSize * 0.95f);
     }
 

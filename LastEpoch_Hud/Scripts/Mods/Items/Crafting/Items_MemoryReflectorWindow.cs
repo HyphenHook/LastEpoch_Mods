@@ -354,12 +354,12 @@ internal static class Items_MemoryReflectorWindow
         r.anchoredPosition = new Vector2(x, -y);
         r.sizeDelta = new Vector2(w, h);
         TextMeshProUGUI t = go.GetComponent<TextMeshProUGUI>();
-        TMP_FontAsset font = size >= 18 ? headFont : bodyFont;
+        TMP_FontAsset font = headFont;
         if (font != null)
         {
             t.font = font;
         }
-        t.fontStyle = text.Length <= 28 && !text.Contains("\n") ? FontStyles.UpperCase : FontStyles.Normal; // short labels in capitals, as the game's own
+        t.fontStyle = FontStyles.UpperCase; // all text of the windows is in capitals, in the game's own font
         t.text = text;
         t.fontSize = size;
         t.color = color;
@@ -904,7 +904,7 @@ internal static class Items_MemoryReflectorWindow
         }
         t.alignment = align;
         t.fontSize = size;
-        t.fontStyle = FontStyles.Normal;
+        t.fontStyle = FontStyles.UpperCase;
         t.enableWordWrapping = false;
         t.overflowMode = TextOverflowModes.Ellipsis;
         t.raycastTarget = false;

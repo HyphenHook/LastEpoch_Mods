@@ -323,7 +323,7 @@ internal static class Items_AdvancedForgeWindow
         dynamic.Clear();
     }
 
-    private static GameObject Label(string text, float x, float y, float w, float h, float size, Color color, TextAlignmentOptions align, Transform parent = null, List<GameObject> keep = null, bool caps = true)
+    private static GameObject Label(string text, float x, float y, float w, float h, float size, Color color, TextAlignmentOptions align, Transform parent = null, List<GameObject> keep = null, bool body = false)
     {
         GameObject go = Object.Instantiate(labelTemplate, parent ?? Content, false);
         R.StripGameLogic(go);
@@ -333,13 +333,13 @@ internal static class Items_AdvancedForgeWindow
         r.anchoredPosition = new Vector2(x, -y);
         r.sizeDelta = new Vector2(w, h);
         TextMeshProUGUI t = go.GetComponent<TextMeshProUGUI>();
-        TMP_FontAsset font = size >= 18 ? headFont : bodyFont;
+        TMP_FontAsset font = body ? bodyFont : headFont;
         if (font != null)
         {
             t.font = font;
         }
-        // short labels are in capitals, as the game's own are; wording and sentences are not
-        t.fontStyle = caps && text.Length <= 28 && !text.Contains("\n") ? FontStyles.UpperCase : FontStyles.Normal;
+        // all text of the window is in capitals, in the game's own font
+        t.fontStyle = FontStyles.UpperCase;
         t.text = text;
         t.fontSize = size;
         t.color = color;
@@ -587,6 +587,25 @@ internal static class Items_AdvancedForgeWindow
     private static Image forgeGlow;
     private static float forgeBlend; // 0 at rest, 1 under the pointer
 
+    private static TMP_FontAsset countFontCache;
+
+    /// <summary>The font the game draws the count of a stack of items in.</summary>
+    private static TMP_FontAsset CountFont()
+    {
+        if (countFontCache == null)
+        {
+            try
+            {
+                InventoryItemUI any = Object.FindObjectsOfType<InventoryItemUI>(true).FirstOrDefault(u => u != null && !u.quantityText.IsNullOrDestroyed());
+                countFontCache = any?.quantityText.font;
+            }
+            catch (Exception)
+            {
+            }
+        }
+        return countFontCache;
+    }
+
     private static void OrbRow()
     {
         orbViews.Clear();
@@ -612,7 +631,7 @@ internal static class Items_AdvancedForgeWindow
             RectTransform gr = glow.rectTransform;
             gr.anchorMin = gr.anchorMax = new Vector2(0.5f, 0.5f);
             gr.pivot = new Vector2(0.5f, 0.5f);
-            gr.anchoredPosition = new Vector2(0, 4);
+            gr.anchoredPosition = new Vector2(0, 5);
             gr.sizeDelta = new Vector2(OrbSize * 0.92f, OrbSize * 0.92f);
 
             Image art = R.MakeImage(frame.transform, "Art", Color.white);
@@ -621,10 +640,15 @@ internal static class Items_AdvancedForgeWindow
             RectTransform ar = art.rectTransform;
             ar.anchorMin = ar.anchorMax = new Vector2(0.5f, 0.5f);
             ar.pivot = new Vector2(0.5f, 0.5f);
-            ar.anchoredPosition = new Vector2(0, 4);
+            ar.anchoredPosition = new Vector2(0, 5);
             ar.sizeDelta = new Vector2(OrbSize * 0.56f, OrbSize * 0.56f);
 
-            Label(have.ToString("N0"), OrbSize - 46, OrbSize - 22, 38, 16, 13, have > 0 ? Color.white : Dim, TextAlignmentOptions.BottomRight, frame.transform);
+            GameObject count = Label(have.ToString("N0"), OrbSize - 40, OrbSize - 21, 32, 14, 10, have > 0 ? Color.white : Dim, TextAlignmentOptions.BottomRight, frame.transform);
+            TMP_FontAsset countFont = CountFont();
+            if (countFont != null)
+            {
+                count.GetComponent<TextMeshProUGUI>().font = countFont;
+            }
             string key = m.Key;
             Button b = frame.gameObject.AddComponent<Button>();
             b.transition = Selectable.Transition.None;
@@ -702,15 +726,11 @@ internal static class Items_AdvancedForgeWindow
         forgeImage = img;
         GameObject label = Label("Forge", 0, 0, ForgeW, ForgeH, 20, Gold, TextAlignmentOptions.Center, img.transform);
         forgeLabel = label.GetComponent<TextMeshProUGUI>();
-        // a violet light that comes up behind the text when the pointer is on the button
-        Image glow = R.MakeImage(img.transform, "HoverGlow", new Color(1f, 1f, 1f, 0f));
-        glow.sprite = OrbArt.Named("glow_violet");
+        // a violet wash over the frame, which comes up when the pointer is on the button
+        Image glow = R.MakeImage(img.transform, "HoverWash", new Color(0.78f, 0.55f, 1f, 0f));
+        glow.sprite = OrbArt.Named("forge_button_frame");
         glow.raycastTarget = false;
-        RectTransform gr = glow.rectTransform;
-        gr.anchorMin = gr.anchorMax = new Vector2(0.5f, 0.5f);
-        gr.pivot = new Vector2(0.5f, 0.5f);
-        gr.anchoredPosition = Vector2.zero;
-        gr.sizeDelta = new Vector2(ForgeW * 0.78f, ForgeH * 1.05f);
+        Stretch(glow.rectTransform, 0);
         glow.transform.SetSiblingIndex(0);
         forgeGlow = glow;
         forgeBlend = 0f;
@@ -735,10 +755,9 @@ internal static class Items_AdvancedForgeWindow
         forgeBlend = Mathf.MoveTowards(forgeBlend, target, Time.unscaledDeltaTime * 7f);
         float dim = ready ? 1f : 0.5f;
         forgeImage.color = new Color(dim, dim, dim, ready ? 1f : 0.9f);
-        forgeImage.rectTransform.localScale = Vector3.one * (1f + 0.05f * forgeBlend);
         if (forgeGlow != null)
         {
-            forgeGlow.color = new Color(1f, 1f, 1f, 0.85f * forgeBlend);
+            forgeGlow.color = new Color(0.78f, 0.55f, 1f, 0.34f * forgeBlend);
         }
         if (forgeLabel != null)
         {
@@ -807,7 +826,7 @@ internal static class Items_AdvancedForgeWindow
         }
         if (note.Length > 0)
         {
-            Label(note, CenterX - 260, statusY, 520, 40, 14, noteColour, TextAlignmentOptions.Top, caps: false);
+            Label(note, CenterX - 260, statusY, 520, 40, 14, noteColour, TextAlignmentOptions.Top);
         }
         if (item != null)
         {
@@ -962,7 +981,7 @@ internal static class Items_AdvancedForgeWindow
         R.Part(t, "Bottom", accent * 0.45f, new Vector2(0, 0), new Vector2(1, 0), new Vector2(0.5f, 0), Vector2.zero, new Vector2(0, 1));
         Label("T" + l.Tier, pad + 4, 8, 40, 16, 12, accent, TextAlignmentOptions.Left, t);
         GameObject text = Label(l.Text, pad + 48, 8, TextW + 14, h - 12, PlateFont,
-            l.Fractured ? new Color(0.62f, 0.9f, 1f) : new Color(0.88f, 0.84f, 0.76f), TextAlignmentOptions.TopLeft, t, caps: false);
+            l.Fractured ? new Color(0.62f, 0.9f, 1f) : new Color(0.88f, 0.84f, 0.76f), TextAlignmentOptions.TopLeft, t, body: true);
         TextMeshProUGUI tmp = text.GetComponent<TextMeshProUGUI>();
         tmp.enableAutoSizing = true; // a long wording shrinks to fit the plate instead of running over it
         tmp.fontSizeMin = 8;
@@ -974,9 +993,9 @@ internal static class Items_AdvancedForgeWindow
             diamond.preserveAspect = true;
             diamond.raycastTarget = false;
             RectTransform dr = diamond.rectTransform;
-            dr.anchorMin = dr.anchorMax = new Vector2(1, 1);
-            dr.pivot = new Vector2(1, 1);
-            dr.anchoredPosition = new Vector2(-6, -6);
+            dr.anchorMin = dr.anchorMax = new Vector2(1, 0.5f);
+            dr.pivot = new Vector2(1, 0.5f);
+            dr.anchoredPosition = new Vector2(-8, 0);
             dr.sizeDelta = new Vector2(14, 14);
         }
     }
