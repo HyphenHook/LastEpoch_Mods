@@ -763,15 +763,29 @@ internal static class Items_AdvancedForgeWindow
         slotRect = null;
         itemRect = null;
         forgeImage = null;
+        forgeRect = null;
 
         OrbRow();
         SlotBox(item);
-        ForgeButton();
+        // the Forge button is there only when an orb is selected and it can be used on the item
+        bool ready = ForgeReady();
+        if (ready)
+        {
+            ForgeButton();
+        }
 
         float statusY = SlotY + FrameH + ForgeH + 8;
-        if (status.Length > 0)
+        string note = status;
+        Color noteColour = statusColour;
+        if (note.Length == 0 && !ready && selectedKey != null && item != null)
         {
-            Label(status, CenterX - 260, statusY, 520, 40, 14, statusColour, TextAlignmentOptions.Top, caps: false);
+            // an orb is selected and an item is in, but it cannot be used: say why
+            note = selectedKey == AdvancedMaterials.EncapsulationOrb ? Items_Encapsulation.WhyNot(item) : "";
+            noteColour = Bad;
+        }
+        if (note.Length > 0)
+        {
+            Label(note, CenterX - 260, statusY, 520, 40, 14, noteColour, TextAlignmentOptions.Top, caps: false);
         }
         if (item != null)
         {
