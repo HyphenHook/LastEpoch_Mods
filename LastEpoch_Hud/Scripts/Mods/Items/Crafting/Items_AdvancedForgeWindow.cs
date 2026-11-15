@@ -26,8 +26,8 @@ internal static class Items_AdvancedForgeWindow
     private const string RootName = "AdvancedForgeWindow";
 
     private const float Left = 48, WinW = 670, OrbSize = 92;
-    private const float FrameW = 168, FrameH = 224; // the ornate slot frame
-    private const float ItemW = 90, ItemH = 152; // what the frame leaves for the item
+    private const float FrameW = 169, FrameH = 218; // the ornate slot frame
+    private const float ItemW = 140, ItemH = 196; // what the frame leaves for the item
     private const float ForgeW = 210, ForgeH = 70; // the Forge button
     private const float OrbY = 100, SlotY = 206;
     private static float CenterX => Left + WinW / 2;
@@ -518,7 +518,7 @@ internal static class Items_AdvancedForgeWindow
                     content.sprite = shown.Content;
                     content.preserveAspect = true;
                     content.raycastTarget = false;
-                    Stretch(content.rectTransform, 8);
+                    Stretch(content.rectTransform, 14);
                 }
             }
         }
