@@ -21,6 +21,12 @@ internal static class ItemsDropPage
             return;
 
         var card = page.AddCard("Drop", "Drop");
+        page.AddButton(
+            card,
+            "GiveOrbs",
+            "Give 5 Encapsulation Orbs (testing)",
+            () => Scripts.Mods.Items.Crafting.AdvancedMaterials.Add(Scripts.Mods.Items.Crafting.AdvancedMaterials.EncapsulationOrb, 5)
+        );
         AddExclusiveRarity(card, "ForceUnique", "Force Unique", 0);
         AddExclusiveRarity(card, "ForceSet", "Force Set", 1);
         // The legacy rarity-9 override produces unrelated unique identities.
