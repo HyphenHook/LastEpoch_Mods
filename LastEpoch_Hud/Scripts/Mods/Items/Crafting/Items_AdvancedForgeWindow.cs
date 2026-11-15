@@ -89,6 +89,7 @@ internal static class Items_AdvancedForgeWindow
             if (IsOpen)
             {
                 TickAnimation();
+                TickAmbient();
                 TickHover();
                 TickIcon();
             }
@@ -477,6 +478,131 @@ internal static class Items_AdvancedForgeWindow
         }
     }
 
+    // ---------------------------------------------------------------- the slot while it holds an item
+
+    private sealed class Glimmer
+    {
+        public RectTransform Rect;
+        public Image Img;
+        public float Seed, Speed, Size, X0, Sway, SwaySpeed;
+    }
+
+    private static readonly List<Glimmer> glimmers = new();
+    private static Image slotGlow;
+    private static RectTransform shineRect;
+    private static Image shineImage;
+
+    /// <summary>A violet light behind the item, inside the frame. It is drawn first, so the item is in front of it.</summary>
+    private static void AmbientBelow(Transform frame)
+    {
+        slotGlow = R.MakeImage(frame, "SlotGlow", new Color(0.62f, 0.35f, 1f, 0.3f));
+        slotGlow.sprite = OrbArt.Named("glow_violet");
+        slotGlow.raycastTarget = false;
+        RectTransform r = slotGlow.rectTransform;
+        r.anchorMin = r.anchorMax = new Vector2(0.5f, 0.5f);
+        r.pivot = new Vector2(0.5f, 0.5f);
+        r.anchoredPosition = Vector2.zero;
+        r.sizeDelta = new Vector2(FrameW * 1.25f, FrameH * 1.15f);
+        if (Additive() != null)
+        {
+            slotGlow.material = additive;
+        }
+    }
+
+    /// <summary>A light that sweeps across the item now and then, and glimmers that drift up past it, in front of the item.</summary>
+    private static void AmbientAbove(Transform frame)
+    {
+        glimmers.Clear();
+        // the sweep is cut off at the item's box
+        var holder = new GameObject("ShineHolder");
+        RectTransform hr = holder.AddComponent<RectTransform>();
+        holder.transform.SetParent(frame, false);
+        hr.anchorMin = hr.anchorMax = new Vector2(0.5f, 0.5f);
+        hr.pivot = new Vector2(0.5f, 0.5f);
+        hr.anchoredPosition = new Vector2(0, FrameH * (0.5f - ItemCentreFromTop));
+        hr.sizeDelta = new Vector2(ItemW, ItemH);
+        holder.AddComponent<RectMask2D>();
+        shineImage = R.MakeImage(holder.transform, "Shine", new Color(0.9f, 0.8f, 1f, 0f));
+        shineImage.raycastTarget = false;
+        shineRect = shineImage.rectTransform;
+        shineRect.anchorMin = shineRect.anchorMax = new Vector2(0.5f, 0.5f);
+        shineRect.pivot = new Vector2(0.5f, 0.5f);
+        shineRect.sizeDelta = new Vector2(34, ItemH * 1.7f);
+        shineRect.localRotation = Quaternion.Euler(0, 0, 18f);
+        if (Additive() != null)
+        {
+            shineImage.material = additive;
+        }
+
+        // the glimmers rise and twinkle round the whole frame; where each is at any moment follows the clock, so they carry on
+        // unbroken when the window is redrawn
+        var rng = new System.Random(7);
+        for (int i = 0; i < 18; i++)
+        {
+            Image img = R.MakeImage(frame, "Glimmer", new Color(1f, 1f, 1f, 0f));
+            img.sprite = OrbArt.Named("sparkle_star");
+            img.raycastTarget = false;
+            if (Additive() != null)
+            {
+                img.material = additive;
+            }
+            RectTransform r = img.rectTransform;
+            r.anchorMin = r.anchorMax = new Vector2(0.5f, 0.5f);
+            r.pivot = new Vector2(0.5f, 0.5f);
+            float size = 9f + (float)rng.NextDouble() * 15f;
+            r.sizeDelta = new Vector2(size, size);
+            glimmers.Add(new Glimmer
+            {
+                Rect = r,
+                Img = img,
+                Seed = (float)rng.NextDouble(),
+                Speed = 0.10f + (float)rng.NextDouble() * 0.12f,
+                Size = size,
+                X0 = ((float)rng.NextDouble() - 0.5f) * (FrameW + 14f),
+                Sway = 3f + (float)rng.NextDouble() * 7f,
+                SwaySpeed = 0.8f + (float)rng.NextDouble() * 1.4f,
+            });
+        }
+    }
+
+    private static void TickAmbient()
+    {
+        float t = Time.unscaledTime;
+        if (slotGlow != null)
+        {
+            slotGlow.color = new Color(0.62f, 0.35f, 1f, 0.26f + 0.16f * Mathf.Sin(t * 2.2f));
+        }
+        foreach (Glimmer g in glimmers)
+        {
+            if (g.Rect == null)
+            {
+                continue;
+            }
+            float u = (t * g.Speed + g.Seed) % 1f;
+            float y = Mathf.Lerp(-FrameH * 0.5f - 6f, FrameH * 0.5f + 6f, u);
+            float x = g.X0 + Mathf.Sin(t * g.SwaySpeed + g.Seed * 20f) * g.Sway;
+            g.Rect.anchoredPosition = new Vector2(x, y);
+            float twinkle = 0.55f + 0.45f * Mathf.Sin(t * 5.5f + g.Seed * 40f);
+            float fade = Mathf.Pow(Mathf.Sin(u * Mathf.PI), 0.8f);
+            g.Img.color = new Color(1f, 0.92f, 1f, fade * twinkle);
+            g.Rect.localScale = Vector3.one * (0.55f + 0.65f * twinkle);
+            g.Rect.localRotation = Quaternion.Euler(0, 0, t * 20f + g.Seed * 90f);
+        }
+        if (shineRect != null)
+        {
+            float u = (t % 4.6f) / 1.2f; // it crosses in 1.2 s, every 4.6 s
+            if (u >= 1f)
+            {
+                shineImage.color = new Color(0.9f, 0.8f, 1f, 0f);
+            }
+            else
+            {
+                shineRect.anchoredPosition = new Vector2(Mathf.Lerp(-ItemW * 0.75f, ItemW * 0.75f, u), 0);
+                shineImage.color = new Color(0.9f, 0.8f, 1f, 0.30f * Mathf.Sin(u * Mathf.PI));
+            }
+        }
+    }
+
     // ---------------------------------------------------------------- the item slot
 
     private static RectTransform slotRect; // the whole ornate frame
@@ -494,6 +620,13 @@ internal static class Items_AdvancedForgeWindow
         br.sizeDelta = new Vector2(FrameW, FrameH);
         dynamic.Add(frame.gameObject);
         slotRect = br;
+        slotGlow = null;
+        shineRect = null;
+        glimmers.Clear();
+        if (data != null)
+        {
+            AmbientBelow(frame.transform);
+        }
 
         var holder = new GameObject("Item");
         RectTransform hr = holder.AddComponent<RectTransform>();
@@ -524,6 +657,10 @@ internal static class Items_AdvancedForgeWindow
                     Stretch(content.rectTransform, 10);
                 }
             }
+        }
+        if (data != null)
+        {
+            AmbientAbove(frame.transform);
         }
         Button button = frame.gameObject.AddComponent<Button>();
         button.transition = Selectable.Transition.None;

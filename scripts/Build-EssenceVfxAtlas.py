@@ -33,4 +33,22 @@ ring[..., 1] = 0.55 + 0.40 * core
 ring[..., 2] = 1.0
 ring[..., 3] = a
 Image.fromarray((np.clip(ring, 0, 1) * 255).astype(np.uint8), 'RGBA').save(os.path.join(OUT, 'ring_violet.png'))
+# a four-pointed glimmer, white in the middle and violet at the tips, for the sparkles round an item in the forge slot
+size = 96
+yy, xx = np.mgrid[0:size, 0:size].astype(float)
+x = (xx - (size - 1) / 2) / (size / 2)
+y = (yy - (size - 1) / 2) / (size / 2)
+core = np.exp(-(x * x + y * y) / 0.012)
+horizontal = np.exp(-(y / 0.045) ** 2) * np.exp(-np.abs(x) * 2.6)
+vertical = np.exp(-(x / 0.045) ** 2) * np.exp(-np.abs(y) * 2.6)
+rx, ry = (x + y) / 1.4142, (y - x) / 1.4142
+diagonal = (np.exp(-(ry / 0.05) ** 2) * np.exp(-np.abs(rx) * 4.5) + np.exp(-(rx / 0.05) ** 2) * np.exp(-np.abs(ry) * 4.5)) * 0.45
+glow = np.exp(-(x * x + y * y) / 0.10) * 0.35
+a = np.clip(core * 1.2 + horizontal + vertical + diagonal + glow, 0, 1)
+star = np.zeros((size, size, 4))
+star[..., 0] = 0.82 + 0.18 * core
+star[..., 1] = 0.66 + 0.34 * core
+star[..., 2] = 1.0
+star[..., 3] = a
+Image.fromarray((np.clip(star, 0, 1) * 255).astype(np.uint8), 'RGBA').save(os.path.join(OUT, 'sparkle_star.png'))
 print('done')
