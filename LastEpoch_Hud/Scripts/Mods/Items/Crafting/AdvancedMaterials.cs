@@ -35,8 +35,8 @@ internal static class AdvancedMaterials
             Effect = "Fractures a random affix",
             Rules = new[] { "Item needs at least four affixes", "Can only be used once on an item", "Every affix is equally likely" },
             Flavour = "What the orb holds, it keeps.",
-            Tint = new Color(0.16f, 0.5f, 0.82f),
-            Glow = new Color(0.5f, 0.88f, 1f),
+            Tint = new Color(0.9f, 0.5f, 0.15f),
+            Glow = new Color(1f, 0.7f, 0.3f),
         },
     };
 

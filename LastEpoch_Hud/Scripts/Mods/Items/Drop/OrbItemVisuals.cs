@@ -112,10 +112,10 @@ internal static class OrbItemVisuals
     private static void Rewrite(UITooltipItem ui)
     {
         AdvancedMaterial m = Material;
-        Set(ui.nameText, "<cspace=1.65><color=#8FD8FFFF>" + m.Name + "</color></cspace>");
+        Set(ui.nameText, "<cspace=1.65><color=#FFA94AFF>" + m.Name + "</color></cspace>");
         Set(ui.typeText, "Advanced Crafting Orb");
         var body = new System.Text.StringBuilder();
-        body.Append("<color=#8FD8FF>").Append(m.Effect).Append("</color>");
+        body.Append("<color=#FFB75A>").Append(m.Effect).Append("</color>");
         foreach (string rule in m.Rules)
         {
             body.Append("\n").Append("<color=#C8C0AA>").Append(rule).Append("</color>");

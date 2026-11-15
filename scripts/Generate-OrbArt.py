@@ -140,6 +140,6 @@ def diamond(size, base, bright):
     return img
 
 
-orb(256, (0.10, 0.42, 0.78), (0.45, 0.85, 1.0), 7).save(os.path.join(OUT, 'orb_encapsulation.png'))
+# orb_encapsulation.png is supplied artwork, not drawn here
 diamond(64, (0.25, 0.60, 0.95), (0.65, 0.92, 1.0)).save(os.path.join(OUT, 'diamond_fractured.png'))
 print('done', os.path.abspath(OUT))
