@@ -584,6 +584,8 @@ internal static class Items_AdvancedForgeWindow
     private static RectTransform forgeRect;
     private static Image forgeImage;
     private static TextMeshProUGUI forgeLabel;
+    private static Image forgeGlow;
+    private static float forgeBlend; // 0 at rest, 1 under the pointer
 
     private static void OrbRow()
     {
@@ -700,6 +702,18 @@ internal static class Items_AdvancedForgeWindow
         forgeImage = img;
         GameObject label = Label("Forge", 0, 0, ForgeW, ForgeH, 20, Gold, TextAlignmentOptions.Center, img.transform);
         forgeLabel = label.GetComponent<TextMeshProUGUI>();
+        // a violet light that comes up behind the text when the pointer is on the button
+        Image glow = R.MakeImage(img.transform, "HoverGlow", new Color(1f, 1f, 1f, 0f));
+        glow.sprite = OrbArt.Named("glow_violet");
+        glow.raycastTarget = false;
+        RectTransform gr = glow.rectTransform;
+        gr.anchorMin = gr.anchorMax = new Vector2(0.5f, 0.5f);
+        gr.pivot = new Vector2(0.5f, 0.5f);
+        gr.anchoredPosition = Vector2.zero;
+        gr.sizeDelta = new Vector2(ForgeW * 0.78f, ForgeH * 1.05f);
+        glow.transform.SetSiblingIndex(0);
+        forgeGlow = glow;
+        forgeBlend = 0f;
         RectTransform lr = label.GetComponent<RectTransform>();
         lr.anchorMin = Vector2.zero;
         lr.anchorMax = Vector2.one;
@@ -717,11 +731,19 @@ internal static class Items_AdvancedForgeWindow
             return;
         }
         bool ready = ForgeReady() && !animating;
-        float k = !ready ? 0.5f : hover ? 1.25f : 1f;
-        forgeImage.color = new Color(Mathf.Min(1f, k), Mathf.Min(1f, k), Mathf.Min(1f, k), ready ? 1f : 0.9f);
+        float target = ready && hover ? 1f : 0f;
+        forgeBlend = Mathf.MoveTowards(forgeBlend, target, Time.unscaledDeltaTime * 7f);
+        float dim = ready ? 1f : 0.5f;
+        forgeImage.color = new Color(dim, dim, dim, ready ? 1f : 0.9f);
+        forgeImage.rectTransform.localScale = Vector3.one * (1f + 0.05f * forgeBlend);
+        if (forgeGlow != null)
+        {
+            forgeGlow.color = new Color(1f, 1f, 1f, 0.85f * forgeBlend);
+        }
         if (forgeLabel != null)
         {
-            forgeLabel.color = ready ? new Color(1f, 0.9f, 0.55f) : new Color(0.6f, 0.58f, 0.55f);
+            Color rest = ready ? new Color(1f, 0.9f, 0.55f) : new Color(0.6f, 0.58f, 0.55f);
+            forgeLabel.color = Color.Lerp(rest, new Color(1f, 1f, 0.92f), forgeBlend);
         }
     }
 
