@@ -359,6 +359,7 @@ internal static class Items_MemoryReflectorWindow
         {
             t.font = font;
         }
+        t.fontStyle = FontStyles.Normal; // the forge title style is lower case
         t.text = text;
         t.fontSize = size;
         t.color = color;

@@ -507,6 +507,7 @@ internal static class Items_RecombinatorWindow
         {
             t.font = font;
         }
+        t.fontStyle = FontStyles.Normal; // the forge title style is lower case
         t.fontSize = size;
         t.color = color;
         t.alignment = align;

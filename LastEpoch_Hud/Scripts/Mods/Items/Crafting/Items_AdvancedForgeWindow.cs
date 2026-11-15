@@ -26,7 +26,7 @@ internal static class Items_AdvancedForgeWindow
     private const string RootName = "AdvancedForgeWindow";
 
     private const float Left = 48, WinW = 670, IconW = 140, IconH = 196, OrbSize = 76;
-    private const float OrbY = 100, SlotY = 270;
+    private const float OrbY = 96, SlotY = 220;
     private static float CenterX => Left + WinW / 2;
 
     // ---------------------------------------------------------------- state
@@ -335,6 +335,7 @@ internal static class Items_AdvancedForgeWindow
         {
             t.font = font;
         }
+        t.fontStyle = FontStyles.Normal; // the forge title style is lower case
         t.text = text;
         t.fontSize = size;
         t.color = color;
@@ -674,46 +675,109 @@ internal static class Items_AdvancedForgeWindow
         OrbRow();
         SlotBox(item, CenterX - IconW / 2, SlotY);
 
-        // the item's affixes, to the right of the slot
-        if (item != null)
-        {
-            float x = CenterX + IconW / 2 + 40, y = SlotY;
-            Label("Affixes", x, y - 34, 260, 26, 20, Gold, TextAlignmentOptions.Left);
-            ItemDataUnpacked data = item.TryCast<ItemDataUnpacked>();
-            foreach (ItemAffix a in item.affixes.ToArray())
-            {
-                if (a == null)
-                {
-                    continue;
-                }
-                string text = "Affix " + a.affixId;
-                try
-                {
-                    if (data != null)
-                    {
-                        text = TooltipItemManager.FormatAffix(data, a, TooltipMode.DefaultInfo, TooltipItemManager.SlotType.CRAFTING,
-                            false, -1, -1, false, false, ValueRangeFormat.None, true, false);
-                        text = LineBreaks.Replace(ColourTags.Replace(text ?? "", ""), "\n");
-                        text = string.Join("\n", text.Split('\n').Select(l => l.Trim()).Where(l => l.Length > 0));
-                    }
-                }
-                catch (Exception)
-                {
-                }
-                bool fractured = Items_Fracture.IsFractured(item, a);
-                int lines = text.Split('\n').Length;
-                float h = 20 * lines + 6;
-                Label(text, x, y, 270, h, 15, fractured ? new Color(0.55f, 0.88f, 1f) : (a.IsSealed ? Dim : new Color(0.86f, 0.82f, 0.74f)), TextAlignmentOptions.TopLeft);
-                y += h + 4;
-            }
-        }
-        else
-        {
-            Label("Place an item in the slot", CenterX - 160, SlotY + IconH + 14, 320, 26, 17, Dim, TextAlignmentOptions.Center);
-        }
         if (status.Length > 0)
         {
-            Label(status, CenterX - 260, SlotY + IconH + 22, 520, 60, 19, statusColour, TextAlignmentOptions.Top);
+            Label(status, CenterX - 260, SlotY + IconH + 14, 520, 44, 17, statusColour, TextAlignmentOptions.Top);
+        }
+        if (item != null)
+        {
+            AffixPlates(SlotY + IconH + 70);
+        }
+    }
+
+    // ---------------------------------------------------------------- the item's affixes
+
+    private sealed class Line
+    {
+        public string Text;
+        public int Tier;
+        public string Kind;
+        public bool Fractured, Sealed;
+        public int Lines;
+    }
+
+    private static List<Line> ReadAffixes()
+    {
+        var list = new List<Line>();
+        ItemDataUnpacked data = item.TryCast<ItemDataUnpacked>();
+        foreach (ItemAffix a in item.affixes.ToArray())
+        {
+            if (a == null)
+            {
+                continue;
+            }
+            string text = "Affix " + a.affixId;
+            try
+            {
+                if (data != null)
+                {
+                    text = TooltipItemManager.FormatAffix(data, a, TooltipMode.DefaultInfo, TooltipItemManager.SlotType.CRAFTING,
+                        false, -1, -1, false, false, ValueRangeFormat.None, true, false);
+                    text = LineBreaks.Replace(ColourTags.Replace(text ?? "", ""), "\n");
+                    text = string.Join("\n", text.Split('\n').Select(l => l.Trim().TrimStart('\u25C6', ' ')).Where(l => l.Length > 0));
+                }
+            }
+            catch (Exception)
+            {
+            }
+            string kind = a.IsSealedPrimordial ? "Primordial" : a.IsSealed ? "Sealed" : a.affixType == AffixList.AffixType.PREFIX ? "Prefix" : "Suffix";
+            list.Add(new Line
+            {
+                Text = text,
+                Tier = a.DisplayTier,
+                Kind = kind,
+                Fractured = Items_Fracture.IsFractured(item, a),
+                Sealed = a.IsSealed,
+                Lines = Math.Min(3, text.Split('\n').Length),
+            });
+        }
+        // prefixes first, then suffixes, then the seals
+        return list.OrderBy(l => l.Sealed ? 2 : l.Kind == "Prefix" ? 0 : 1).ToList();
+    }
+
+    /// <summary>The affixes as plates in two columns under the item: tier, wording, and what kind of affix it is.</summary>
+    private static void AffixPlates(float top)
+    {
+        const float plateW = 306, gap = 12, pad = 10;
+        List<Line> lines = ReadAffixes();
+        float x0 = CenterX - plateW - gap / 2;
+        float y = top;
+        Label("Affixes", CenterX - 100, y - 30, 200, 24, 17, Gold, TextAlignmentOptions.Center);
+        for (int i = 0; i < lines.Count; i += 2)
+        {
+            float h = 0;
+            for (int k = i; k < Math.Min(i + 2, lines.Count); k++)
+            {
+                h = Math.Max(h, 34 + lines[k].Lines * 16);
+            }
+            for (int k = i; k < Math.Min(i + 2, lines.Count); k++)
+            {
+                Line l = lines[k];
+                float x = x0 + (k - i) * (plateW + gap);
+                Color edge = l.Fractured ? new Color(0.45f, 0.8f, 1f) : l.Sealed ? new Color(0.6f, 0.45f, 0.78f) : new Color(0.42f, 0.36f, 0.24f);
+                Image plate = R.MakeImage(Content, "AffixPlate", l.Fractured ? new Color(0.04f, 0.075f, 0.1f, 0.92f) : new Color(0.04f, 0.034f, 0.03f, 0.9f));
+                plate.raycastTarget = false;
+                RectTransform pr = plate.rectTransform;
+                pr.anchorMin = pr.anchorMax = new Vector2(0, 1);
+                pr.pivot = new Vector2(0, 1);
+                pr.anchoredPosition = new Vector2(x, -y);
+                pr.sizeDelta = new Vector2(plateW, h);
+                dynamic.Add(plate.gameObject);
+                Transform t = plate.transform;
+                R.Part(t, "Bar", edge, new Vector2(0, 0), new Vector2(0, 1), new Vector2(0, 0.5f), Vector2.zero, new Vector2(4, 0));
+                R.Part(t, "Top", edge * 0.5f, new Vector2(0, 1), new Vector2(1, 1), new Vector2(0.5f, 1), Vector2.zero, new Vector2(0, 1));
+                R.Part(t, "Bottom", edge * 0.5f, new Vector2(0, 0), new Vector2(1, 0), new Vector2(0.5f, 0), Vector2.zero, new Vector2(0, 1));
+                Label("T" + l.Tier, pad + 4, pad - 2, 34, 18, 12, new Color(0.62f, 0.6f, 0.56f), TextAlignmentOptions.Left, t);
+                Label(l.Kind, pad + 4, pad + 14, 56, 16, 10, new Color(0.5f, 0.48f, 0.44f), TextAlignmentOptions.Left, t);
+                Label(l.Text, pad + 62, pad - 2, plateW - 62 - pad - 4, h - 12, 13,
+                    l.Fractured ? new Color(0.6f, 0.9f, 1f) : l.Sealed ? new Color(0.8f, 0.72f, 0.92f) : new Color(0.88f, 0.84f, 0.76f),
+                    TextAlignmentOptions.TopLeft, t);
+                if (l.Fractured)
+                {
+                    Label("◆ Fractured", plateW - 90, h - 20, 82, 16, 10, new Color(0.45f, 0.8f, 1f), TextAlignmentOptions.Right, t);
+                }
+            }
+            y += h + 8;
         }
     }
 
@@ -816,58 +880,10 @@ internal static class Items_AdvancedForgeWindow
         }
     }
 
-    /// <summary>A dark plate edged in the orb's own light: name, what it does, what the item needs, a line of lore and the count.</summary>
     private static void BuildOrbTooltip(AdvancedMaterial m)
     {
-        const float w = 330;
-        float h = 20;
-        Image plate = R.MakeImage(Content, "OrbTooltip", new Color(0.03f, 0.027f, 0.025f, 0.985f));
-        plate.raycastTarget = false;
-        RectTransform pr = plate.rectTransform;
-        pr.anchorMin = pr.anchorMax = new Vector2(0, 1);
-        pr.pivot = new Vector2(0, 1);
-        tip.Add(plate.gameObject);
-        tipRect = pr;
-        Color edge = Color.Lerp(m.Glow, new Color(0.6f, 0.5f, 0.3f), 0.45f);
-        R.Part(plate.transform, "EdgeTop", edge, new Vector2(0, 1), new Vector2(1, 1), new Vector2(0.5f, 1), Vector2.zero, new Vector2(0, 2));
-        R.Part(plate.transform, "EdgeBottom", edge, new Vector2(0, 0), new Vector2(1, 0), new Vector2(0.5f, 0), Vector2.zero, new Vector2(0, 2));
-        R.Part(plate.transform, "EdgeLeft", edge, new Vector2(0, 0), new Vector2(0, 1), new Vector2(0, 0.5f), Vector2.zero, new Vector2(2, 0));
-        R.Part(plate.transform, "EdgeRight", edge, new Vector2(1, 0), new Vector2(1, 1), new Vector2(1, 0.5f), Vector2.zero, new Vector2(2, 0));
-
-        Image art = R.MakeImage(plate.transform, "Art", Color.white);
-        art.sprite = OrbArt.Get(m.Key, m.Tint, m.Glow);
-        art.preserveAspect = true;
-        art.raycastTarget = false;
-        RectTransform ar = art.rectTransform;
-        ar.anchorMin = ar.anchorMax = new Vector2(0, 1);
-        ar.pivot = new Vector2(0, 1);
-        ar.anchoredPosition = new Vector2(14, -12);
-        ar.sizeDelta = new Vector2(54, 54);
-
-        Label(m.Name, 78, 14, w - 92, 28, 22, Color.Lerp(m.Glow, Color.white, 0.35f), TextAlignmentOptions.Left, plate.transform, tip);
-        Label("Advanced Crafting Orb", 78, 42, w - 92, 20, 14, Dim, TextAlignmentOptions.Left, plate.transform, tip);
-        h = 78;
-        R.Part(plate.transform, "Rule", edge * 0.7f, new Vector2(0, 1), new Vector2(1, 1), new Vector2(0.5f, 1), new Vector2(0, -h), new Vector2(-28, 1));
-        h += 10;
-        Label(m.Effect, 16, h, w - 32, 24, 18, m.Glow, TextAlignmentOptions.Center, plate.transform, tip);
-        h += 30;
-        foreach (string rule in m.Rules)
-        {
-            Label(rule, 16, h, w - 32, 22, 15, new Color(0.82f, 0.78f, 0.7f), TextAlignmentOptions.Center, plate.transform, tip);
-            h += 22;
-        }
-        h += 8;
-        R.Part(plate.transform, "Rule2", edge * 0.7f, new Vector2(0, 1), new Vector2(1, 1), new Vector2(0.5f, 1), new Vector2(0, -h), new Vector2(-28, 1));
-        h += 10;
-        if (m.Flavour.Length > 0)
-        {
-            Label("<i>" + m.Flavour + "</i>", 16, h, w - 32, 24, 15, new Color(0.72f, 0.6f, 0.38f), TextAlignmentOptions.Center, plate.transform, tip);
-            h += 30;
-        }
-        Label("Owned: " + AdvancedMaterials.Count(m.Key).ToString("N0"), 16, h, w - 32, 22, 15, Dim, TextAlignmentOptions.Center, plate.transform, tip);
-        h += 32;
-        pr.sizeDelta = new Vector2(w, h);
-        plate.transform.SetAsLastSibling();
+        tipRect = OrbTooltipPlate.Build(Content, bodyFont ?? headFont, m);
+        tip.Add(tipRect.gameObject);
     }
 
     private static void PlaceTooltip(Vector2 mouse, UnityEngine.Camera cam)

@@ -55,6 +55,7 @@ public class Main : MelonLoader.MelonMod
         Scripts.Mods.Items.Crafting.Items_RecombinatorWindow.Tick();
         Scripts.Mods.Items.Crafting.Items_MemoryReflectorWindow.Tick();
         Scripts.Mods.Items.Crafting.Items_AdvancedForgeWindow.Tick();
+        Scripts.Mods.Items.Drop.OrbItemVisuals.Tick();
         Scripts.Mods.Login.Login_OfflineOnly.Tick();
         Scripts.Mods.Login.Login_OfflineCharacterSelect.Tick();
     }
