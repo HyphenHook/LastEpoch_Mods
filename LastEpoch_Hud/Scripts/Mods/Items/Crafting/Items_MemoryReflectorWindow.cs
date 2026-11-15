@@ -136,18 +136,18 @@ internal static class Items_MemoryReflectorWindow
         rect.sizeDelta = new Vector2(190, source.sizeDelta.y);
         if (help != null)
         {
-            // just left of the Guide button, which hangs from the top right corner
+            // directly under the Guide button, which hangs from the top right corner
             rect.anchorMin = help.anchorMin;
             rect.anchorMax = help.anchorMax;
             rect.pivot = help.pivot;
-            rect.anchoredPosition = new Vector2(help.anchoredPosition.x - help.sizeDelta.x - 12, help.anchoredPosition.y);
+            rect.anchoredPosition = new Vector2(help.anchoredPosition.x, help.anchoredPosition.y - help.sizeDelta.y - 6);
         }
         else
         {
             rect.anchorMin = source.anchorMin;
             rect.anchorMax = source.anchorMax;
             rect.pivot = source.pivot;
-            rect.anchoredPosition = new Vector2(source.anchoredPosition.x + source.sizeDelta.x + 12 + 150 + 12, source.anchoredPosition.y);
+            rect.anchoredPosition = new Vector2(source.anchoredPosition.x, source.anchoredPosition.y - 2 * (source.sizeDelta.y + 6));
         }
         R.OnClick(button, OpenFromForge);
         button.SetActive(true);

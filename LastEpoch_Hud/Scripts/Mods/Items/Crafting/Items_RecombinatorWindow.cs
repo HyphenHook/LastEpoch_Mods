@@ -286,7 +286,8 @@ internal static class Items_RecombinatorWindow
         rect.anchorMax = source.anchorMax;
         rect.pivot = source.pivot;
         rect.sizeDelta = new Vector2(150, source.sizeDelta.y);
-        rect.anchoredPosition = new Vector2(source.anchoredPosition.x + source.sizeDelta.x + 12, source.anchoredPosition.y);
+        // directly under the Crafting Materials button
+        rect.anchoredPosition = new Vector2(source.anchoredPosition.x, source.anchoredPosition.y - source.sizeDelta.y - 6);
         OnClick(button, OpenFromForge);
         button.SetActive(true);
     }
