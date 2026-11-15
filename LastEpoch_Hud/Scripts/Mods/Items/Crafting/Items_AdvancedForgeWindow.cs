@@ -631,7 +631,7 @@ internal static class Items_AdvancedForgeWindow
             RectTransform gr = glow.rectTransform;
             gr.anchorMin = gr.anchorMax = new Vector2(0.5f, 0.5f);
             gr.pivot = new Vector2(0.5f, 0.5f);
-            gr.anchoredPosition = new Vector2(0, 5);
+            gr.anchoredPosition = Vector2.zero;
             gr.sizeDelta = new Vector2(OrbSize * 0.92f, OrbSize * 0.92f);
 
             Image art = R.MakeImage(frame.transform, "Art", Color.white);
@@ -640,7 +640,7 @@ internal static class Items_AdvancedForgeWindow
             RectTransform ar = art.rectTransform;
             ar.anchorMin = ar.anchorMax = new Vector2(0.5f, 0.5f);
             ar.pivot = new Vector2(0.5f, 0.5f);
-            ar.anchoredPosition = new Vector2(0, 5);
+            ar.anchoredPosition = Vector2.zero;
             ar.sizeDelta = new Vector2(OrbSize * 0.56f, OrbSize * 0.56f);
 
             GameObject count = Label(have.ToString("N0"), OrbSize - 40, OrbSize - 21, 32, 14, 10, have > 0 ? Color.white : Dim, TextAlignmentOptions.BottomRight, frame.transform);
