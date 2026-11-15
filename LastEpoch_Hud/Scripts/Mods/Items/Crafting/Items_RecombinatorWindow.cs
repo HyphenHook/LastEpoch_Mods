@@ -411,6 +411,7 @@ internal static class Items_RecombinatorWindow
             OnClick(close.gameObject, Close);
         }
         CaptureForgeArt(main);
+        AffixCard.Prepare(main);
         root.SetActive(false);
         return true;
     }
@@ -2204,57 +2205,7 @@ internal static class Items_RecombinatorWindow
         dirty = true;
     }
 
-    private sealed class Row
-    {
-        public RectTransform Rect;
-        public Image Bg, Bar;
-        public Image[] Edge = new Image[4];
-        public TextMeshProUGUI Name, Tier;
-        public Color TierColor;
-        public bool On, Hover, Static;
-    }
-
-    private static readonly List<Row> rows = new();
-    private static readonly Color TierGrey = new(0.52f, 0.50f, 0.47f);
-    private static readonly Color TierGreyLit = new(0.72f, 0.70f, 0.66f);
-    private static readonly Color RowBase = new(0.035f, 0.03f, 0.026f, 0.82f);
-    private static readonly Color RowHover = new(0.085f, 0.07f, 0.05f, 0.9f);
-    private static readonly Color RowOn = new(0.13f, 0.10f, 0.055f, 0.94f);
-    private static readonly Color RowOnHover = new(0.17f, 0.13f, 0.065f, 0.96f);
-    private static readonly Color EdgeBase = new(0.62f, 0.56f, 0.48f, 1f);
-    private static readonly Color EdgeHover = new(0.9f, 0.8f, 0.6f, 1f);
-    private static readonly Color EdgeOn = new(1f, 0.82f, 0.4f, 1f);
-
-    private sealed class RowInfo
-    {
-        public RecombAffix Affix;
-        public string Text;
-        public int Lines;
-    }
-
-    private static TextMeshProUGUI RowText(Transform parent, TextAlignmentOptions align, float size, float left, float right)
-    {
-        GameObject go = Object.Instantiate(labelTemplate, parent, false);
-        StripGameLogic(go);
-        RectTransform r = go.GetComponent<RectTransform>();
-        r.anchorMin = Vector2.zero;
-        r.anchorMax = Vector2.one;
-        r.pivot = new Vector2(0.5f, 0.5f);
-        r.offsetMin = new Vector2(left, 0);
-        r.offsetMax = new Vector2(-right, 0);
-        TextMeshProUGUI t = go.GetComponent<TextMeshProUGUI>();
-        if (bodyFont != null)
-        {
-            t.font = bodyFont;
-        }
-        t.alignment = align;
-        t.fontSize = size;
-        t.enableWordWrapping = false;
-        t.overflowMode = TextOverflowModes.Ellipsis;
-        t.raycastTarget = false;
-        go.SetActive(true);
-        return t;
-    }
+    private static readonly List<AffixCardView> rows = new();
 
     private static readonly Regex ColourTags = new("</?color[^>]*>|</?link[^>]*>", RegexOptions.Compiled);
 
@@ -2320,13 +2271,11 @@ internal static class Items_RecombinatorWindow
         return img;
     }
 
-    /// <summary>Lays out the column: each plate is as tall as its lines need, and the whole stack stays inside its space.</summary>
-    private const float ColumnWidth = 226;
+    private const float ColumnWidth = AffixCard.Width;
 
     private static void ListAffixes(List<RecombAffix> list, float x, float y)
     {
-        const float width = ColumnWidth, gap = 4, space = IconH, chars = 25;
-        var infos = new List<RowInfo>();
+        float cursor = y;
         foreach (RecombAffix a in list)
         {
             string text = ItemWording(a);
@@ -2334,156 +2283,41 @@ internal static class Items_RecombinatorWindow
             {
                 text += "\n<size=75%>(fits one base only)</size>";
             }
-            int lines = 0;
-            foreach (string l in text.Split('\n'))
-            {
-                lines += Mathf.Max(1, Mathf.CeilToInt(l.Length / chars));
-            }
-            infos.Add(new RowInfo { Affix = a, Text = text, Lines = Mathf.Max(1, lines) });
-        }
-        if (infos.Count == 0)
-        {
-            return;
-        }
-        float units = infos.Sum(i => i.Lines);
-        float perLine = Mathf.Min(30f, (space - (infos.Count - 1) * gap - infos.Count * 10f) / units);
-        float fontSize = Mathf.Clamp(perLine - 5f, 9f, 14f);
-        float cursor = y;
-        foreach (RowInfo info in infos)
-        {
-            float h = info.Lines * perLine + 10f;
-            AffixRow(info.Affix, info.Text, x, cursor, width, h, fontSize, deterministic && selected.Contains(Key(info.Affix)), deterministic);
-            cursor += h + gap;
+            AffixRow(a, text, x, cursor, deterministic && selected.Contains(Key(a)), deterministic);
+            cursor += AffixCard.Height + AffixCard.Gap;
         }
     }
 
-    /// <summary>
-    /// An affix plate in the forge's own manner: a flat dark plate, the forge's metal border, a small tier label and
-    /// the affix text in the game's font. It warms and brightens under the mouse and takes a gold border when chosen.
-    /// </summary>
-    private static void AffixRow(RecombAffix a, string text, float x, float y, float w, float h, float fontSize, bool on, bool interactive)
+    /// <summary>One affix as a card, which is the same in every window. In the deterministic mode a click chooses it.</summary>
+    private static void AffixRow(RecombAffix a, string text, float x, float y, bool on, bool interactive)
     {
-        Image bg = MakeImage(Content, "AffixRow", RowBase);
-        RectTransform r = bg.rectTransform;
-        r.anchorMin = r.anchorMax = new Vector2(0, 1);
-        r.pivot = new Vector2(0, 1);
-        r.anchoredPosition = new Vector2(x, -y);
-        r.sizeDelta = new Vector2(w, h);
-        dynamic.Add(bg.gameObject);
-
-        var row = new Row { Rect = r, Bg = bg, On = on, Static = !interactive, TierColor = TierColour(a.DisplayedTier) };
-
-        // the forge's frame pieces, thinned for a plate
-        for (int side = 0; side < 4; side++)
+        var data = new AffixCardData
         {
-            EdgeSprite e = edges[side];
-            Image img = MakeImage(bg.transform, "Edge", EdgeBase);
-            img.raycastTarget = false;
-            if (e != null && e.Sprite != null)
-            {
-                img.sprite = e.Sprite;
-                img.type = e.Type;
-            }
-            RectTransform er = img.rectTransform;
-            float t = e != null ? Mathf.Min(e.Thickness, 4f) : 2f;
-            switch (side)
-            {
-                case 0: er.anchorMin = new Vector2(0, 1); er.anchorMax = new Vector2(1, 1); er.pivot = new Vector2(0.5f, 1); er.sizeDelta = new Vector2(0, t); break;
-                case 1: er.anchorMin = new Vector2(0, 0); er.anchorMax = new Vector2(1, 0); er.pivot = new Vector2(0.5f, 0); er.sizeDelta = new Vector2(0, t); break;
-                case 2: er.anchorMin = new Vector2(0, 0); er.anchorMax = new Vector2(0, 1); er.pivot = new Vector2(0, 0.5f); er.sizeDelta = new Vector2(t, 0); break;
-                default: er.anchorMin = new Vector2(1, 0); er.anchorMax = new Vector2(1, 1); er.pivot = new Vector2(1, 0.5f); er.sizeDelta = new Vector2(t, 0); break;
-            }
-            er.anchoredPosition = Vector2.zero;
-            row.Edge[side] = img;
-        }
-
-        // a thin gold mark down the left, bright when chosen
-        row.Bar = Part(bg.transform, "Bar", EdgeOn, new Vector2(0, 0), new Vector2(0, 1), new Vector2(0, 0.5f), new Vector2(4, 0), new Vector2(3, -10));
-        row.Bar.color = new Color(EdgeOn.r, EdgeOn.g, EdgeOn.b, 0f);
-
-        // the tier, small, in its colour, with a thin divider
-        TextMeshProUGUI tier = RowText(bg.transform, TextAlignmentOptions.Center, 8, 8, 0);
-        RectTransform tr = tier.GetComponent<RectTransform>();
-        tr.anchorMin = new Vector2(0, 0);
-        tr.anchorMax = new Vector2(0, 1);
-        tr.pivot = new Vector2(0, 0.5f);
-        tr.offsetMin = new Vector2(8, 0);
-        tr.offsetMax = new Vector2(34, 0);
-        tier.overflowMode = TextOverflowModes.Overflow;
-        tier.fontStyle = FontStyles.UpperCase; // the forge title style is lower case; a tier is always "T4"
-        tier.text = "T" + a.DisplayedTier;
-        tier.color = TierGrey;
-        row.Tier = tier;
-        Part(bg.transform, "Divider", new Color(0.55f, 0.46f, 0.32f, 0.55f), new Vector2(0, 0), new Vector2(0, 1), new Vector2(0, 0.5f), new Vector2(38, 0), new Vector2(1, -12));
-
-        // the affix as the item shows it, over as many lines as it needs
-        TextMeshProUGUI name = RowText(bg.transform, TextAlignmentOptions.MidlineLeft, fontSize, 46, 10);
-        name.enableWordWrapping = true;
-        name.overflowMode = TextOverflowModes.Overflow;
-        name.enableAutoSizing = true; // shrinks to fit the plate rather than being cut off
-        name.fontSizeMin = 8;
-        name.fontSizeMax = fontSize;
-        name.fontStyle = FontStyles.UpperCase;
-        name.text = text;
-        row.Name = name;
-
+            Text = text,
+            Tier = a.DisplayedTier,
+            Group = a.Placement == 1 ? AffixCard.Prefix : a.Placement == 2 ? AffixCard.Suffix : -1,
+            Static = !interactive,
+            On = on,
+        };
+        AffixCardView view = AffixCard.Build(Content, labelTemplate, bodyFont, data, x, y, dynamic);
         if (interactive)
         {
-            Button button = bg.gameObject.AddComponent<Button>();
+            Button button = view.Bg.gameObject.AddComponent<Button>();
             button.transition = Selectable.Transition.None;
             button.onClick.AddListener((Action)(() => Toggle(a)));
         }
-        else
-        {
-            bg.raycastTarget = false;
-        }
-        ApplyRow(row, 1f);
-        rows.Add(row);
-    }
-
-    private static void ApplyRow(Row row, float blend)
-    {
-        Color bg = row.On ? (row.Hover ? RowOnHover : RowOn) : row.Hover ? RowHover : RowBase;
-        Color edge = row.On ? EdgeOn : row.Hover ? EdgeHover : EdgeBase;
-        Color text = row.On ? new Color(1f, 0.93f, 0.68f) : row.Hover ? new Color(0.98f, 0.95f, 0.88f) : new Color(0.82f, 0.79f, 0.72f);
-        row.Bg.color = Color.Lerp(row.Bg.color, bg, blend);
-        foreach (Image e in row.Edge)
-        {
-            if (e != null)
-            {
-                e.color = Color.Lerp(e.color, edge, blend);
-            }
-        }
-        row.Name.color = Color.Lerp(row.Name.color, text, blend);
-        row.Tier.color = Color.Lerp(row.Tier.color, row.On || row.Hover ? TierGreyLit : TierGrey, blend);
-        Color bar = row.Bar.color;
-        bar.a = Mathf.Lerp(bar.a, row.On ? 1f : row.Hover ? 0.45f : 0f, blend);
-        row.Bar.color = bar;
+        rows.Add(view);
     }
 
     private static void TickRows()
     {
-        if (rows.Count == 0)
-        {
-            return;
-        }
-        Vector2 mouse = Input.mousePosition;
         UnityEngine.Camera cam = null;
         Canvas canvas = root.GetComponentInParent<Canvas>();
         if (canvas != null && canvas.renderMode != RenderMode.ScreenSpaceOverlay)
         {
             cam = canvas.worldCamera;
         }
-        float blend = Mathf.Clamp01(Time.unscaledDeltaTime * 16f);
-        foreach (Row row in rows)
-        {
-            if (row.Rect == null)
-            {
-                continue;
-            }
-            row.Hover = !row.Static && RectTransformUtility.RectangleContainsScreenPoint(row.Rect, mouse, cam);
-            ApplyRow(row, blend);
-        }
+        AffixCard.Tick(rows, false, cam);
     }
 
     // ---------------------------------------------------------------- actions

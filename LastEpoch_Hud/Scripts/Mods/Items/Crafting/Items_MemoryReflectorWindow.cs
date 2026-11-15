@@ -299,6 +299,7 @@ internal static class Items_MemoryReflectorWindow
             R.OnClick(close.gameObject, Close);
         }
         CaptureForgeArt(main);
+        AffixCard.Prepare(main);
         root.SetActive(false);
         return true;
     }
@@ -840,22 +841,7 @@ internal static class Items_MemoryReflectorWindow
 
     // ---------------------------------------------------------------- affix plates (item B's affixes)
 
-    private sealed class Row
-    {
-        public RectTransform Rect;
-        public Image Bg, Bar;
-        public Image[] Edge = new Image[4];
-        public TextMeshProUGUI Name, Tier;
-        public bool On, Hover, Static;
-    }
-
-    private static readonly List<Row> rows = new();
-    private static readonly Color RowBase = new(0.035f, 0.03f, 0.026f, 0.82f);
-    private static readonly Color RowHover = new(0.085f, 0.07f, 0.05f, 0.9f);
-    private static readonly Color RowOn = new(0.13f, 0.10f, 0.055f, 0.94f);
-    private static readonly Color EdgeBase = new(0.55f, 0.50f, 0.44f, 1f);
-    private static readonly Color EdgeHover = new(0.9f, 0.8f, 0.6f, 1f);
-    private static readonly Color EdgeOn = new(1f, 0.82f, 0.4f, 1f);
+    private static readonly List<AffixCardView> rows = new();
 
     private static readonly Regex ColourTags = new("</?color[^>]*>|</?link[^>]*>", RegexOptions.Compiled);
     private static readonly Regex LineBreaks = new(@"<br\s*/?>|\r\n|\r| | |\v|\\n", RegexOptions.IgnoreCase | RegexOptions.Compiled);
@@ -887,92 +873,27 @@ internal static class Items_MemoryReflectorWindow
 
     private static ItemData itemBForText => itemB;
 
-    private static TextMeshProUGUI RowText(Transform parent, TextAlignmentOptions align, float size, float left, float right)
+    private static void AffixPlate(Items_MemoryReflector.Candidate c, float x, float y)
     {
-        GameObject go = Object.Instantiate(labelTemplate, parent, false);
-        R.StripGameLogic(go);
-        RectTransform r = go.GetComponent<RectTransform>();
-        r.anchorMin = Vector2.zero;
-        r.anchorMax = Vector2.one;
-        r.pivot = new Vector2(0.5f, 0.5f);
-        r.offsetMin = new Vector2(left, 0);
-        r.offsetMax = new Vector2(-right, 0);
-        TextMeshProUGUI t = go.GetComponent<TextMeshProUGUI>();
-        if (bodyFont != null)
-        {
-            t.font = bodyFont;
-        }
-        t.alignment = align;
-        t.fontSize = size;
-        t.fontStyle = FontStyles.UpperCase;
-        t.enableWordWrapping = false;
-        t.overflowMode = TextOverflowModes.Ellipsis;
-        t.raycastTarget = false;
-        go.SetActive(true);
-        return t;
-    }
-
-    private static void AffixPlate(Items_MemoryReflector.Candidate c, float x, float y, float w, float h, float fontSize)
-    {
-        bool on = c.CanGo && c.AffixId == selectedId;
-        Image bg = R.MakeImage(Content, "AffixRow", RowBase);
-        RectTransform r = bg.rectTransform;
-        r.anchorMin = r.anchorMax = new Vector2(0, 1);
-        r.pivot = new Vector2(0, 1);
-        r.anchoredPosition = new Vector2(x, -y);
-        r.sizeDelta = new Vector2(w, h);
-        dynamic.Add(bg.gameObject);
-
-        var row = new Row { Rect = r, Bg = bg, On = on, Static = !c.CanGo };
-        for (int side = 0; side < 4; side++)
-        {
-            Image e = R.MakeImage(bg.transform, "Edge", EdgeBase);
-            e.raycastTarget = false;
-            RectTransform er = e.rectTransform;
-            switch (side)
-            {
-                case 0: er.anchorMin = new Vector2(0, 1); er.anchorMax = new Vector2(1, 1); er.pivot = new Vector2(0.5f, 1); er.sizeDelta = new Vector2(0, 2); break;
-                case 1: er.anchorMin = new Vector2(0, 0); er.anchorMax = new Vector2(1, 0); er.pivot = new Vector2(0.5f, 0); er.sizeDelta = new Vector2(0, 2); break;
-                case 2: er.anchorMin = new Vector2(0, 0); er.anchorMax = new Vector2(0, 1); er.pivot = new Vector2(0, 0.5f); er.sizeDelta = new Vector2(2, 0); break;
-                default: er.anchorMin = new Vector2(1, 0); er.anchorMax = new Vector2(1, 1); er.pivot = new Vector2(1, 0.5f); er.sizeDelta = new Vector2(2, 0); break;
-            }
-            er.anchoredPosition = Vector2.zero;
-            row.Edge[side] = e;
-        }
-        row.Bar = R.Part(bg.transform, "Bar", EdgeOn, new Vector2(0, 0), new Vector2(0, 1), new Vector2(0, 0.5f), new Vector2(4, 0), new Vector2(3, -10));
-        row.Bar.color = new Color(EdgeOn.r, EdgeOn.g, EdgeOn.b, 0f);
-
-        TextMeshProUGUI tier = RowText(bg.transform, TextAlignmentOptions.Center, 8, 8, 0);
-        RectTransform tr = tier.GetComponent<RectTransform>();
-        tr.anchorMin = new Vector2(0, 0);
-        tr.anchorMax = new Vector2(0, 1);
-        tr.pivot = new Vector2(0, 0.5f);
-        tr.offsetMin = new Vector2(8, 0);
-        tr.offsetMax = new Vector2(34, 0);
-        tier.overflowMode = TextOverflowModes.Overflow;
-        tier.fontStyle = FontStyles.UpperCase;
-        tier.text = "T" + c.Tier;
-        tier.color = new Color(0.52f, 0.50f, 0.47f);
-        row.Tier = tier;
-        R.Part(bg.transform, "Divider", new Color(0.55f, 0.46f, 0.32f, 0.55f), new Vector2(0, 0), new Vector2(0, 1), new Vector2(0, 0.5f), new Vector2(38, 0), new Vector2(1, -12));
-
         string text = Wording(c);
         if (!c.CanGo && c.Why.Length > 0)
         {
             text += "\n<size=75%>(" + c.Why + ")</size>";
         }
-        TextMeshProUGUI name = RowText(bg.transform, TextAlignmentOptions.MidlineLeft, fontSize, 46, 10);
-        name.enableWordWrapping = true;
-        name.overflowMode = TextOverflowModes.Overflow;
-        name.enableAutoSizing = true;
-        name.fontSizeMin = 8;
-        name.fontSizeMax = fontSize;
-        name.text = text;
-        row.Name = name;
-
+        ItemData owner = itemB ?? animB;
+        var data = new AffixCardData
+        {
+            Text = text,
+            Tier = c.Tier,
+            Group = c.Placement == 1 ? AffixCard.Prefix : c.Placement == 2 ? AffixCard.Suffix : -1,
+            Fractured = owner != null && c.Source != null && Items_Fracture.IsFractured(owner, c.Source),
+            Static = !c.CanGo,
+            On = c.CanGo && c.AffixId == selectedId,
+        };
+        AffixCardView view = AffixCard.Build(Content, labelTemplate, bodyFont, data, x, y, dynamic);
         if (c.CanGo)
         {
-            Button button = bg.gameObject.AddComponent<Button>();
+            Button button = view.Bg.gameObject.AddComponent<Button>();
             button.transition = Selectable.Transition.None;
             int id = c.AffixId;
             button.onClick.AddListener((Action)(() =>
@@ -985,32 +906,7 @@ internal static class Items_MemoryReflectorWindow
                 dirty = true;
             }));
         }
-        else
-        {
-            bg.raycastTarget = false;
-        }
-        ApplyRow(row, 1f);
-        rows.Add(row);
-    }
-
-    private static void ApplyRow(Row row, float blend)
-    {
-        Color bg = row.On ? RowOn : row.Hover ? RowHover : RowBase;
-        Color edge = row.On ? EdgeOn : row.Hover ? EdgeHover : EdgeBase;
-        Color text = row.Static ? new Color(0.5f, 0.48f, 0.45f)
-            : row.On ? new Color(1f, 0.93f, 0.68f) : row.Hover ? new Color(0.98f, 0.95f, 0.88f) : new Color(0.82f, 0.79f, 0.72f);
-        row.Bg.color = Color.Lerp(row.Bg.color, bg, blend);
-        foreach (Image e in row.Edge)
-        {
-            if (e != null)
-            {
-                e.color = Color.Lerp(e.color, row.Static ? new Color(0.3f, 0.28f, 0.25f, 0.8f) : edge, blend);
-            }
-        }
-        row.Name.color = Color.Lerp(row.Name.color, text, blend);
-        Color bar = row.Bar.color;
-        bar.a = Mathf.Lerp(bar.a, row.On ? 1f : row.Hover ? 0.45f : 0f, blend);
-        row.Bar.color = bar;
+        rows.Add(view);
     }
 
     private static UnityEngine.Camera PointerCamera()
@@ -1019,25 +915,7 @@ internal static class Items_MemoryReflectorWindow
         return canvas != null && canvas.renderMode != RenderMode.ScreenSpaceOverlay ? canvas.worldCamera : null;
     }
 
-    private static void TickRows()
-    {
-        if (rows.Count == 0)
-        {
-            return;
-        }
-        Vector2 mouse = Input.mousePosition;
-        UnityEngine.Camera cam = PointerCamera();
-        float blend = Mathf.Clamp01(Time.unscaledDeltaTime * 16f);
-        foreach (Row row in rows)
-        {
-            if (row.Rect == null)
-            {
-                continue;
-            }
-            row.Hover = !row.Static && !animating && RectTransformUtility.RectangleContainsScreenPoint(row.Rect, mouse, cam);
-            ApplyRow(row, blend);
-        }
-    }
+    private static void TickRows() => AffixCard.Tick(rows, animating, PointerCamera());
 
     private static void TickHover()
     {
@@ -1298,36 +1176,13 @@ internal static class Items_MemoryReflectorWindow
 
     private static void Column(List<Items_MemoryReflector.Candidate> list, float x, float y)
     {
-        if (list.Count == 0)
-        {
-            return;
-        }
-        const float gap = 4, space = IconH, chars = 25;
-        float units = 0;
-        var heights = new List<int>();
+        float cursor = y;
         foreach (var c in list)
         {
-            string text = Wording(c) + (c.CanGo ? "" : "\n(" + c.Why + ")");
-            int lines = 0;
-            foreach (string l in text.Split('\n'))
-            {
-                lines += Mathf.Max(1, Mathf.CeilToInt(l.Length / chars));
-            }
-            heights.Add(Mathf.Max(1, lines));
-            units += Mathf.Max(1, lines);
-        }
-        float perLine = Mathf.Min(30f, (space - (list.Count - 1) * gap - list.Count * 10f) / units);
-        float fontSize = Mathf.Clamp(perLine - 5f, 9f, 14f);
-        float cursor = y;
-        for (int i = 0; i < list.Count; i++)
-        {
-            float h = heights[i] * perLine + 10f;
-            AffixPlate(list[i], x, cursor, ColumnWidth, h, fontSize);
-            cursor += h + gap;
+            AffixPlate(c, x, cursor);
+            cursor += AffixCard.Height + AffixCard.Gap;
         }
     }
-
-    // ---------------------------------------------------------------- performing the reflection
 
     private static void DoReflect(long gold, int amber, int bones)
     {
