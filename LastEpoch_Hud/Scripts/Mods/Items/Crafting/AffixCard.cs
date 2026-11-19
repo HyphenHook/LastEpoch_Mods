@@ -13,7 +13,7 @@ internal sealed class AffixCardData
     public string Text = "";
     public int Tier; // displayed tier, 1 to 8; 0 shows none
     public int Group = -1; // AffixCard.Prefix, Suffix, Sealed, Primordial or Corrupted; -1 for none
-    public bool Fractured;
+    public bool Encapsulated, Reminded;
     public bool Static; // not clickable, and dimmed
     public bool ReadOnly; // not clickable, but shown as usual
     public bool On; // chosen
@@ -27,7 +27,7 @@ internal sealed class AffixCardView
     public readonly Image[] Edge = new Image[4];
     public TextMeshProUGUI Name, Tier;
     public Color Accent;
-    public bool Fractured, Static, On, Hover;
+    public bool Encapsulated, Reminded, Static, On, Hover;
 }
 
 /// <summary>
@@ -53,14 +53,16 @@ internal static class AffixCard
         new(0.82f, 0.28f, 0.50f), // corrupted: crimson
     };
 
-    public static readonly Color Fracture = new(0.45f, 0.80f, 1f);
+    public static readonly Color Encapsulate = new(0.45f, 0.80f, 1f);
     private static readonly Color TierGrey = new(0.52f, 0.50f, 0.47f);
     private static readonly Color TierGreyLit = new(0.72f, 0.70f, 0.66f);
     private static readonly Color Base = new(0.035f, 0.03f, 0.026f, 0.82f);
     private static readonly Color Hovered = new(0.085f, 0.07f, 0.05f, 0.9f);
     private static readonly Color Chosen = new(0.13f, 0.10f, 0.055f, 0.94f);
     private static readonly Color ChosenHovered = new(0.17f, 0.13f, 0.065f, 0.96f);
-    private static readonly Color FractureBase = new(0.035f, 0.07f, 0.095f, 0.92f);
+    private static readonly Color MemoryAccent = new(0.79f, 0.57f, 1f);
+    private static readonly Color MemoryBase = new(0.073f, 0.041f, 0.103f, 0.92f);
+    private static readonly Color EncapsulateBase = new(0.035f, 0.07f, 0.095f, 0.92f);
     private static readonly Color EdgeBase = new(0.55f, 0.50f, 0.44f, 1f);
     private static readonly Color EdgeHover = new(0.9f, 0.8f, 0.6f, 1f);
     private static readonly Color EdgeChosen = new(1f, 0.82f, 0.4f, 1f);
@@ -99,15 +101,16 @@ internal static class AffixCard
     /// <summary>Draws a card with its top left at (x, y) below the parent's top left.</summary>
     public static AffixCardView Build(Transform parent, GameObject labelTemplate, TMP_FontAsset bodyFont, AffixCardData data, float x, float y, List<GameObject> keep)
     {
-        Color accent = data.Fractured ? Fracture : GroupColour(data.Group);
-        Image bg = R.MakeImage(parent, "AffixCard", data.Fractured ? FractureBase : Base);
+        bool reminded = data.Reminded && !data.Encapsulated;
+        Color accent = data.Encapsulated ? Encapsulate : reminded ? MemoryAccent : GroupColour(data.Group);
+        Image bg = R.MakeImage(parent, "AffixCard", data.Encapsulated ? EncapsulateBase : reminded ? MemoryBase : Base);
         RectTransform r = bg.rectTransform;
         r.anchorMin = r.anchorMax = new Vector2(0, 1);
         r.pivot = new Vector2(0, 1);
         r.anchoredPosition = new Vector2(x, -y);
         r.sizeDelta = new Vector2(Width, Height);
         keep?.Add(bg.gameObject);
-        var view = new AffixCardView { Rect = r, Bg = bg, Accent = accent, Fractured = data.Fractured, Static = data.Static, On = data.On };
+        var view = new AffixCardView { Rect = r, Bg = bg, Accent = accent, Encapsulated = data.Encapsulated, Reminded = reminded, Static = data.Static, On = data.On };
 
         for (int side = 0; side < 4; side++)
         {
@@ -150,7 +153,7 @@ internal static class AffixCard
         R.Part(bg.transform, "Divider", new Color(0.55f, 0.46f, 0.32f, 0.55f), new Vector2(0, 0), new Vector2(0, 1), new Vector2(0, 0.5f), new Vector2(34, 0), new Vector2(1, -10));
 
         // the wording: a box of one size, and the text shrinks to fit it
-        view.Name = Text(bg.transform, labelTemplate, bodyFont, TextAlignmentOptions.MidlineLeft, TextMax, 40, data.Fractured ? 24 : 8);
+        view.Name = Text(bg.transform, labelTemplate, bodyFont, TextAlignmentOptions.MidlineLeft, TextMax, 40, data.Encapsulated || reminded ? 24 : 8);
         view.Name.enableWordWrapping = true;
         view.Name.overflowMode = TextOverflowModes.Overflow;
         view.Name.enableAutoSizing = true;
@@ -158,10 +161,10 @@ internal static class AffixCard
         view.Name.fontSizeMax = TextMax;
         view.Name.text = data.Text;
 
-        // a fractured affix has a diamond, in the middle of the card's height
-        if (data.Fractured)
+        // a encapsulated affix has a diamond, in the middle of the card's height
+        if (data.Encapsulated || reminded)
         {
-            Image diamond = R.MakeImage(bg.transform, "Diamond", Color.white);
+            Image diamond = R.MakeImage(bg.transform, "Diamond", reminded ? new Color(1f, 0.38f, 1f) : Color.white);
             diamond.sprite = OrbArt.Diamond();
             diamond.preserveAspect = true;
             diamond.raycastTarget = false;
@@ -206,9 +209,9 @@ internal static class AffixCard
     /// <summary>The colours of a card in its present state, eased towards by the blend (1 is at once).</summary>
     public static void Apply(AffixCardView v, float blend)
     {
-        Color bg = v.Fractured && !v.On && !v.Hover ? FractureBase : v.On ? (v.Hover ? ChosenHovered : Chosen) : v.Hover ? Hovered : Base;
+        Color bg = v.Encapsulated && !v.On && !v.Hover ? EncapsulateBase : v.On ? (v.Hover ? ChosenHovered : Chosen) : v.Hover ? Hovered : v.Reminded ? MemoryBase : Base;
         Color edge = v.Static ? new Color(0.3f, 0.28f, 0.25f, 0.8f) : v.On ? EdgeChosen : v.Hover ? EdgeHover : EdgeBase;
-        Color text = v.Fractured ? new Color(0.62f, 0.9f, 1f)
+        Color text = v.Encapsulated ? new Color(0.62f, 0.9f, 1f) : v.Reminded ? MemoryAccent
             : v.Static ? new Color(0.5f, 0.48f, 0.45f)
             : v.On ? new Color(1f, 0.93f, 0.68f) : v.Hover ? new Color(0.98f, 0.95f, 0.88f) : new Color(0.84f, 0.80f, 0.72f);
         v.Bg.color = Color.Lerp(v.Bg.color, bg, blend);

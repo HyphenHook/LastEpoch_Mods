@@ -39,6 +39,65 @@ internal static class ItemsDropPage
                 }
             }
         );
+        page.AddButton(
+            card,
+            "GiveReminiscenceOrbs",
+            "Give 5 Reminiscence Orbs (testing)",
+            () => Scripts.Mods.Items.Crafting.AdvancedMaterials.Add(Scripts.Mods.Items.Crafting.AdvancedMaterials.ReminiscenceOrb, 5)
+        );
+        page.AddButton(
+            card,
+            "DropReminiscenceOrb",
+            "Drop a Reminiscence Orb at my feet (testing)",
+            () =>
+            {
+                if (!Refs_Manager.player_actor.IsNullOrDestroyed())
+                {
+                    Scripts.Mods.Items.Drop.OrbDrop.Drop(Refs_Manager.player_actor.position(), Scripts.Mods.Items.Crafting.AdvancedMaterials.ReminiscenceOrb);
+                }
+            }
+        );
+        page.AddButton(
+            card,
+            "GiveEchoOrbs",
+            "Give 5 Echo Orbs (testing)",
+            () => Scripts.Mods.Items.Crafting.AdvancedMaterials.Add(Scripts.Mods.Items.Crafting.AdvancedMaterials.EchoOrb, 5)
+        );
+        page.AddButton(
+            card,
+            "GiveReverieOrbs",
+            "Give 5 Reverie Orbs (testing)",
+            () => Scripts.Mods.Items.Crafting.AdvancedMaterials.Add(Scripts.Mods.Items.Crafting.AdvancedMaterials.ReverieOrb, 5)
+        );
+        page.AddButton(
+            card,
+            "GiveChaosOrbs",
+            "Give 5 Chaos Orbs (testing)",
+            () => Scripts.Mods.Items.Crafting.AdvancedMaterials.Add(Scripts.Mods.Items.Crafting.AdvancedMaterials.ChaosOrb, 5)
+        );
+        foreach (var (key, name) in new[]
+        {
+            (Scripts.Mods.Items.Crafting.AdvancedMaterials.EchoOrb, "Echo Orb"),
+            (Scripts.Mods.Items.Crafting.AdvancedMaterials.ReverieOrb, "Reverie Orb"),
+            (Scripts.Mods.Items.Crafting.AdvancedMaterials.ChaosOrb, "Chaos Orb"),
+            (Scripts.Mods.Items.Crafting.AdvancedMaterials.AttunementOrb, "Attunement Orb"),
+        })
+        {
+            page.AddButton(
+                card,
+                "Drop" + key,
+                "Drop " + name + " at my feet (testing)",
+                () =>
+                {
+                    if (!Refs_Manager.player_actor.IsNullOrDestroyed())
+                    {
+                        Scripts.Mods.Items.Drop.OrbDrop.Drop(Refs_Manager.player_actor.position(), key);
+                    }
+                }
+            );
+        }
+        page.AddButton(card, "GiveAttunementOrbs", "Give 5 Attunement Orbs (testing)",
+            () => Scripts.Mods.Items.Crafting.AdvancedMaterials.Add(Scripts.Mods.Items.Crafting.AdvancedMaterials.AttunementOrb, 5));
         AddExclusiveRarity(card, "ForceUnique", "Force Unique", 0);
         AddExclusiveRarity(card, "ForceSet", "Force Set", 1);
         // The legacy rarity-9 override produces unrelated unique identities.

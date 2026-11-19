@@ -12,6 +12,7 @@ public sealed class RecombAffix
     public int DisplayedTier { get; init; } // 1..7
     public double Weight { get; init; } // the game's roll weight for this affix: higher is commoner
     public int Source { get; init; } // 0 = item A, 1 = item B
+    public bool Reminded { get; init; }
     public bool LegalOnA { get; init; } = true; // may this affix sit on item A's base?
     public bool LegalOnB { get; init; } = true; // and on item B's base?
     public bool LegalOn(int baseIndex) => baseIndex == 0 ? LegalOnA : LegalOnB;
@@ -32,6 +33,7 @@ public static class RecombinatorMath
     public const int MaxAffixes = AffixLimits.MaxOrdinary;
 
     public const int MaxPerSide = AffixLimits.MaxPerSide;
+    public const string RemindedLimitMessage = "Only one Reminded affix can be kept.";
 
     /// <summary>
     /// Ordinary affixes the result can hold on this base. The seals and the corruption affix are not counted among
@@ -77,6 +79,10 @@ public static class RecombinatorMath
         {
             return "At most " + Math.Min(MaxAffixes, capacity) + " affixes.";
         }
+        if (selected.Count(a => a.Reminded) > 1)
+        {
+            return RemindedLimitMessage;
+        }
         if (selected.Select(a => a.AffixId).Distinct().Count() != selected.Count)
         {
             return "The same affix cannot be picked twice.";
@@ -108,13 +114,15 @@ public static class RecombinatorMath
     /// random (half each), and the result is only right when every chosen affix can sit on the base that wins and
     /// fits in its slots; the chosen affixes must then survive the merge.
     /// </summary>
-    public static double SuccessChance(IReadOnlyList<RecombAffix> selected, int capacityA = MaxAffixes, int capacityB = MaxAffixes, bool primordial = false)
+    public static double SuccessChance(IReadOnlyList<RecombAffix> selected, int capacityA = MaxAffixes, int capacityB = MaxAffixes, bool primordial = false, int? countA = null, int? countB = null)
     {
         if (Validate(selected, Math.Max(capacityA, capacityB)).Length > 0)
         {
             return 0;
         }
-        double survive = SurvivalChance(selected, primordial);
+        double survive = countA.HasValue && countB.HasValue
+            ? PenalizedSurvivalChance(selected, primordial, countA.Value, countB.Value)
+            : SurvivalChance(selected, primordial);
         double p = 0;
         for (int b = 0; b < 2; b++)
         {
@@ -125,6 +133,26 @@ public static class RecombinatorMath
             }
         }
         return Math.Clamp(p, 0, 1);
+    }
+
+    /// <summary>Conditional survival with over-average selection penalties and high-count ceilings.</summary>
+    public static double PenalizedSurvivalChance(IReadOnlyList<RecombAffix> selected, bool primordial, int countA, int countB)
+    {
+        double chance = SurvivalChance(selected, primordial);
+        if (selected == null)
+        {
+            return chance;
+        }
+
+        double excess = selected.Count - (countA + (double)countB) * 0.5;
+        if (excess <= 0)
+        {
+            return chance;
+        }
+
+        double ceiling = selected.Count >= 5 ? 0.02 : selected.Count == 4 ? 0.15 : 1.0;
+        return Math.Min(ceiling, chance * Math.Pow(0.5, excess));
+
     }
 
     /// <summary>
@@ -156,10 +184,12 @@ public static class RecombinatorMath
     /// Draws up to <paramref name="count" /> different affixes from the pool, each pick weighted by the affix's own
     /// roll weight. An affix on both items appears once. No more than three prefixes or three suffixes are ever
     /// drawn, counting the <paramref name="prefixes" /> and <paramref name="suffixes" /> the result already holds.
+    /// At most one Reminded affix can be carried over, including one the result already holds.
     /// </summary>
-    public static List<RecombAffix> Draw(IReadOnlyList<RecombAffix> pool, int count, Func<double> rng, int prefixes = 0, int suffixes = 0)
+    public static List<RecombAffix> Draw(IReadOnlyList<RecombAffix> pool, int count, Func<double> rng, int prefixes = 0, int suffixes = 0, bool hasReminded = false)
     {
         var left = pool
+            .Where(a => !hasReminded || !a.Reminded)
             .GroupBy(a => a.AffixId)
             .Select(g => g.OrderBy(_ => rng()).First()) // the copy on either item, picked at random
             .ToList();
@@ -185,6 +215,16 @@ public static class RecombinatorMath
             }
             result.Add(pick);
             left.Remove(pick);
+            if (pick.Reminded)
+            {
+                for (int i = left.Count - 1; i >= 0; i--)
+                {
+                    if (!left[i].Reminded) continue;
+                    RecombAffix ordinary = pool.FirstOrDefault(a => a.AffixId == left[i].AffixId && !a.Reminded);
+                    if (ordinary == null) left.RemoveAt(i);
+                    else left[i] = ordinary;
+                }
+            }
             if (pick.Placement == 1)
             {
                 prefixes++;

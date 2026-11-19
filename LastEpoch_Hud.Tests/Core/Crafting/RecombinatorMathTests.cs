@@ -37,6 +37,29 @@ public class RecombinatorMathTests
     }
 
     [Fact]
+    public void OnlyOneRemindedAffixCanBeSelectedFromEitherItem()
+    {
+        var left = new RecombAffix { AffixId = 1, DisplayedTier = 3, Reminded = true };
+        var right = new RecombAffix { AffixId = 2, DisplayedTier = 3, Source = 1, Reminded = true };
+        Assert.Equal("", RecombinatorMath.Validate(new[] { left, A(3, 3) }));
+        Assert.Equal("", RecombinatorMath.Validate(new[] { right, A(3, 3) }));
+        Assert.Equal(RecombinatorMath.RemindedLimitMessage, RecombinatorMath.Validate(new[] { left, right }));
+        Assert.Equal(0, RecombinatorMath.SuccessChance(new[] { left, right }));
+    }
+
+    [Fact]
+    public void DrawKeepsAtMostOneRemindedAffixAndCanUseAnUnmarkedCopy()
+    {
+        var first = new RecombAffix { AffixId = 1, DisplayedTier = 3, Weight = 1, Reminded = true };
+        var second = new RecombAffix { AffixId = 2, DisplayedTier = 3, Weight = 1, Reminded = true };
+        var ordinaryCopy = A(2, 3, source: 1);
+        var pool = new[] { first, second, ordinaryCopy };
+
+        Assert.Equal(new[] { first, ordinaryCopy }, RecombinatorMath.Draw(pool, 3, () => 0));
+        Assert.Equal(new[] { ordinaryCopy }, RecombinatorMath.Draw(pool, 3, () => 0, hasReminded: true));
+    }
+
+    [Fact]
     public void OneLowTierAffixIsAlmostCertain()
     {
         Assert.InRange(RecombinatorMath.SuccessChance(new[] { A(1, 2) }), 0.9, 1.0);

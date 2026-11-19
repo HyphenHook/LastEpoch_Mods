@@ -2,7 +2,6 @@ using System;
 using HarmonyLib;
 using Il2Cpp;
 using Il2CppTMPro;
-using LastEpoch_Hud.Scripts.Core.Crafting;
 using LastEpoch_Hud.Scripts.Mods.Items.AutoLoot;
 using LastEpoch_Hud.Scripts.Mods.Items.Crafting;
 using UnityEngine;
@@ -10,95 +9,135 @@ using UnityEngine;
 namespace LastEpoch_Hud.Scripts.Mods.Items.Drop;
 
 /// <summary>
-/// The Encapsulation Orb as ground loot. The game knows no such item, so the orb drops as an ordinary rune that carries a
-/// marker in its individual id. Picking the marked rune up gives an orb to the Advanced Crafting tab instead of a rune,
-/// and its label reads "Encapsulation Orb".
+/// Advanced crafting orbs use marked Harbinger's Eye carriers. All ground pickups go to the
+/// Advance Materials tab stacks, including orbs withdrawn and dropped again.
 /// </summary>
 internal static class OrbDrop
 {
     /// <summary>No real item has this individual id.</summary>
     public const uint Marker = 0x0EC0C0DE;
+    private const uint ReminiscenceMarker = 0x0EC0C0DF;
+    private const uint EchoMarker = 0x0EC0C0E0;
+    private const uint ReverieMarker = 0x0EC0C0E1;
+    private const uint ChaosMarker = 0x0EC0C0E2;
+    private const uint AttunementMarker = 0x0EC0C0E3;
 
-    private const int RuneType = 102;
-    private const string OrbName = "<color=#8fd8ff>Encapsulation Orb</color>";
+    private const uint PhysicalMarkerOffset = 16;
+    private static (byte Type, ushort Subtype)? eyeType;
     private static readonly System.Random Rng = new();
 
-    // TESTING: every enemy has this chance to drop an orb. Set to null for the real chances.
-    private static readonly double? TestChance = 0.5;
+    private const double ReminiscenceDropChance = 0.5;
 
-    public static bool IsOrb(ItemData item) => !item.IsNullOrDestroyed() && item.individualID == Marker;
+    internal static bool IsPhysical(ItemData item) => !item.IsNullOrDestroyed() && Item.isKey(item.itemType)
+        && item.individualID >= Marker + PhysicalMarkerOffset && item.individualID <= AttunementMarker + PhysicalMarkerOffset;
 
-    private static ItemData tooltipCarrier;
-
-    /// <summary>An orb-marked item for tooltips, so the game's own tooltip (rewritten for orbs) can show it anywhere.</summary>
-    internal static ItemData TooltipCarrier()
+    public static string KeyOf(ItemData item) => item.IsNullOrDestroyed()
+        || (!Item.isKey(item.itemType) && item.itemType != Item.runeItemType) ? null
+        : (IsPhysical(item) ? item.individualID - PhysicalMarkerOffset : item.individualID) switch
     {
-        if (tooltipCarrier.IsNullOrDestroyed())
+        Marker => AdvancedMaterials.EncapsulationOrb,
+        ReminiscenceMarker => AdvancedMaterials.ReminiscenceOrb,
+        EchoMarker => AdvancedMaterials.EchoOrb,
+        ReverieMarker => AdvancedMaterials.ReverieOrb,
+        ChaosMarker => AdvancedMaterials.ChaosOrb,
+        AttunementMarker => AdvancedMaterials.AttunementOrb,
+        _ => null,
+    };
+
+    public static bool IsOrb(ItemData item) => KeyOf(item) != null;
+
+    private static readonly System.Collections.Generic.Dictionary<string, ItemData> tooltipCarriers = new();
+
+    internal static ItemData TooltipCarrier(string key)
+    {
+        if (!tooltipCarriers.TryGetValue(key, out ItemData item) || item.IsNullOrDestroyed())
         {
-            tooltipCarrier = Carrier();
+            item = Carrier(key);
+            tooltipCarriers[key] = item;
         }
-        return tooltipCarrier;
+        return item;
     }
 
-    private static bool _carrierLogged;
-
-    /// <summary>
-    /// The rune the orb stands in for. The ground beam, colour and sound come from it, so it is one of the golden runes:
-    /// Ascendance, or failing that Creation.
-    /// </summary>
-    private static ushort CarrierSubtype(ItemList.BaseNonEquipmentItem runes)
+    private static (byte Type, ushort Subtype)? HarbingerEyeType()
     {
-        foreach (string wanted in new[] { "Ascendance", "Creation" })
+        if (eyeType.HasValue) return eyeType;
+        ItemContainersManager manager = ItemContainersManager.Instance;
+        var slot = manager.IsNullOrDestroyed() ? null : manager.harbingerPinnacleKey;
+        if (!slot.IsNullOrDestroyed() && slot.subTypes != null)
         {
-            for (int i = 0; i < runes.subItems.Count; i++)
+            foreach (var family in slot.subTypes)
             {
-                string name = Refs_Manager.item_list.GetItemName(RuneType, runes.subItems[i].subTypeID);
-                if (name != null && name.IndexOf(wanted, StringComparison.OrdinalIgnoreCase) >= 0)
+                if (!Item.isKey(family.Key) || family.Value == null || family.Value.Count != 1) continue;
+                foreach (int subtype in family.Value)
                 {
-                    if (!_carrierLogged)
-                    {
-                        _carrierLogged = true;
-                        Main.logger_instance?.Msg("Encapsulation Orb: dropping as " + name);
-                    }
-                    return (ushort)runes.subItems[i].subTypeID;
+                    eyeType = ((byte)family.Key, (ushort)subtype);
+                    return eyeType;
                 }
             }
         }
-        return (ushort)runes.subItems[0].subTypeID;
-    }
 
-    private static ItemData Carrier()
-    {
-        ItemList.BaseNonEquipmentItem runes = null;
-        foreach (ItemList.BaseNonEquipmentItem list in Refs_Manager.item_list.nonEquippableItems)
+        ItemList catalog = ItemList.get();
+        if (catalog.IsNullOrDestroyed() || catalog.nonEquippableItems == null) return null;
+        foreach (var family in catalog.nonEquippableItems)
         {
-            if (list.baseTypeID == RuneType)
+            if (family == null || !Item.isKey(family.baseTypeID) || family.subItems == null) continue;
+            foreach (var subtype in family.subItems)
             {
-                runes = list;
-                break;
+                if (subtype == null || !(IsHarbingerEyeName(subtype.name) || IsHarbingerEyeName(subtype.displayName))) continue;
+                eyeType = ((byte)family.baseTypeID, (ushort)subtype.subTypeID);
+                return eyeType;
             }
         }
-        if (runes == null || runes.subItems.Count == 0)
-        {
-            return null;
-        }
+        return null;
+    }
+
+    private static bool IsHarbingerEyeName(string name) => !string.IsNullOrEmpty(name)
+        && name.Contains("Harbinger", StringComparison.OrdinalIgnoreCase)
+        && (name.Contains("Eye", StringComparison.OrdinalIgnoreCase) || name.Contains("Key", StringComparison.OrdinalIgnoreCase));
+
+    internal static ItemData Carrier(string key, bool physical = false)
+    {
+        var eye = HarbingerEyeType();
+        if (!eye.HasValue) return null;
         var item = new ItemDataUnpacked
         {
             LvlReq = 0,
             classReq = ItemList.ClassRequirement.Any,
-            itemType = RuneType,
-            subType = CarrierSubtype(runes),
+            itemType = eye.Value.Type,
+            subType = eye.Value.Subtype,
             rarity = 0,
             sockets = 0,
             uniqueID = 0,
         };
-        item.individualID = Marker;
+        uint marker = key switch
+        {
+            AdvancedMaterials.EncapsulationOrb => Marker,
+            AdvancedMaterials.ReminiscenceOrb => ReminiscenceMarker,
+            AdvancedMaterials.EchoOrb => EchoMarker,
+            AdvancedMaterials.ReverieOrb => ReverieMarker,
+            AdvancedMaterials.ChaosOrb => ChaosMarker,
+            AdvancedMaterials.AttunementOrb => AttunementMarker,
+            _ => 0u,
+        };
+        if (marker == 0) return null;
+        item.individualID = marker + (physical ? PhysicalMarkerOffset : 0u);
         item.RefreshIDAndValues();
-        return item.TryCast<ItemData>();
+        return KeyOf(item) == key ? item : null;
     }
 
+    internal static Color LootColor(string key) => key switch
+    {
+        AdvancedMaterials.EncapsulationOrb => new Color(1f, 0.73f, 0.29f),
+        AdvancedMaterials.ReminiscenceOrb => new Color(0.85f, 0.54f, 1f),
+        AdvancedMaterials.EchoOrb => new Color(0.31f, 1f, 0.84f),
+        AdvancedMaterials.ReverieOrb => new Color(0.63f, 0.81f, 1f),
+        AdvancedMaterials.ChaosOrb => new Color(1f, 0.36f, 0.27f),
+        AdvancedMaterials.AttunementOrb => new Color(0.88f, 0.62f, 1f),
+        _ => Color.white,
+    };
+
     /// <summary>Drops an orb on the ground at the position, for the local player.</summary>
-    public static bool Drop(Vector3 position)
+    public static bool Drop(Vector3 position, string key = AdvancedMaterials.EncapsulationOrb)
     {
         try
         {
@@ -108,7 +147,7 @@ internal static class OrbDrop
             {
                 return false;
             }
-            ItemData carrier = Carrier();
+            ItemData carrier = Carrier(key);
             if (carrier.IsNullOrDestroyed())
             {
                 return false;
@@ -142,10 +181,9 @@ internal static class OrbDrop
                 {
                     return;
                 }
-                double chance = TestChance ?? OrbDropMath.Chance((int)enemy.getRarity(), enemy.isBossOrMiniboss());
-                if (Rng.NextDouble() < chance)
+                if (Rng.NextDouble() < ReminiscenceDropChance)
                 {
-                    Drop(enemy.position());
+                    Drop(enemy.position(), AdvancedMaterials.ReminiscenceOrb);
                 }
             }
             catch (Exception ex)
@@ -164,6 +202,7 @@ internal static class OrbDrop
         [HarmonyPrefix]
         private static bool Prefix(GroundItemManager.GroundItemList __0, uint __2)
         {
+            bool isOrb = false;
             try
             {
                 if (__0.IsNullOrDestroyed() || __0.items.IsNullOrDestroyed())
@@ -177,11 +216,15 @@ internal static class OrbDrop
                     {
                         continue;
                     }
-                    AdvancedMaterials.Add(AdvancedMaterials.EncapsulationOrb, 1);
+                    isOrb = true;
+                    string key = KeyOf(found.itemData);
+                    if (!AdvancedMaterials.TryCreditStack(key, 1)) return false;
                     __0.items.RemoveAt(i);
                     GroundItemVisualsManager visuals = UnityEngine.Object.FindObjectOfType<GroundItemVisualsManager>();
                     visuals?.poolGroundItemVisuals(__2, true);
-                    Main.logger_instance?.Msg("Encapsulation Orb picked up (" + AdvancedMaterials.Count(AdvancedMaterials.EncapsulationOrb) + ").");
+                    AdvancedMaterial material = AdvancedMaterials.All.Find(m => m.Key == key);
+                    if (material != null) Notifications.KeyOrWovenEchoAddedNotification(material.Name, 1);
+                    Main.logger_instance?.Msg(key + " picked up (" + AdvancedMaterials.Count(key) + ").");
                     return false;
                 }
             }
@@ -189,11 +232,31 @@ internal static class OrbDrop
             {
                 Main.logger_instance?.Warning("Orb pickup failed: " + ex.Message);
             }
-            return true;
+            return !isOrb;
         }
     }
 
     // ------------------------------------------------------------------ its name on the ground
+
+    [HarmonyPatch(typeof(GroundItemVisuals), nameof(GroundItemVisuals.initialise))]
+    private static class BeamPatch
+    {
+        [HarmonyPostfix]
+        private static void Postfix(ItemDataUnpacked __0, GroundItemRarityVisualsV2 __3)
+        {
+            string key = KeyOf(__0);
+            if (key == null || __3.IsNullOrDestroyed()) return;
+            try
+            {
+                Color color = LootColor(key);
+                __3.ConfigureBaseVisualPrefab(EpochColor.BeamSize.LARGE, color, DMMapWorldIcon.iconType.legendaryOrKeyIcon, color);
+            }
+            catch (Exception ex)
+            {
+                Main.logger_instance?.Warning("Orb drop beam: " + ex.Message);
+            }
+        }
+    }
 
     [HarmonyPatch(typeof(GroundItemLabel), nameof(GroundItemLabel.SetLabelText))]
     private static class LabelPatch
@@ -206,13 +269,16 @@ internal static class OrbDrop
                 ItemData data = __instance.getItemData()?.TryCast<ItemData>();
                 if (!IsOrb(data))
                 {
+                    OrbItemVisuals.TrackGroundLabel(__instance, null);
                     return;
                 }
                 foreach (TextMeshProUGUI text in __instance.GetComponentsInChildren<TextMeshProUGUI>(true))
                 {
                     if (text != null && !string.IsNullOrEmpty(text.text))
                     {
-                        text.text = OrbName;
+                        AdvancedMaterial orb = AdvancedMaterials.All.Find(m => m.Key == KeyOf(data));
+                        text.text = "<color=#" + ColorUtility.ToHtmlStringRGB(LootColor(orb.Key)) + ">" + orb.Name + "</color>";
+                        OrbItemVisuals.TrackGroundLabel(__instance, text.rectTransform);
                         break;
                     }
                 }

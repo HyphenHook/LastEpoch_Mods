@@ -16,7 +16,15 @@ internal static class OrbArt
     /// <summary>The orb's sprite. The colours are unused now that the image is drawn ahead of time.</summary>
     public static Sprite Get(string key, Color core, Color glow)
     {
-        string resource = key == AdvancedMaterials.EncapsulationOrb ? "orb_encapsulation" : "orb_encapsulation";
+        string resource = key switch
+        {
+            AdvancedMaterials.AttunementOrb => "orb_attunement",
+            AdvancedMaterials.ReminiscenceOrb => "orb_reminiscence",
+            AdvancedMaterials.EchoOrb => "orb_echo",
+            AdvancedMaterials.ReverieOrb => "orb_reverie",
+            AdvancedMaterials.ChaosOrb => "orb_chaos",
+            _ => "orb_encapsulation",
+        };
         return Load(resource);
     }
 
@@ -26,8 +34,8 @@ internal static class OrbArt
     /// <summary>The orb, drained of colour, for when there are none left.</summary>
     public static Sprite OrbGrey() => Load("orb_encapsulation_grey");
 
-    /// <summary>The small blue diamond that marks a fractured affix.</summary>
-    public static Sprite Diamond() => Load("diamond_fractured");
+    /// <summary>The small blue diamond that marks a encapsulated affix.</summary>
+    public static Sprite Diamond() => Load("diamond_encapsulated");
 
     private static Sprite Load(string name)
     {

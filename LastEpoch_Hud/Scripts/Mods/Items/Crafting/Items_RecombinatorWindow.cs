@@ -49,7 +49,7 @@ internal static class Items_RecombinatorWindow
     private static bool resultRevealed;
     private static float revealAt;
 
-    private const float IconW = RecombKit.ResW, IconH = RecombKit.ItemH, InY = RecombKit.InY;
+    private const float IconW = RecombKit.ResW, IconH = RecombKit.ResH, InY = RecombKit.InY;
     private static float ResY => RecombKit.ResY;
     private const float Left = 48, ColW = 320, Gap = 30;
 
@@ -248,7 +248,10 @@ internal static class Items_RecombinatorWindow
                     {
                         SpawnCrack();
                     }
-                    // (the colour flash of a good result is the kit's, and plays on its own)
+                    else
+                    {
+                        BurstResultEmbers();
+                    }
                 }
             }
         }
@@ -481,6 +484,7 @@ internal static class Items_RecombinatorWindow
 
     private static void ClearDynamic()
     {
+        buttonHoverRims.Clear();
         foreach (GameObject go in dynamic)
         {
             if (go != null)
@@ -517,6 +521,31 @@ internal static class Items_RecombinatorWindow
         return go;
     }
 
+    private static Sprite recombinatorButtonSprite;
+
+    private static Sprite RecombinatorButtonSprite()
+    {
+        if (recombinatorButtonSprite == null)
+        {
+            Sprite source = OrbArt.Named("recombinator_button");
+            if (source == null)
+            {
+                return null;
+            }
+
+            Texture2D texture = source.texture;
+            // Trim the transparent space above and below the plate in the generated sprite.
+            float verticalPadding = texture.height * 0.16f;
+            Rect bounds = new(0, verticalPadding, texture.width, texture.height - 2f * verticalPadding);
+            recombinatorButtonSprite = Sprite.Create(texture, bounds, new Vector2(0.5f, 0.5f), 100f);
+            recombinatorButtonSprite.hideFlags = HideFlags.HideAndDontSave;
+        }
+
+        return recombinatorButtonSprite;
+    }
+
+    private static readonly List<(RectTransform Rect, Outline Rim)> buttonHoverRims = new();
+
     private static GameObject Btn(string text, float x, float y, float w, float h, Action action, Color? tint = null)
     {
         GameObject go = Object.Instantiate(buttonTemplate, Content, false);
@@ -543,14 +572,45 @@ internal static class Items_RecombinatorWindow
         {
             Object.Destroy(layout);
         }
-        if (tint.HasValue)
+        Image face = go.GetComponent<Image>();
+        Button button = go.GetComponent<Button>();
+        if (face != null && button != null)
         {
-            Image img = go.GetComponent<Image>();
-            if (img != null)
+            bool selected = tint.HasValue && tint.Value.r > 0.5f;
+            foreach (Image decoration in go.GetComponentsInChildren<Image>(true))
             {
-                img.color = tint.Value;
+                if (decoration != face)
+                {
+                    decoration.enabled = false;
+                }
             }
+
+            face.sprite = RecombinatorButtonSprite();
+            face.overrideSprite = null;
+            face.type = Image.Type.Simple;
+            face.color = selected ? new Color(1f, 0.87f, 0.64f) : Color.white;
+            button.targetGraphic = face;
+            button.transition = Selectable.Transition.ColorTint;
+            ColorBlock colors = ColorBlock.defaultColorBlock;
+            colors.normalColor = tint.HasValue && !selected ? new Color(0.50f, 0.50f, 0.50f) : Color.white;
+            colors.highlightedColor = new Color(1f, 0.97f, 0.90f);
+            colors.selectedColor = colors.highlightedColor;
+            colors.pressedColor = new Color(0.62f, 0.46f, 0.32f);
+            colors.colorMultiplier = 1.6f;
+            colors.fadeDuration = 0.12f;
+            button.colors = colors;
         }
+
+        if (face != null)
+        {
+            Outline rim = go.AddComponent<Outline>();
+            rim.effectColor = new Color(1f, 0.66f, 0.25f, 0.72f);
+            rim.effectDistance = new Vector2(1.5f, -1.5f);
+            rim.useGraphicAlpha = true;
+            rim.enabled = false;
+            buttonHoverRims.Add((r, rim));
+        }
+
         OnClick(go, action);
         go.SetActive(true);
         dynamic.Add(go);
@@ -578,9 +638,16 @@ internal static class Items_RecombinatorWindow
         Array.Clear(slotItems, 0, slotItems.Length);
         Array.Clear(slotGroups, 0, slotGroups.Length);
         rows.Clear();
+        inputFlames.Clear();
+        consumeFlames.Clear();
+        resultFlames.Clear();
+        fossilShell = null;
+        collisionLight = null;
         cageRoot = null;
 
         RecombKit.Ensure(Content);
+        RecombKit.ApplyPipeSkin(PrimordialSkin);
+        RecombKit.LowerPipes();
 
         // the two item boxes, evenly spread, with each item's name above
         for (int i = 0; i < 2; i++)
@@ -597,18 +664,17 @@ internal static class Items_RecombinatorWindow
             offer = Items_Recombinator.Describe(slots[0], slots[1]);
         }
 
-        // the affixes of both items; only pickable in deterministic mode
-        if (offer != null && !pouring)
-        {
-            ListAffixes(offer.AffixesA, Left, ResY);
-            ListAffixes(offer.AffixesB, Left + WinW - ColumnWidth, ResY);
-        }
-
         // the result
         SlotBox(resultRevealed ? resultItem : null, 2, CenterX - IconW / 2, ResY, TakeResult);
-        if (deterministic && primordial && (offer != null || pouring || resultItem != null))
+        if (pouring || resultRevealed && resultItem != null)
         {
-            BoneCage(CenterX - IconW / 2, ResY);
+            AddResultFlames();
+        }
+        // the affixes of both items, one column each side of the result; only pickable in deterministic mode
+        if (offer != null && !pouring)
+        {
+            ListAffixes(offer.AffixesA, Left, RecombKit.AffixTop);
+            ListAffixes(offer.AffixesB, Left + WinW - ColumnWidth, RecombKit.AffixTop);
         }
         float y = RecombKit.Bottom + 8;
         List<RecombAffix> picks = Picks();
@@ -628,16 +694,16 @@ internal static class Items_RecombinatorWindow
             {
                 gold = RecombinatorMath.Gold(offer.All, offer.AnyExalted);
                 embers = RecombinatorMath.Embers(offer.All, offer.AnyExalted);
-                double chance = RecombinatorMath.SuccessChance(picks, offer.CapacityA, offer.CapacityB, primordial);
+                double chance = RecombinatorMath.SuccessChance(picks, offer.CapacityA, offer.CapacityB, primordial, offer.AffixesA.Count, offer.AffixesB.Count);
                 string fail = RecombinatorMath.Validate(picks, Math.Max(offer.CapacityA, offer.CapacityB));
                 valid = picks.Count > 0 && fail.Length == 0;
                 if (valid)
                 {
                     Label((chance * 100).ToString("0.#") + "% success", Left, y, WinW, 28, 22, Gold, TextAlignmentOptions.Top);
                 }
-                else if (picks.Count > 0)
+                else
                 {
-                    Label(fail, Left, y, WinW, 28, 18, Bad, TextAlignmentOptions.Top);
+                    Label(picks.Count == 0 ? "Select affixes to keep" : fail, Left, y, WinW, 28, 18, Bad, TextAlignmentOptions.Top);
                 }
             }
             else
@@ -1065,7 +1131,9 @@ internal static class Items_RecombinatorWindow
         // the ornate frame of the kit, which the item box sits in
         Rect fr = RecombKit.Frame(id);
         Image frame = MakeImage(Content, "SlotFrame", Color.white);
-        frame.sprite = RecombArt.Base(RecombKit.FrameComponent(id));
+        string fossilFrame = id == 0 ? "primordial_frame_left" : id == 1 ? "primordial_frame_right" : "primordial_frame_result";
+        Sprite skin = PrimordialSkin ? OrbArt.Named(fossilFrame) : null;
+        frame.sprite = skin != null ? skin : RecombArt.Base(RecombKit.FrameComponent(id));
         frame.raycastTarget = false;
         RectTransform frr = frame.rectTransform;
         frr.anchorMin = frr.anchorMax = new Vector2(0, 1);
@@ -1079,7 +1147,7 @@ internal static class Items_RecombinatorWindow
         br.anchorMin = br.anchorMax = new Vector2(0, 1);
         br.pivot = new Vector2(0, 1);
         br.anchoredPosition = new Vector2(x, -y);
-        br.sizeDelta = new Vector2(id == 2 ? IconW : RecombKit.InW, IconH);
+        br.sizeDelta = id == 2 ? new Vector2(IconW, IconH) : new Vector2(RecombKit.InW, RecombKit.ItemH);
         dynamic.Add(box.gameObject);
         slotGroups[id] = box.gameObject.AddComponent<CanvasGroup>();
         slotBoxes[id] = br;
@@ -1117,6 +1185,11 @@ internal static class Items_RecombinatorWindow
         Button button = box.gameObject.AddComponent<Button>();
         button.transition = Selectable.Transition.None;
         button.onClick.AddListener(click);
+        frame.transform.SetAsLastSibling(); // each frame covers the item's own edges
+        if (id < 2 && item != null)
+        {
+            AddInputFlames(id, x, y);
+        }
     }
 
     /// <summary>
@@ -1368,6 +1441,18 @@ internal static class Items_RecombinatorWindow
         {
             cam = canvas.worldCamera;
         }
+        foreach (var hover in buttonHoverRims)
+        {
+            if (hover.Rim != null)
+            {
+                bool inside = RectTransformUtility.RectangleContainsScreenPoint(hover.Rect, mouse, cam);
+                if (hover.Rim.enabled != inside)
+                {
+                    hover.Rim.enabled = inside;
+                }
+            }
+        }
+
         for (int i = 0; i < slotRects.Length; i++)
         {
             RectTransform r = slotRects[i];
@@ -1443,7 +1528,7 @@ internal static class Items_RecombinatorWindow
     }
 
     /// <summary>The kit's effect runs: the slots power up, the pipes flow, the essence pools and pours into the result.</summary>
-    private static void StartPour(bool crushBones, bool flash)
+    private static void StartPour(bool crushBones)
     {
         FindCurrencyIcons();
         pourBones = crushBones;
@@ -1453,17 +1538,300 @@ internal static class Items_RecombinatorWindow
         pourStart = Time.unscaledTime;
         resultRevealed = false;
         revealAt = pourStart + pourTotal;
-        RecombKit.Start(pourStart, flash);
+        RecombKit.Start(pourStart);
+        SpawnConsumeEmbers();
         if (crushBones)
         {
-            // three bones drop into the result as the essence pours, and are crushed
-            Vector2 slotCentre = new(CenterX, -(ResY + IconH / 2));
-            for (int i = 0; i < 3; i++)
+            Vector2 center = new(CenterX, -(ResY + IconH * 0.5f));
+            for (int i = 0; i < 18; i++)
             {
-                float dx = (i - 1) * 46;
-                Piece bone = NewPiece(true, new Vector2(CenterX + dx, -(RunY + 10)), slotCentre + new Vector2(dx * 0.25f, 0), pourStart + RecombKit.PourAt + i * 0.14f, 0.5f);
-                bone.Spin = (i - 1) * 140;
+                float angle = i * Mathf.PI * 2f / 18f;
+                Vector2 rim = center + new Vector2(Mathf.Cos(angle) * (IconW * 0.5f + 63f),
+                    Mathf.Sin(angle) * (IconH * 0.5f + 35f));
+                Color tint = rim.x < center.x ? new Color(1f, 0.52f, 0.16f) : new Color(0.55f, 1f, 0.31f);
+                bool fossil = i % 3 == 0;
+                float delay = (i % 4) * 0.035f;
+                Piece ember = NewSpark(rim, center, pourStart + RecombKit.PourAt + delay,
+                    RecombKit.RevealAt - RecombKit.PourAt - delay, tint, fossil ? 25f : 12f, inward: true);
+                ember.Go.GetComponent<Image>().sprite = OrbArt.Named(fossil ? "primordial_rib" : "sparkle_star");
             }
+        }
+    }
+
+    private static void SpawnConsumeEmbers()
+    {
+        Sprite spark = OrbArt.Named("sparkle_star");
+        Material emission = Items_AdvancedForgeWindow.Additive();
+        for (int side = 0; side < 2; side++)
+        {
+            float centerX = side == 0 ? RecombKit.InCx0 : RecombKit.InCx1;
+            float ignite = side == 0 ? RecombKit.DevourLeftAt : RecombKit.DevourRightAt;
+            float pipeY = -RecombKit.Frame(side).yMax;
+            for (int i = 0; i < 18; i++)
+            {
+                float burn = i / 17f;
+                Vector2 origin = new(centerX + UnityEngine.Random.Range(-46f, 46f),
+                    -(InY + Mathf.Lerp(RecombKit.ItemH - 18f, 20f, burn)));
+                Vector2 socket = new(centerX + UnityEngine.Random.Range(-10f, 10f), pipeY);
+                float start = pourStart + ignite + 0.24f + burn * 0.36f;
+                Piece ember = NewSpark(origin, socket, start, 0.26f + burn * 0.27f,
+                    FireTint(side, 1f), i % 5 == 0 ? 12f : 6f, inward: true);
+                Image image = ember.Go.GetComponent<Image>();
+                image.sprite = spark;
+                if (emission != null)
+                {
+                    image.material = emission;
+                }
+            }
+        }
+    }
+
+    private static bool PrimordialSkin => pouring ? pourBones : deterministic && primordial;
+
+    private static Image SlotEffect(string name, Sprite sprite, Vector2 position, Vector2 size, float rotation, Color color)
+    {
+        Image image = MakeImage(Content, name, color);
+        image.sprite = sprite;
+        image.raycastTarget = false;
+        RectTransform rect = image.rectTransform;
+        rect.anchorMin = rect.anchorMax = new Vector2(0, 1);
+        rect.pivot = new Vector2(0.5f, 0.5f);
+        rect.anchoredPosition = position;
+        rect.sizeDelta = size;
+        rect.localRotation = Quaternion.Euler(0, 0, rotation);
+        dynamic.Add(image.gameObject);
+        return image;
+    }
+
+    private static readonly List<(Image Band, int Side, int Offset)> inputFlames = new();
+    private static readonly List<Image> resultFlames = new();
+    private static readonly List<(Image Band, Image Heat, Vector2 Center, int Side)> consumeFlames = new();
+    private static Image fossilShell;
+
+    private static Image collisionLight;
+
+    private static Image FireBand(string name, Vector2 position, Vector2 size, float rotation)
+    {
+        Image band = SlotEffect(name, FireFrame(0), position, size, rotation, Color.clear);
+        Material emission = Items_AdvancedForgeWindow.Additive();
+        if (emission != null)
+        {
+            band.material = emission;
+        }
+        return band;
+    }
+
+    private static Color FireTint(int side, float alpha)
+    {
+        Color color = side == 0 ? new Color(1f, 0.56f, 0.19f) : new Color(0.48f, 1f, 0.30f);
+        color.a = alpha;
+        return color;
+    }
+
+    private static void AddInputFlames(int side, float x, float y)
+    {
+        float centerY = -(y + RecombKit.ItemH * 0.5f);
+        for (int edge = 0; edge < 2; edge++)
+        {
+            float borderX = edge == 0 ? x - 29f : x + RecombKit.InW + 29f;
+            Image band = FireBand("InputBorderFire", new Vector2(borderX, centerY),
+                new Vector2(RecombKit.ItemH + 12f, 47f), edge == 0 ? 90f : -90f);
+            inputFlames.Add((band, side, edge * 23 + side * 17));
+        }
+        if (pouring)
+        {
+            Vector2 center = new(x + RecombKit.InW * 0.5f, centerY);
+            Image heat = FireBand("ItemConsumeHeat", center, new Vector2(RecombKit.InW, RecombKit.ItemH), 180f);
+            Image consume = FireBand("ItemConsumeFire", center, new Vector2(RecombKit.InW, RecombKit.ItemH), 0f);
+            consumeFlames.Add((consume, heat, center, side));
+        }
+    }
+
+    private static void TickInputFlames(float now)
+    {
+        foreach (var flame in inputFlames)
+        {
+            float occupied = pouring ? RecombKit.InputAlpha(flame.Side, now) : 1f;
+            flame.Band.sprite = FireFrame((int)(now * 48f) + flame.Offset);
+            float consumed = 1f - occupied;
+            float flare = Mathf.Sin(consumed * Mathf.PI);
+            flame.Band.color = FireTint(flame.Side, Mathf.Clamp01(0.78f * occupied + 0.8f * flare));
+            RectTransform rect = flame.Band.rectTransform;
+            rect.sizeDelta = new Vector2(RecombKit.ItemH + 12f, 47f + 26f * flare);
+        }
+        foreach (var flame in consumeFlames)
+        {
+            float ignite = flame.Side == 0 ? RecombKit.DevourLeftAt : RecombKit.DevourRightAt;
+            float elapsed = now - pourStart - ignite;
+            float ignition = Mathf.SmoothStep(0f, 1f, Mathf.InverseLerp(0.06f, 0.29f, elapsed));
+            float burnout = Mathf.SmoothStep(0f, 1f, Mathf.InverseLerp(0.78f, 1.22f, elapsed));
+            float intensity = pouring ? ignition * (1f - burnout) : 0f;
+            int frame = (int)(now * 60f) + flame.Side * 29;
+
+            // Opposing flame layers cover the top and bottom of the item opening at a fixed size.
+            flame.Band.sprite = FireFrame(frame);
+            flame.Band.color = FireTint(flame.Side, intensity);
+            flame.Heat.sprite = FireFrame(frame + 23);
+            float heat = intensity * (1f - 0.55f * burnout);
+            flame.Heat.color = flame.Side == 0
+                ? new Color(1f, Mathf.Lerp(0.31f, 0.12f, burnout), 0.07f, heat)
+                : new Color(Mathf.Lerp(0.37f, 0.10f, burnout), 1f, 0.12f, heat);
+        }
+    }
+
+    private const int FireFrameCount = 96;
+    private static Sprite[] fireFrames;
+
+    // A looping fire field. Heat advects away from the root while different frequencies break up the plume.
+    // The geometry stays anchored, so the motion comes from the fire texture itself.
+    private static Sprite FireFrame(int index)
+    {
+        if (fireFrames == null)
+        {
+            const int width = 96, height = 64, columns = 12;
+            var atlas = new Texture2D(width * columns, height * (FireFrameCount / columns), TextureFormat.RGBA32, false);
+            atlas.wrapMode = TextureWrapMode.Clamp;
+            atlas.filterMode = FilterMode.Bilinear;
+            atlas.hideFlags = HideFlags.HideAndDontSave;
+            var pixels = new Color32[atlas.width * atlas.height];
+            fireFrames = new Sprite[FireFrameCount];
+            for (int frame = 0; frame < FireFrameCount; frame++)
+            {
+                int ox = frame % columns * width;
+                int oy = frame / columns * height;
+                float t = frame * 2f * Mathf.PI / FireFrameCount;
+                float driftX = Mathf.Cos(t) * 1.2f;
+                float driftY = Mathf.Sin(t) * 1.2f;
+                for (int y = 1; y < height - 1; y++)
+                {
+                    float v = y / (height - 1f);
+                    for (int x = 1; x < width - 1; x++)
+                    {
+                        float u = x / (width - 1f);
+                        // Sample a looping domain so the turbulence wraps without an animation seam.
+                        float fold = Mathf.PerlinNoise(u * 7f + driftX + 8f, v * 4f + driftY + 8f);
+                        float detail = Mathf.PerlinNoise(u * 25f + fold * 2f + driftX + 16f,
+                            v * 10f + driftY + 16f);
+                        float plume = Mathf.PerlinNoise(u * 12f + detail * 1.8f + driftX * 1.6f + 24f,
+                            v * 7f + driftY * 1.6f + 24f);
+                        float rise = (plume - 0.5f) * (0.13f + 0.29f * v);
+                        float heat = Mathf.Clamp01(0.82f - v * 1.30f + (fold - 0.5f) * 0.70f
+                            + (detail - 0.5f) * 0.19f + rise);
+                        float edge = Mathf.SmoothStep(0f, 1f, Mathf.Min(u, 1f - u) * 11f)
+                            * Mathf.SmoothStep(0f, 1f, v * 12f);
+                        // Low heat leaves a translucent fringe. Fine folds break up the luminous interior.
+                        float fringe = Mathf.SmoothStep(0f, 1f, heat * 1.18f);
+                        float filament = Mathf.SmoothStep(0f, 1f, (detail - 0.34f) * 2.5f);
+                        byte alpha = (byte)(255f * fringe * edge * Mathf.Lerp(0.77f, 1f, filament));
+                        byte core = (byte)Mathf.Lerp(55f, 255f, Mathf.Clamp01(heat * (0.76f + filament * 0.54f)));
+                        pixels[(oy + y) * atlas.width + ox + x] = new Color32(core, core, core, alpha);
+                    }
+                }
+            }
+            atlas.SetPixels32(pixels);
+            atlas.Apply(false, true);
+            for (int frame = 0; frame < FireFrameCount; frame++)
+            {
+                Rect bounds = new(frame % columns * width, frame / columns * height, width, height);
+                fireFrames[frame] = Sprite.Create(atlas, bounds, new Vector2(0.5f, 0.5f), 100f);
+                fireFrames[frame].hideFlags = HideFlags.HideAndDontSave;
+            }
+        }
+        return fireFrames[index % FireFrameCount];
+    }
+
+    private static void AddResultFlames()
+    {
+        for (int i = 0; i < 4; i++)
+        {
+            resultFlames.Add(FireBand("ResultBorderFire", Vector2.zero, Vector2.zero, 0f));
+        }
+        if (pouring)
+        {
+            collisionLight = SlotEffect("SoulFireContact", OrbArt.Named("glow_violet"),
+                new Vector2(CenterX, -(ResY + IconH * 0.5f)), Vector2.zero, 0f, Color.clear);
+            Material emission = Items_AdvancedForgeWindow.Additive();
+            if (emission != null)
+            {
+                collisionLight.material = emission;
+            }
+        }
+        if (pouring && pourBones)
+        {
+            fossilShell = SlotEffect("FossilShell", OrbArt.Named("primordial_reliquary"),
+                new Vector2(CenterX, -(ResY + IconH * 0.5f)), Vector2.zero, 0f, Color.clear);
+        }
+    }
+
+    private static void TickResultFlames(float now)
+    {
+        float elapsed = now - pourStart;
+        float ignition = Mathf.SmoothStep(0f, 1f, Mathf.InverseLerp(RecombKit.CrossFlowAt, RecombKit.PourAt, elapsed));
+        float convergence = Mathf.SmoothStep(0f, 1f, Mathf.InverseLerp(RecombKit.PourAt - 0.22f, RecombKit.RevealAt - 0.05f, elapsed));
+        Vector2 center = new(CenterX, -(ResY + IconH * 0.5f));
+        float rim = IconW * 0.5f + 29f;
+        for (int i = 0; i < resultFlames.Count; i++)
+        {
+            int side = i / 2;
+            float sign = side == 0 ? -1f : 1f;
+            bool jet = i % 2 == 1;
+            Image band = resultFlames[i];
+            RectTransform rect = band.rectTransform;
+            float reach = Mathf.Lerp(42f, rim * 1.55f, convergence);
+            rect.anchoredPosition = center + new Vector2(sign * (jet ? rim - reach * 0.5f : rim + 4f), 0f);
+            rect.localRotation = Quaternion.Euler(0f, 0f, sign * (jet ? 90f : -90f));
+            rect.sizeDelta = jet ? new Vector2(IconH * 0.70f, reach) : new Vector2(IconH + 6f, 55f);
+            float alpha = jet ? pouring ? ignition * 0.95f : 0f
+                : pouring ? ignition * 0.8f : lastFailed ? 0.48f : 0.88f;
+            band.sprite = FireFrame((int)(now * (jet ? 60f : 48f)) + i * 19);
+            band.color = FireTint(side, alpha);
+        }
+        if (collisionLight != null)
+        {
+            float contact = pouring ? Mathf.SmoothStep(0f, 1f, Mathf.InverseLerp(0.52f, 1f, convergence)) : 0f;
+            collisionLight.rectTransform.sizeDelta = Vector2.Lerp(new Vector2(32f, 70f), new Vector2(155f, 138f), contact);
+            collisionLight.color = new Color(1f, 0.89f, 0.59f, contact * 0.58f);
+        }
+    }
+
+    private static void TickFossilShell(float now)
+    {
+        if (fossilShell == null || !pouring)
+        {
+            return;
+        }
+
+        float elapsed = now - pourStart;
+        float petrify = Mathf.SmoothStep(0f, 1f, Mathf.InverseLerp(RecombKit.PourAt - 0.3f, RecombKit.RevealAt - 0.21f, elapsed));
+        float fracture = Mathf.InverseLerp(RecombKit.RevealAt - 0.18f, RecombKit.RevealAt, elapsed);
+        float heat = Mathf.Pow(fracture, 2f);
+        float size = Mathf.Lerp(42f, 110f, petrify) + Mathf.Sin(elapsed * 63f) * fracture * 4f;
+        fossilShell.rectTransform.sizeDelta = new Vector2(size, size * 1.08f);
+        fossilShell.rectTransform.localRotation = Quaternion.Euler(0f, 0f, Mathf.Sin(elapsed * 72f) * fracture * 5f);
+        Color stone = Color.Lerp(new Color(0.56f, 0.49f, 0.39f), new Color(1f, 0.91f, 0.69f), petrify);
+        stone = Color.Lerp(stone, new Color(1f, 0.63f, 0.30f), heat);
+        stone.a = petrify;
+        fossilShell.color = stone;
+    }
+
+    private static void BurstResultEmbers()
+    {
+        Vector2 center = new(CenterX, -(ResY + IconH * 0.5f));
+        float now = Time.unscaledTime;
+        bool fossil = pourBones;
+        int count = fossil ? 44 : 28;
+        for (int i = 0; i < count; i++)
+        {
+            float angle = i * 2.39996f;
+            float speed = UnityEngine.Random.Range(115f, fossil ? 450f : 325f);
+            bool bone = fossil && i % 5 == 0;
+            Color tint = bone ? new Color(0.94f, 0.84f, 0.65f) : i % 2 == 0
+                ? new Color(1f, 0.56f, 0.14f) : new Color(0.56f, 1f, 0.29f);
+            Piece ember = NewSpark(center, center, now, UnityEngine.Random.Range(0.45f, 0.95f), tint, bone ? 20f : 8f);
+            ember.Go.GetComponent<Image>().sprite = OrbArt.Named(bone ? "primordial_rib" : "sparkle_star");
+            ember.Velocity = new Vector2(Mathf.Cos(angle), Mathf.Sin(angle)) * speed;
+            ember.Gravity = bone ? 340f : 100f;
+            ember.Spin = bone ? 280f : 90f;
         }
     }
 
@@ -1474,6 +1842,19 @@ internal static class Items_RecombinatorWindow
         TickCage(now);
         TickCracks(now);
         RecombKit.Tick(now);
+        TickInputFlames(now);
+        TickResultFlames(now);
+        TickFossilShell(now);
+        if (pouring)
+        {
+            for (int i = 0; i < 2; i++)
+            {
+                if (slotGroups[i] != null)
+                {
+                    slotGroups[i].alpha = RecombKit.InputAlpha(i, now); // the flame eats the items
+                }
+            }
+        }
         if (pouring && now >= pourStart + pourTotal)
         {
             pouring = false;
@@ -1572,7 +1953,7 @@ internal static class Items_RecombinatorWindow
 
     private sealed class CrackSeg
     {
-        public Image Glow, Dark;
+        public Image Glow, Dark, Core;
         public float At;
     }
 
@@ -1580,15 +1961,50 @@ internal static class Items_RecombinatorWindow
     private static Image crackWash;
     private static float crackStart;
 
+    private static Sprite crackBlade;
+
+    private static Sprite CrackBlade()
+    {
+        if (crackBlade != null)
+        {
+            return crackBlade;
+        }
+
+        const int width = 64, height = 16;
+        var texture = new Texture2D(width, height, TextureFormat.RGBA32, false);
+        texture.wrapMode = TextureWrapMode.Clamp;
+        texture.filterMode = FilterMode.Bilinear;
+        texture.hideFlags = HideFlags.HideAndDontSave;
+        var pixels = new Color32[width * height];
+        for (int x = 0; x < width; x++)
+        {
+            float u = (x + 0.5f) / width;
+            float taper = Mathf.Min(u * 6f, (1f - u) * 2.5f);
+            for (int y = 0; y < height; y++)
+            {
+                float distance = Mathf.Abs(y + 0.5f - height * 0.5f);
+                byte alpha = (byte)(255f * Mathf.Clamp01(taper * height * 0.5f - distance + 0.35f));
+                pixels[y * width + x] = new Color32(255, 255, 255, alpha);
+            }
+        }
+        texture.SetPixels32(pixels);
+        texture.Apply(false, true);
+        crackBlade = Sprite.Create(texture, new Rect(0, 0, width, height), new Vector2(0.5f, 0.5f), 100f);
+        crackBlade.hideFlags = HideFlags.HideAndDontSave;
+        return crackBlade;
+    }
+
     private static void AddCrack(Vector2 from, Vector2 to, float at)
     {
         Vector2 mid = (from + to) / 2;
         Vector2 d = to - from;
         float angle = Mathf.Atan2(d.y, d.x) * Mathf.Rad2Deg;
-        Image glow = MakeImage(Content, "CrackGlow", new Color(1f, 0.42f, 0.18f, 0f));
+        Image glow = MakeImage(Content, "CrackGlow", new Color(0.58f, 0.32f, 0.95f, 0f));
         Image dark = MakeImage(Content, "Crack", new Color(0.03f, 0.02f, 0.02f, 0f));
-        foreach ((Image img, float thick) in new[] { (glow, 7f), (dark, 2.6f) })
+        Image core = MakeImage(Content, "CrackCore", new Color(0.92f, 0.77f, 1f, 0f));
+        foreach ((Image img, float thick) in new[] { (glow, 10f), (dark, 5f), (core, 2.3f) })
         {
+            img.sprite = CrackBlade();
             img.raycastTarget = false;
             RectTransform r = img.rectTransform;
             r.anchorMin = r.anchorMax = new Vector2(0, 1);
@@ -1597,7 +2013,7 @@ internal static class Items_RecombinatorWindow
             r.sizeDelta = new Vector2(d.magnitude + 2, thick);
             r.localRotation = Quaternion.Euler(0, 0, angle);
         }
-        cracks.Add(new CrackSeg { Glow = glow, Dark = dark, At = at });
+        cracks.Add(new CrackSeg { Glow = glow, Dark = dark, Core = core, At = at });
     }
 
     /// <summary>The recombination failed: the result is shown as it is, cracking across its box.</summary>
@@ -1608,43 +2024,46 @@ internal static class Items_RecombinatorWindow
         crackStart = now;
         crushAt = now; // the same short jolt as a crushed bone
         float halfW = IconW / 2f - 3, halfH = IconH / 2f - 3;
-        int rays = 9;
-        for (int k = 0; k < rays; k++)
+        Vector2[] seam =
         {
-            float angle = k * Mathf.PI * 2 / rays + UnityEngine.Random.Range(-0.25f, 0.25f);
-            Vector2 pos = centre;
-            for (int step = 0; step < 6; step++)
-            {
-                float len = UnityEngine.Random.Range(16f, 30f);
-                angle += UnityEngine.Random.Range(-0.5f, 0.5f);
-                Vector2 next = pos + new Vector2(Mathf.Cos(angle), Mathf.Sin(angle)) * len;
-                next.x = Mathf.Clamp(next.x, centre.x - halfW, centre.x + halfW);
-                next.y = Mathf.Clamp(next.y, centre.y - halfH, centre.y + halfH);
-                AddCrack(pos, next, now + k * 0.02f + step * 0.05f);
-                if (step == 2 && UnityEngine.Random.value < 0.6f)
-                {
-                    float branch = angle + (UnityEngine.Random.value < 0.5f ? -1f : 1f) * UnityEngine.Random.Range(0.6f, 1.1f);
-                    Vector2 end = next + new Vector2(Mathf.Cos(branch), Mathf.Sin(branch)) * UnityEngine.Random.Range(20f, 36f);
-                    end.x = Mathf.Clamp(end.x, centre.x - halfW, centre.x + halfW);
-                    end.y = Mathf.Clamp(end.y, centre.y - halfH, centre.y + halfH);
-                    AddCrack(next, end, now + k * 0.02f + (step + 1) * 0.05f);
-                }
-                pos = next;
-            }
+            new(-halfW, halfH * 0.72f), new(-halfW * 0.55f, halfH * 0.44f),
+            new(-halfW * 0.63f, halfH * 0.20f), new(-halfW * 0.05f, halfH * 0.04f),
+            new(halfW * 0.16f, -halfH * 0.29f), new(halfW * 0.57f, -halfH * 0.35f),
+            new(halfW * 0.45f, -halfH * 0.63f), new(halfW, -halfH * 0.84f),
+        };
+        for (int i = 1; i < seam.Length; i++)
+        {
+            AddCrack(centre + seam[i - 1], centre + seam[i], now + (i - 1) * 0.025f);
         }
-        crackWash = MakeImage(Content, "CrackWash", new Color(0.85f, 0.25f, 0.1f, 0.4f));
+
+        AddCrack(centre + seam[2], centre + new Vector2(-halfW, -halfH * 0.13f), now + 0.08f);
+        Vector2 branch = new(halfW * 0.21f, halfH * 0.47f);
+        AddCrack(centre + seam[3], centre + branch, now + 0.10f);
+        AddCrack(centre + branch, centre + new Vector2(halfW * 0.66f, halfH * 0.65f), now + 0.13f);
+        AddCrack(centre + seam[5], centre + new Vector2(halfW, -halfH * 0.13f), now + 0.16f);
+        AddCrack(centre + seam[1], centre + new Vector2(-halfW * 0.26f, halfH), now + 0.08f);
+        AddCrack(centre + seam[6], centre + new Vector2(halfW * 0.12f, -halfH), now + 0.18f);
+        crackWash = MakeImage(Content, "CrackWash", new Color(0.34f, 0.20f, 0.54f, 0f));
+        crackWash.sprite = OrbArt.Named("glow_violet");
+
         crackWash.raycastTarget = false;
         RectTransform wr = crackWash.rectTransform;
         wr.anchorMin = wr.anchorMax = new Vector2(0, 1);
         wr.pivot = new Vector2(0.5f, 0.5f);
-        wr.sizeDelta = new Vector2(IconW, IconH);
+        wr.sizeDelta = new Vector2(IconW + 92f, IconH + 70f);
         wr.anchoredPosition = centre;
-        // grey flakes shake loose
-        for (int k = 0; k < 18; k++)
+        // Stone chips and violet sparks erupt through the seam.
+        for (int k = 0; k < 32; k++)
         {
             float angle = UnityEngine.Random.Range(0f, Mathf.PI * 2);
-            float speed = UnityEngine.Random.Range(60f, 220f);
+            float speed = UnityEngine.Random.Range(95f, 340f);
             Piece flake = NewSpark(centre, centre, now + 0.1f, UnityEngine.Random.Range(0.5f, 1f), new Color(0.55f, 0.5f, 0.45f), UnityEngine.Random.Range(3f, 6f));
+            if (k % 3 == 0)
+            {
+                Image spark = flake.Go.GetComponent<Image>();
+                spark.sprite = OrbArt.Named("sparkle_star");
+                spark.color = new Color(0.83f, 0.58f, 1f);
+            }
             flake.Velocity = new Vector2(Mathf.Cos(angle) * speed, Mathf.Sin(angle) * speed * 0.6f);
             flake.Gravity = 520f;
             flake.Spin = UnityEngine.Random.Range(-300f, 300f);
@@ -1670,13 +2089,17 @@ internal static class Items_RecombinatorWindow
             d.a = 0.95f * on * fade;
             c.Dark.color = d;
             Color g = c.Glow.color;
-            g.a = 0.55f * on * fade * (0.7f + 0.3f * Mathf.Sin(now * 14f));
+            float heat = Mathf.Exp(-2.6f * Mathf.Max(0f, now - c.At));
+            g.a = on * fade * (0.24f + 0.65f * heat);
             c.Glow.color = g;
+            Color core = c.Core.color;
+            core.a = on * fade * (0.16f + 0.84f * heat);
+            c.Core.color = core;
         }
         if (crackWash != null)
         {
             Color w = crackWash.color;
-            w.a = 0.4f * Mathf.Pow(Mathf.Clamp01(1f - age / 0.5f), 2f);
+            w.a = 0.7f * Mathf.Pow(Mathf.Clamp01(1f - age / 0.6f), 2f);
             crackWash.color = w;
         }
         if (age > 2.9f)
@@ -1691,6 +2114,7 @@ internal static class Items_RecombinatorWindow
         {
             if (c.Glow != null) Object.Destroy(c.Glow.gameObject);
             if (c.Dark != null) Object.Destroy(c.Dark.gameObject);
+            if (c.Core != null) Object.Destroy(c.Core.gameObject);
         }
         cracks.Clear();
         if (crackWash != null)
@@ -2031,7 +2455,7 @@ internal static class Items_RecombinatorWindow
         return img;
     }
 
-    private const float ColumnWidth = AffixCard.Width;
+    private const float ColumnWidth = 176f, AffixRowHeight = 34f;
 
     private static void ListAffixes(List<RecombAffix> list, float x, float y)
     {
@@ -2044,7 +2468,7 @@ internal static class Items_RecombinatorWindow
                 text += "\n<size=75%>(fits one base only)</size>";
             }
             AffixRow(a, text, x, cursor, deterministic && selected.Contains(Key(a)), deterministic);
-            cursor += AffixCard.Height + AffixCard.Gap;
+            cursor += AffixRowHeight + AffixCard.Gap;
         }
     }
 
@@ -2056,10 +2480,15 @@ internal static class Items_RecombinatorWindow
             Text = text,
             Tier = a.DisplayedTier,
             Group = a.Placement == 1 ? AffixCard.Prefix : a.Placement == 2 ? AffixCard.Suffix : -1,
+            Reminded = a.Reminded,
             Static = !interactive,
             On = on,
         };
         AffixCardView view = AffixCard.Build(Content, labelTemplate, bodyFont, data, x, y, dynamic);
+        view.Rect.sizeDelta = new Vector2(ColumnWidth, AffixRowHeight);
+        view.Tier.fontSize = 7f;
+        view.Name.fontSizeMax = 11f;
+        view.Name.overflowMode = TextOverflowModes.Ellipsis;
         if (interactive)
         {
             Button button = view.Bg.gameObject.AddComponent<Button>();
@@ -2100,6 +2529,13 @@ internal static class Items_RecombinatorWindow
         string key = Key(a);
         if (!selected.Remove(key))
         {
+            if (a.Reminded)
+            {
+                foreach (RecombAffix pick in Picks().Where(pick => pick.Reminded))
+                {
+                    selected.Remove(Key(pick));
+                }
+            }
             selected.Add(key);
         }
         message = "";
@@ -2266,7 +2702,7 @@ internal static class Items_RecombinatorWindow
             icons[2] = BuildIcon(result); // started now so its sprite has loaded by the time it appears
             iconFor[2] = (long)result.Pointer;
             lastFailed = deterministic && !exact;
-            StartPour(bones > 0, !lastFailed);
+            StartPour(bones > 0);
             selected.Clear();
             message = "";
             dirty = true;

@@ -22,6 +22,7 @@ internal static class Items_MemoryReflector
         public int AffixId;
         public int Tier; // displayed, 1..7
         public int Placement; // 0 neither, 1 prefix, 2 suffix
+        public bool Reminded;
         public bool CanGo; // may it sit on item A?
         public string Why = ""; // when not
     }
@@ -58,6 +59,9 @@ internal static class Items_MemoryReflector
 
     private static bool IsLegendary(ItemData item) => item.rarity == 9;
 
+    private static bool AlreadyHasReminded(ItemData to, bool donorAffixIsReminded) =>
+        donorAffixIsReminded && Items_Reminiscence.RemindedOf(to) != null;
+
     /// <summary>Why these two items cannot be reflected, or an empty string.</summary>
     public static string WhyNot(ItemData a, ItemData b)
     {
@@ -73,30 +77,15 @@ internal static class Items_MemoryReflector
         {
             return "Both items must be for the same class.";
         }
-        if (a.corrupted)
-        {
-            return "Item A cannot be corrupted.";
-        }
         foreach (ItemData item in new[] { a, b })
         {
-            if (item.rarity == 7 || item.rarity == 8)
-            {
-                return "Unique and set items cannot be reflected.";
-            }
+            string blocked = CraftProtection.Blocked(item);
+            if (blocked.Length != 0) return blocked;
         }
-        if (!Ordinary(b).Any(x => !Items_Fracture.IsFractured(b, x)))
+        if (!Ordinary(b).Any(x => !CraftProtection.IsAttached(b, x)
+            && !AlreadyHasReminded(a, Items_Reminiscence.IsReminded(b, x))))
         {
             return "Item B has no affix that can be reflected.";
-        }
-        if (IsLegendary(a) || IsLegendary(b))
-        {
-            if (!(IsLegendary(a) && IsLegendary(b)) || a.uniqueID != b.uniqueID)
-            {
-                return "A legendary item can only be reflected with the same legendary item.";
-            }
-            Main.logger_instance?.Msg("Memory Reflector legendary: A " + Ordinary(a).Count + " of " + (a.affixes?.Count ?? 0)
-                + " affixes, B " + Ordinary(b).Count + " of " + (b.affixes?.Count ?? 0));
-            return ReflectorMath.LegendaryWhyNot(Ordinary(a).Count, Ordinary(b).Count);
         }
         return ReflectorMath.WhyNot(Ordinary(a).Count, Ordinary(b).Count);
     }
@@ -124,17 +113,21 @@ internal static class Items_MemoryReflector
         }
         foreach (ItemAffix x in Ordinary(b))
         {
+            bool reminded = Items_Reminiscence.IsReminded(b, x);
+            if (AlreadyHasReminded(a, reminded)) continue;
+
             AffixList.Affix def = list?.GetAffix(x.affixId);
             var candidate = new Candidate
             {
                 Source = x,
                 AffixId = x.affixId,
                 Tier = x.affixTier + 1,
+                Reminded = reminded,
                 Placement = def == null ? 0 : def.type == AffixList.AffixType.PREFIX ? 1 : def.type == AffixList.AffixType.SUFFIX ? 2 : 0,
             };
-            if (Items_Fracture.IsFractured(b, x))
+            if (CraftProtection.IsAttached(b, x))
             {
-                candidate.Why = "Fractured: part of the item";
+                candidate.Why = "Protected: part of the item";
             }
             else if (ownIds.Contains(x.affixId))
             {
@@ -196,6 +189,9 @@ internal static class Items_MemoryReflector
         {
             return false;
         }
+        bool reminded = Items_Reminiscence.IsReminded(offer.B, chosen.Source);
+        if (AlreadyHasReminded(offer.A, reminded)) return false;
+
         if (Rng.NextDouble() >= Chance(offer, chosen))
         {
             return false;
@@ -209,6 +205,7 @@ internal static class Items_MemoryReflector
             offer.A.rarity = AffixLimits.LoadableRarity(Ordinary(offer.A).Count);
         }
         offer.A.RefreshIDAndValues();
+        if (reminded) Items_Reminiscence.SetRemindedAffix(offer.A, s.affixId);
         moved = chosen;
         return true;
     }

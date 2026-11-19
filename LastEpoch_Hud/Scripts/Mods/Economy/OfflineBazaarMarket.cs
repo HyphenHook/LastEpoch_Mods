@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using Il2Cpp;
+using LastEpoch_Hud.Scripts.Core.Economy;
 using LastEpoch_Hud.Scripts.Mods.Items.AutoLoot;
 using Newtonsoft.Json;
 
@@ -53,6 +54,8 @@ internal sealed class OfflineListing
     public int LegendaryPotential;
     public bool PrimordialSealed;
     public List<AffixInfo> Affixes = new();
+    public uint IndividualId;
+    public BazaarCraftingState Crafting;
 
     /// <summary>The sale tax on this listing's price (zero while TaxRate is zero).</summary>
     [JsonIgnore]
@@ -342,7 +345,7 @@ internal static partial class OfflineBazaarMarket
     /// <summary>Learn which item types a stall holds (the request carries them), for stalls that are not 1:1.</summary>
     public static void LearnStall(int stall, int[] itemTypes)
     {
-        if (stall >= 0 && itemTypes != null && itemTypes.Length > 0)
+        if (stall >= 0 && stall < StallCount && itemTypes != null && itemTypes.Length > 0)
         {
             bool changed = !_itemTypesOfStall.TryGetValue(stall, out int[] old) || !old.SequenceEqual(itemTypes);
             _itemTypesOfStall[stall] = itemTypes;
@@ -404,7 +407,11 @@ internal static partial class OfflineBazaarMarket
     /// </summary>
     public static List<OfflineListing> StockFor(int stall)
     {
+        if (stall < 0 || stall >= StallCount) return new();
         EnsureLoaded();
+        var misplaced = Npc(stall).Where(l => !Fits(stall, l.ItemType, l.ClassReq)).ToList();
+        foreach (var listing in misplaced) Remove(listing);
+        if (misplaced.Count > 0) _stallSimUnix.Remove(stall);
         _activeStall = stall;
         _activeAt = UnityEngine.Time.realtimeSinceStartupAsDouble;
         CatchUp(stall, withArrivals: true);
@@ -446,12 +453,14 @@ internal static partial class OfflineBazaarMarket
             double mean = BazaarPricing.MeanMinutesToSell(l.Price, l.FairValue, NpcTurnoverMinutes);
             if (_rng.NextDouble() < 1 - Math.Exp(-minutes / mean))
             {
+                BazaarCraftedItems.ForgetPreview(l);
                 _all.Remove(l);
                 bought++;
             }
             else if (_rng.NextDouble() < 1 - Math.Exp(-minutes / BazaarPricing.MeanMinutesToTakeDown(l.Price, l.FairValue, mean)))
             {
                 // The seller gives up waiting and takes it down (to relist elsewhere, or keep).
+                BazaarCraftedItems.ForgetPreview(l);
                 _all.Remove(l);
                 takenDown++;
             }
@@ -578,6 +587,8 @@ internal static partial class OfflineBazaarMarket
             }
             return null;
         }
+        unpacked.RollIndividualID();
+        BazaarCraftingState crafting = BazaarCraftedItems.Craft(unpacked, rolled.Kind, _rng);
         unpacked.RefreshIDAndValues();
         ItemData item = unpacked.TryCast<ItemData>();
         if (item != null && BazaarRarityOf(item) == 0)
@@ -603,6 +614,8 @@ internal static partial class OfflineBazaarMarket
             FairValue = value.Fair,
             Stall = stall,
             Note = rolled.Note,
+            IndividualId = item.individualID,
+            Crafting = crafting,
         };
         Describe(l, item, unpacked.LvlReq, rolled.Kind, rolled.Corrupted);
         if (rolled.Twin)
@@ -615,6 +628,8 @@ internal static partial class OfflineBazaarMarket
                 FairValue = value.Fair,
                 Stall = stall,
                 Note = rolled.Note,
+                IndividualId = item.individualID,
+                Crafting = crafting?.Copy(),
             };
             Describe(twin, item, unpacked.LvlReq, rolled.Kind, rolled.Corrupted);
             _all.Add(twin);
@@ -665,6 +680,7 @@ internal static partial class OfflineBazaarMarket
         l.Kind = kind.ToString();
         l.Corrupted = corrupted;
         l.ItemType = item.itemType;
+        l.IndividualId = item.individualID;
         l.SubType = item.subType;
         l.Rarity = item.rarity;
         l.BazaarRarity = BazaarRarityOf(item);
@@ -686,6 +702,10 @@ internal static partial class OfflineBazaarMarket
             }
         }
         l.Note = JoinNotes(l.Note, Features(item));
+        if (l.Mine) l.Crafting = BazaarCraftedItems.Capture(item);
+        if (l.Crafting?.EncapsulatedAffixId != null) l.Note = JoinNotes(l.Note, new[] { "Encapsulated affix" });
+        if (l.Crafting?.RemindedAffixId != null) l.Note = JoinNotes(l.Note, new[] { "Reminded affix" });
+        if (l.Crafting?.Memory != null) l.Note = JoinNotes(l.Note, new[] { "Obscured Memory" });
         l.Meta = OfflineListing.CurrentMeta;
         return l;
     }
@@ -770,6 +790,7 @@ internal static partial class OfflineBazaarMarket
     /// <summary>Rebuilds the game item from a listing's stored bytes.</summary>
     public static ItemData ToItem(OfflineListing l)
     {
+        BazaarCraftedItems.BindPreview(l);
         var bytes = new Il2CppInterop.Runtime.InteropTypes.Arrays.Il2CppStructArray<byte>(l.ItemBytes.Length);
         for (int i = 0; i < l.ItemBytes.Length; i++)
         {
@@ -836,6 +857,7 @@ internal static partial class OfflineBazaarMarket
 
     public static void Remove(OfflineListing l)
     {
+        BazaarCraftedItems.ForgetPreview(l);
         _all.Remove(l);
         MarkDirty();
     }

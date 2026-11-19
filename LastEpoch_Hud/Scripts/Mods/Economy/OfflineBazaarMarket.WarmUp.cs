@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using Il2Cpp;
+using Il2CppLE.Services.Bazaar;
 using Newtonsoft.Json;
 
 namespace LastEpoch_Hud.Scripts.Mods.Economy;
@@ -148,12 +149,15 @@ internal static partial class OfflineBazaarMarket
             }
         }
         catch (Exception) { }
+        // Native category definitions take precedence over saved search-filter subsets.
+        for (int stall = 0; stall < StallCount; stall++)
+        {
+            var types = BazaarStallTypeExtensions.GetStallBaseTypes((BazaarStallType)stall);
+            if (types != null && types.Length > 0) known[stall] = types.ToArray();
+        }
         foreach (var kv in known)
         {
-            if (!_itemTypesOfStall.ContainsKey(kv.Key))
-            {
-                _itemTypesOfStall[kv.Key] = kv.Value;
-            }
+            _itemTypesOfStall[kv.Key] = kv.Value;
         }
     }
 

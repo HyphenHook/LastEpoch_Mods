@@ -110,7 +110,7 @@ public class AutoLootDropPatch
             return false;
         }
 
-        return Scenes.IsGameScene() && !item.isTutorialItem();
+        return Scenes.IsGameScene() && !item.isTutorialItem() && !Drop.OrbDrop.IsOrb(item);
     }
 
     private static bool RunDirect(Actor actor, ItemData item, LootKind kind, LootRoute route)

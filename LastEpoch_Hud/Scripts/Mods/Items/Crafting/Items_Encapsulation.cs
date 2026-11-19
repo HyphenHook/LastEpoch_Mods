@@ -6,13 +6,13 @@ using LastEpoch_Hud.Scripts.Core.Crafting;
 
 namespace LastEpoch_Hud.Scripts.Mods.Items.Crafting;
 
-/// <summary>Using an Encapsulation Orb: fracture one random affix of the item in the forge.</summary>
+/// <summary>Uses an Encapsulation Orb to encapsulate one random affix of the item in the forge.</summary>
 internal static class Items_Encapsulation
 {
     private static readonly Random Rng = new();
 
-    /// <summary>The affix the last orb fractured.</summary>
-    public static int LastFractured = -1;
+    /// <summary>The affix the last orb encapsulated.</summary>
+    public static int LastEncapsulated = -1;
 
     /// <summary>The item in the forge's main slot, or null.</summary>
     public static ItemData ForgeItem()
@@ -29,7 +29,7 @@ internal static class Items_Encapsulation
     }
 
     private static List<ItemAffix> Ordinary(ItemData item) =>
-        item.affixes.ToArray().Where(a => a != null && !a.IsSealed).ToList();
+        item.affixes.ToArray().Where(a => a != null && !CraftProtection.IsAttached(item, a)).ToList();
 
     /// <summary>Why the orb cannot be used on the item, or an empty string.</summary>
     public static string WhyNot(ItemData item)
@@ -38,19 +38,9 @@ internal static class Items_Encapsulation
         {
             return "Put an item in the slot first.";
         }
-        if (item.corrupted)
-        {
-            return "Corrupted items cannot be fractured.";
-        }
-        if (item.rarity == 9)
-        {
-            return "Legendary items cannot be fractured.";
-        }
-        if (item.rarity == 7 || item.rarity == 8)
-        {
-            return "Unique and set items cannot be fractured.";
-        }
-        return EncapsulationMath.WhyNot(Ordinary(item).Count, Items_Fracture.FracturedAffix(item) >= 0);
+        string blocked = CraftProtection.Blocked(item);
+        if (blocked.Length != 0) return blocked;
+        return EncapsulationMath.WhyNot(Ordinary(item).Count, Items_Encapsulate.EncapsulatedAffix(item) >= 0);
     }
 
     /// <summary>Uses one orb on the item. Returns whether it worked, with a message for the player.</summary>
@@ -68,12 +58,16 @@ internal static class Items_Encapsulation
         }
         List<ItemAffix> affixes = Ordinary(item);
         ItemAffix chosen = affixes[EncapsulationMath.Pick(affixes.Count, Rng)];
-        AdvancedMaterials.TryTake(AdvancedMaterials.EncapsulationOrb);
-        Items_Fracture.Registry.Set(item.individualID, chosen.affixId);
-        Items_Fracture.Save();
-        message = "Fractured: " + (string.IsNullOrEmpty(chosen.affixName) ? "an affix" : chosen.affixName);
-        LastFractured = chosen.affixId;
-        Main.logger_instance?.Msg("Encapsulation Orb: fractured affix " + chosen.affixId + " (" + chosen.affixName + ")");
+        if (!AdvancedMaterials.TryTake(AdvancedMaterials.EncapsulationOrb))
+        {
+            message = "The Encapsulation Orb could not be spent.";
+            return false;
+        }
+        Items_Encapsulate.Registry.Set(item.individualID, chosen.affixId);
+        Items_Encapsulate.Save();
+        message = "Encapsulated: " + (string.IsNullOrEmpty(chosen.affixName) ? "an affix" : chosen.affixName);
+        LastEncapsulated = chosen.affixId;
+        Main.logger_instance?.Msg("Encapsulation Orb: encapsulated affix " + chosen.affixId + " (" + chosen.affixName + ")");
         return true;
     }
 }

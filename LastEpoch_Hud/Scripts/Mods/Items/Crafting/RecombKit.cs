@@ -19,22 +19,26 @@ internal static class RecombKit
 {
     // ---------------------------------------------------------------- where everything goes (window coordinates, y down)
 
-    public const float S = 0.817f; // the frames, shrunk by this from the supplied size
+    public const float SL = 0.823f, SR = 0.807f; // the two input frames, each shrunk so its opening is exactly InW wide
     public const float P = 0.7f; // the pipes
+    public const float RS = 0.672f; // the result frame, shrunk so its opening is as wide as the other two
     public const float CenterX = 383f;
-    public const float InCx0 = 248f, InCx1 = 518f; // the middle of the two item boxes
+    public const float InCx0 = CenterX - 135f, InCx1 = CenterX + 135f; // the middle of the two item boxes: the same distance from the centre
     public const float InY = 135f, ItemH = 196f; // the top of the item boxes, and their height
-    public const float InW = 121f, ResW = 148f; // what the frames leave for an item: the two inputs, and the result
+    public const float InW = 121f, ResW = 121f, ResH = 186f; // what the frames leave for an item: the two inputs, and the result
 
-    public static Rect LeftFrame => new(InCx0 - 202f * S, InY - 117f * S, 338f * S, 396f * S);
-    public static Rect RightFrame => new(InCx1 - 144.5f * S, InY - 117f * S, 355f * S, 396f * S);
-    private static float PipeTop => LeftFrame.yMax - 6f;
-    public static float PipeLevel => PipeTop + 115f * P; // the middle of the pipes that run across
-    public static Rect LeftCorner => new(InCx0 - 60f * P, PipeTop, 193f * P, 168f * P);
-    public static Rect RightCorner => new(InCx1 - 147f * P, PipeTop, 192f * P, 169f * P);
-    public static Rect Cross => new(CenterX - 88f * P, PipeLevel - 97f * P, 185f * P, 211f * P);
-    public static Rect ResultFrame => new(CenterX - 275.5f * S, Cross.yMax - 6f, 553f * S, 413f * S);
-    public static float ResY => ResultFrame.y + 108f * S; // the top of the result's item box
+    public static Rect LeftFrame => new(InCx0 - 202f * SL, InY - 117f * SL, 338f * SL, 396f * SL);
+    public static Rect RightFrame => new(InCx1 - 144.5f * SR, InY - 117f * SR, 355f * SR, 396f * SR);
+
+    // the corner pipes tuck under the bottom of the input frames, and the cross pipe under the top of the result frame
+    private static float PipeTop => LeftFrame.yMax - 36f; // far enough up that the bottom diamond of each frame covers the pipe
+    public static float PipeLevel => PipeTop + 116.5f * P; // the middle of the pipes that run across
+    public static Rect LeftCorner => new(InCx0 - 42.5f * P, PipeTop, 193f * P, 168f * P);
+    public static Rect RightCorner => new(InCx1 - 144.5f * P, PipeTop, 192f * P, 169f * P);
+    public static Rect Cross => new(CenterX - 92.5f * P, PipeLevel - 96f * P, 185f * P, 211f * P);
+    public static Rect ResultFrame => new(CenterX - 275.5f * RS, Cross.y + 203f * P - 42f, 553f * RS, 413f * RS);
+    public static float ResY => ResultFrame.y + 92f * RS; // the top of the result's item box
+    public static float AffixTop => ResY; // the affix lists start level with the result's item box, one each side of it
     public static float Bottom => ResultFrame.yMax;
 
     public static Rect Frame(int id) => id == 0 ? LeftFrame : id == 1 ? RightFrame : ResultFrame;
@@ -42,12 +46,23 @@ internal static class RecombKit
 
     // ---------------------------------------------------------------- the timeline, in seconds
 
-    public const float LeftPowerAt = 0f, RightPowerAt = 1.0f;
-    public const float FlowAt = 2.0f, CrossFlowAt = 2.35f;
-    public const float PoolAt = 3.5f, PourAt = 4.3f;
-    public const float RevealAt = 5.2f; // the item appears, with the flash
-    public const float FadeAt = 5.7f, FadeSeconds = 0.65f;
+    public const float DevourLeftAt = 0f, DevourRightAt = 0.1f; // the flame climbs the slot and swallows the item
+    public const float CornerFlowAt = 0.95f, CrossFlowAt = 1.2f;
+    public const float PourAt = 1.95f;
+    public const float RevealAt = 2.5f; // the item appears, with the flash
+    public const float FadeAt = 2.55f, FadeSeconds = 0.4f;
     public const float EndAt = FadeAt + FadeSeconds + 0.05f;
+
+    /// <summary>How much of an input item is left: it is eaten while the flame stands over it.</summary>
+    public static float InputAlpha(int side, float now)
+    {
+        if (!playing)
+        {
+            return 1f;
+        }
+        float t = now - startedAt - (side == 0 ? DevourLeftAt : DevourRightAt);
+        return 1f - Mathf.SmoothStep(0f, 1f, Mathf.Clamp01((t - 0.37f) / 0.41f));
+    }
 
     private sealed class Seq
     {
@@ -59,10 +74,11 @@ internal static class RecombKit
         public int Shown = -1;
     }
 
-    private static GameObject fxRoot;
+    private static readonly Image[] pipeBases = new Image[3];
+    private static GameObject fxRoot, pipeRoot; // the pipes go under the frames; the effects over them
     private static readonly List<Seq> seqs = new();
     private static float startedAt;
-    private static bool playing, withFlash;
+    private static bool playing;
 
     public static bool Playing => playing;
 
@@ -84,12 +100,8 @@ internal static class RecombKit
 
     private static IEnumerable<string> Folders() => new[]
     {
-        "ItemSlot_Left/VFX_PowerUp", "ItemSlot_Right/VFX_PowerUp",
         "Pipe_LeftCorner/VFX_Flow_Orange", "Pipe_RightCorner/VFX_Flow_Green",
         "Pipe_MiddleCenter/VFX_Flow_Orange", "Pipe_MiddleCenter/VFX_Flow_Green",
-        "ItemSlot_Result/VFX_Pool_Orange", "ItemSlot_Result/VFX_Pool_Green",
-        "ItemSlot_Result/VFX_Pour_Orange", "ItemSlot_Result/VFX_Pour_Green",
-        "ItemSlot_Result/VFX_Flash_Orange", "ItemSlot_Result/VFX_Flash_Green",
     };
 
     private static bool preloaded;
@@ -127,6 +139,26 @@ internal static class RecombKit
         return s;
     }
 
+    private static GameObject Root(Transform content, string name)
+    {
+        var go = new GameObject(name);
+        RectTransform r = go.AddComponent<RectTransform>();
+        go.transform.SetParent(content, false);
+        r.anchorMin = Vector2.zero;
+        r.anchorMax = Vector2.one;
+        r.offsetMin = r.offsetMax = Vector2.zero;
+        return go;
+    }
+
+    /// <summary>Puts the pipes down before the window puts its frames up, so the frames lie over the pipes.</summary>
+    public static void LowerPipes()
+    {
+        if (pipeRoot != null)
+        {
+            pipeRoot.transform.SetAsLastSibling();
+        }
+    }
+
     /// <summary>Makes the pipes and the effect layers if they are not there. They are made once and live as long as the window.</summary>
     public static void Ensure(Transform content)
     {
@@ -134,36 +166,35 @@ internal static class RecombKit
         {
             return;
         }
-        fxRoot = new GameObject("RecombinatorFx");
-        RectTransform fr = fxRoot.AddComponent<RectTransform>();
-        fxRoot.transform.SetParent(content, false);
-        fr.anchorMin = Vector2.zero;
-        fr.anchorMax = Vector2.one;
-        fr.offsetMin = fr.offsetMax = Vector2.zero;
+        pipeRoot = Root(content, "RecombinatorPipes");
+        fxRoot = Root(content, "RecombinatorFx");
         seqs.Clear();
+        Transform pipes = pipeRoot.transform;
         Transform t = fxRoot.transform;
 
         // the pipes: plain grey until something flows in them
-        Layer(t, "PipeLeft", LeftCorner, RecombArt.Base("Pipe_LeftCorner"));
-        Layer(t, "PipeRight", RightCorner, RecombArt.Base("Pipe_RightCorner"));
-        Layer(t, "PipeCross", Cross, RecombArt.Base("Pipe_MiddleCenter"));
+        pipeBases[0] = Layer(pipes, "PipeLeft", LeftCorner, RecombArt.Base("Pipe_LeftCorner"));
+        pipeBases[1] = Layer(pipes, "PipeRight", RightCorner, RecombArt.Base("Pipe_RightCorner"));
+        pipeBases[2] = Layer(pipes, "PipeCross", Cross, RecombArt.Base("Pipe_MiddleCenter"));
+        Add(pipes, "FlowLeft", LeftCorner, "Pipe_LeftCorner/VFX_Flow_Orange", CornerFlowAt, 24f, true, false, true);
+        Add(pipes, "FlowRight", RightCorner, "Pipe_RightCorner/VFX_Flow_Green", CornerFlowAt, 24f, true, false, true);
+        Add(pipes, "FlowCrossOrange", Cross, "Pipe_MiddleCenter/VFX_Flow_Orange", CrossFlowAt, 24f, true, false, true);
+        Add(pipes, "FlowCrossGreen", Cross, "Pipe_MiddleCenter/VFX_Flow_Green", CrossFlowAt, 24f, true, false, true);
 
-        // the effect layers, each the size of the piece it sits on
-        Add(t, "PowerLeft", LeftFrame, "ItemSlot_Left/VFX_PowerUp", LeftPowerAt, 16f, false, true, true);
-        Add(t, "PowerRight", RightFrame, "ItemSlot_Right/VFX_PowerUp", RightPowerAt, 16f, false, true, true);
-        Add(t, "FlowLeft", LeftCorner, "Pipe_LeftCorner/VFX_Flow_Orange", FlowAt, 16f, true, false, true);
-        Add(t, "FlowRight", RightCorner, "Pipe_RightCorner/VFX_Flow_Green", FlowAt, 16f, true, false, true);
-        Add(t, "FlowCrossOrange", Cross, "Pipe_MiddleCenter/VFX_Flow_Orange", CrossFlowAt, 16f, true, false, true);
-        Add(t, "FlowCrossGreen", Cross, "Pipe_MiddleCenter/VFX_Flow_Green", CrossFlowAt, 16f, true, false, true);
-        foreach (string colour in new[] { "Orange", "Green" })
-        {
-            Add(t, "Pool" + colour, ResultFrame, "ItemSlot_Result/VFX_Pool_" + colour, PoolAt, 20f, false, true, false).EndHide = RevealAt;
-            Add(t, "Pour" + colour, ResultFrame, "ItemSlot_Result/VFX_Pour_" + colour, PourAt, 18f, false, true, false).EndHide = RevealAt;
-        }
-        foreach (string colour in new[] { "Orange", "Green" })
-        {
-            Add(t, "Flash" + colour, ResultFrame, "ItemSlot_Result/VFX_Flash_" + colour, RevealAt, 16f, false, false, false);
-        }
+        // the flames over the input slots
+    }
+
+    public static void ApplyPipeSkin(bool primordial)
+    {
+        SetPipeSprite(pipeBases[0], "primordial_pipe_left", "Pipe_LeftCorner", primordial);
+        SetPipeSprite(pipeBases[1], "primordial_pipe_right", "Pipe_RightCorner", primordial);
+        SetPipeSprite(pipeBases[2], "primordial_pipe_center", "Pipe_MiddleCenter", primordial);
+    }
+
+    private static void SetPipeSprite(Image image, string fossil, string standard, bool primordial)
+    {
+        Sprite skin = primordial ? OrbArt.Named(fossil) : null;
+        image.sprite = skin != null ? skin : RecombArt.Base(standard);
     }
 
     /// <summary>Puts the effect layers back on top, after the window has put its own pieces up again.</summary>
@@ -177,12 +208,11 @@ internal static class RecombKit
 
     // ---------------------------------------------------------------- playing
 
-    /// <summary>Starts the effect. The flash is left out when the recombination failed.</summary>
-    public static void Start(float now, bool flash)
+    /// <summary>Starts the input and pipe effects.</summary>
+    public static void Start(float now)
     {
         startedAt = now;
         playing = true;
-        withFlash = flash;
         foreach (Seq s in seqs)
         {
             s.Shown = -1;
@@ -227,8 +257,7 @@ internal static class RecombKit
                 continue;
             }
             float into = t - s.Start;
-            bool flash = s.Start == RevealAt;
-            if (into < 0 || t >= s.EndHide || (flash && !withFlash))
+            if (into < 0 || t >= s.EndHide)
             {
                 s.Img.enabled = false;
                 continue;

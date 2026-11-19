@@ -1,4 +1,4 @@
-"""Draws the crafting orb and the fracture diamond as PNGs.
+"""Draws the crafting orb and the encapsulated affix diamond as PNGs.
 
     python scripts/Generate-OrbArt.py
 
@@ -141,5 +141,5 @@ def diamond(size, base, bright):
 
 
 # orb_encapsulation.png is supplied artwork, not drawn here
-diamond(64, (0.25, 0.60, 0.95), (0.65, 0.92, 1.0)).save(os.path.join(OUT, 'diamond_fractured.png'))
+diamond(64, (0.25, 0.60, 0.95), (0.65, 0.92, 1.0)).save(os.path.join(OUT, 'diamond_encapsulated.png'))
 print('done', os.path.abspath(OUT))

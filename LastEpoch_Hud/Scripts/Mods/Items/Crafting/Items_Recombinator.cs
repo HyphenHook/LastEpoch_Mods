@@ -69,14 +69,8 @@ internal static class Items_Recombinator
         }
         foreach (ItemData item in new[] { a, b })
         {
-            if (item.rarity >= 7)
-            {
-                return "Unique, set and legendary items cannot be recombined.";
-            }
-            if (item.corrupted)
-            {
-                return "Corrupted items cannot be recombined.";
-            }
+            string blocked = CraftProtection.Blocked(item);
+            if (blocked.Length != 0) return blocked;
         }
         return "";
     }
@@ -85,11 +79,13 @@ internal static class Items_Recombinator
     public static Offer Describe(ItemData a, ItemData b)
     {
         var offer = new Offer { A = a, B = b };
-        // a fractured affix is part of its item's base: it stays, and it takes one of the item's slots
-        offer.CapacityA = RecombinatorMath.Capacity(HasRegularSeal(a)) - (Items_Fracture.FracturedOf(a) != null ? 1 : 0);
-        offer.CapacityB = RecombinatorMath.Capacity(HasRegularSeal(b)) - (Items_Fracture.FracturedOf(b) != null ? 1 : 0);
-        List(a, b, 0, offer.AffixesA);
-        List(b, a, 1, offer.AffixesB);
+        // a encapsulated affix is part of its item's base: it stays, and it takes one of the item's slots
+        offer.CapacityA = RecombinatorMath.Capacity(HasRegularSeal(a)) - (Items_Encapsulate.EncapsulatedOf(a) != null ? 1 : 0);
+        offer.CapacityB = RecombinatorMath.Capacity(HasRegularSeal(b)) - (Items_Encapsulate.EncapsulatedOf(b) != null ? 1 : 0);
+        ItemAffix remindedA = Items_Reminiscence.RemindedOf(a);
+        ItemAffix remindedB = Items_Reminiscence.RemindedOf(b);
+        List(a, b, 0, offer.AffixesA, remindedA, CraftProtection.IsAttached(b, remindedB));
+        List(b, a, 1, offer.AffixesB, remindedB, CraftProtection.IsAttached(a, remindedA));
         offer.AnyExalted = offer.All.Any(x => x.IsExalted);
         return offer;
     }
@@ -110,22 +106,25 @@ internal static class Items_Recombinator
         return false;
     }
 
-    private static void List(ItemData own, ItemData other, int source, List<RecombAffix> into)
+    private static void List(ItemData own, ItemData other, int source, List<RecombAffix> into, ItemAffix reminded, bool otherKeepsReminded)
     {
         if (own?.affixes == null)
         {
             return;
         }
         AffixList list = AffixList.get();
+        int otherEncapsulatedId = Items_Encapsulate.EncapsulatedAffix(other);
         foreach (ItemAffix x in own.affixes)
         {
-            if (x == null || x.IsSealed || Items_Fracture.IsFractured(own, x))
+            if (x == null || CraftProtection.IsAttached(own, x))
             {
-                continue; // sealed, primordial and fractured affixes stay with their own base
+                continue; // sealed, primordial and encapsulated affixes stay with their own base
             }
             AffixList.Affix def = list?.GetAffix(x.affixId);
+            bool isReminded = reminded?.affixId == x.affixId;
             bool legalOnOwn = Legal(def, own, x.affixId);
-            bool legalOnOther = Legal(def, other, x.affixId);
+            bool legalOnOther = x.affixId != otherEncapsulatedId
+                && (!isReminded || !otherKeepsReminded) && Legal(def, other, x.affixId);
             into.Add(new RecombAffix
             {
                 AffixId = x.affixId,
@@ -133,6 +132,7 @@ internal static class Items_Recombinator
                 Weight = def == null ? 1 : Math.Max(0.01, def.weighting),
                 Placement = def == null ? 0 : def.type == AffixList.AffixType.PREFIX ? 1 : def.type == AffixList.AffixType.SUFFIX ? 2 : 0,
                 Source = source,
+                Reminded = isReminded,
                 LegalOnA = source == 0 ? legalOnOwn : legalOnOther,
                 LegalOnB = source == 1 ? legalOnOwn : legalOnOther,
             });
@@ -166,34 +166,42 @@ internal static class Items_Recombinator
     {
         exact = false;
         note = "";
+        if (deterministic && selected != null && selected.Count(x => x.Reminded) > 1)
+        {
+            note = RecombinatorMath.RemindedLimitMessage;
+            return null;
+        }
         double Rng() => _rng.NextDouble();
 
         int baseIndex = RecombinatorMath.PickBase(Rng);
         ItemData own = baseIndex == 0 ? offer.A : offer.B;
         int capacity = baseIndex == 0 ? offer.CapacityA : offer.CapacityB;
         var pool = offer.All.Where(x => x.LegalOn(baseIndex)).ToList();
-        ItemAffix keptFracture = Items_Fracture.FracturedOf(own); // stays on the result
+        ItemAffix keptEncapsulated = Items_Encapsulate.EncapsulatedOf(own); // stays on the result
+        ItemAffix baseReminded = Items_Reminiscence.RemindedOf(own);
+        int? resultReminded = CraftProtection.IsAttached(own, baseReminded) ? baseReminded.affixId : null;
         int keptPrefixes = 0, keptSuffixes = 0;
-        if (keptFracture != null)
+        if (keptEncapsulated != null)
         {
-            AffixList.Affix kept = AffixList.get()?.GetAffix(keptFracture.affixId);
+            AffixList.Affix kept = AffixList.get()?.GetAffix(keptEncapsulated.affixId);
             keptPrefixes = kept?.type == AffixList.AffixType.PREFIX ? 1 : 0;
             keptSuffixes = kept?.type == AffixList.AffixType.SUFFIX ? 1 : 0;
-            pool = pool.Where(x => x.AffixId != keptFracture.affixId).ToList();
+            pool = pool.Where(x => x.AffixId != keptEncapsulated.affixId).ToList();
         }
 
         // The result holds the average number of affixes of the two items.
         // The average of the two items. The indeterministic mode usually lands on it and sometimes strays by one;
         // the deterministic mode always keeps it.
-        int count = RecombinatorMath.ResultCount(offer.AffixesA.Count, offer.AffixesB.Count, pool.Count, Rng, capacity, varied: !deterministic);
+        int count = RecombinatorMath.ResultCount(offer.AffixesA.Count, offer.AffixesB.Count, pool.Count, Rng, capacity);
 
         List<RecombAffix> chosen;
         if (deterministic && selected != null && selected.Count > 0
             && RecombinatorMath.Validate(selected, capacity).Length == 0
             && selected.All(x => x.LegalOn(baseIndex))
+            && (!resultReminded.HasValue || !selected.Any(x => x.Reminded))
             && selected.Count(x => x.Placement == 1) + keptPrefixes <= AffixLimits.MaxPerSide
             && selected.Count(x => x.Placement == 2) + keptSuffixes <= AffixLimits.MaxPerSide
-            && Rng() < RecombinatorMath.SurvivalChance(selected, primordial))
+            && Rng() < RecombinatorMath.PenalizedSurvivalChance(selected, primordial, offer.AffixesA.Count, offer.AffixesB.Count))
         {
             chosen = selected.ToList();
             exact = true;
@@ -206,11 +214,12 @@ internal static class Items_Recombinator
                 Math.Min(Math.Max(0, count - chosen.Count), capacity - chosen.Count),
                 Rng,
                 chosen.Count(x => x.Placement == 1) + keptPrefixes,
-                chosen.Count(x => x.Placement == 2) + keptSuffixes));
+                chosen.Count(x => x.Placement == 2) + keptSuffixes,
+                hasReminded: resultReminded.HasValue || chosen.Any(x => x.Reminded)));
         }
         else
         {
-            chosen = RecombinatorMath.Draw(pool, count, Rng, keptPrefixes, keptSuffixes);
+            chosen = RecombinatorMath.Draw(pool, count, Rng, keptPrefixes, keptSuffixes, hasReminded: resultReminded.HasValue);
             note = deterministic ? "The recombination failed: the result is a random mix." : "Recombined.";
         }
 
@@ -224,7 +233,7 @@ internal static class Items_Recombinator
         var drop = new List<ItemAffix>();
         foreach (ItemAffix x in result.affixes)
         {
-            if (x != null && !x.IsSealed && !Items_Fracture.IsFractured(result, x))
+            if (x != null && !CraftProtection.IsAttached(own, x))
             {
                 drop.Add(x);
             }
@@ -243,11 +252,22 @@ internal static class Items_Recombinator
             }
             // The affix keeps its own tier and roll.
             result.affixes.Add(new ItemAffix((ushort)source.affixId, source.affixTier, source.affixRoll, result.itemType, SealedAffixType.None));
+            if (pick.Reminded) resultReminded = source.affixId;
         }
         int ordinary = result.affixes.ToArray().Count(x => x != null && !x.IsSealed);
         result.rarity = AffixLimits.LoadableRarity(ordinary); // five and six affixes load as rarity 4 and keep every affix
         result.sockets = (byte)result.affixes.Count;
         result.RefreshIDAndValues();
+        if (keptEncapsulated != null && Items_Encapsulate.Registry.Copy(own.individualID, result.individualID))
+        {
+            Items_Encapsulate.Save();
+        }
+        Items_Reminiscence.SetRemindedAffix(result, resultReminded);
+        if (!Items_Attunement.Restore(result, Items_Attunement.StateOf(own)))
+        {
+            note = "The base item's Attunement data could not be preserved.";
+            return null;
+        }
         return result;
     }
 
