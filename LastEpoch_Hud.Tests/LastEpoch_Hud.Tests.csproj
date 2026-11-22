@@ -9,9 +9,12 @@
   <ItemGroup>
     <!-- Game-independent mod code. Il2Cpp types here fail to compile on purpose. -->
     <Compile
-      Include="..\LastEpoch_Hud\Scripts\Core\**\*.cs"
+      Include="..\LastEpoch_Hud\Core\**\*.cs"
       Link="Mod\Core\%(RecursiveDir)%(Filename)%(Extension)"
     />
+    <Compile Include="..\LastEpoch_Hud\Application\Runtime\**\*.cs" Link="Mod\Application\Runtime\%(RecursiveDir)%(Filename)%(Extension)" />
+    <Compile Include="..\LastEpoch_Hud\Infrastructure\Persistence\**\*.cs" Exclude="..\LastEpoch_Hud\Infrastructure\Persistence\Configuration\**\*.cs" Link="Mod\Infrastructure\Persistence\%(RecursiveDir)%(Filename)%(Extension)" />
+    <Compile Include="..\LastEpoch_Hud\Application\Testing\**\*.cs" Link="Mod\Application\Testing\%(RecursiveDir)%(Filename)%(Extension)" />
     <Using Include="Xunit" />
     <None Include="KnownIssues.txt" CopyToOutputDirectory="PreserveNewest" />
     <None Include="Locales\KeepEnglish.txt" CopyToOutputDirectory="PreserveNewest" />

@@ -508,5 +508,7 @@
   "The Woven": "The Woven",
   "Affix {0} Tier": "Affix {0} Tier",
   "Affix {0} Value": "Affix {0} Value",
-  "Unique Mod {0}": "Unique Mod {0}"
+  "Unique Mod {0}": "Unique Mod {0}",
+  "Bazaar Warm-Up": "Bazaar Warm-Up",
+  "Stocks every Bazaar stall while the game is held after a character loads. Off fills them in the background instead. Applies from the next load.": "Stocks every Bazaar stall while the game is held after a character loads. Off fills them in the background instead. Applies from the next load."
 }

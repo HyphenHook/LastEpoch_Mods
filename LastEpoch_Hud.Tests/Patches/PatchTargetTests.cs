@@ -32,7 +32,7 @@ public sealed partial class PatchTargetTests
     {
         int inSource = Directory
             .EnumerateFiles(GameEnvironment.ModProjectDir, "*.*", SearchOption.AllDirectories)
-            .Where(path => path.EndsWith(".cs") || path.EndsWith("Items_Temporalis.txt"))
+            .Where(path => path.EndsWith(".cs"))
             .Where(path =>
                 !path.Contains($"{Path.DirectorySeparatorChar}obj{Path.DirectorySeparatorChar}")
             )
