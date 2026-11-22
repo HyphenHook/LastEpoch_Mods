@@ -22,4 +22,5 @@ public enum HudPageId
     SkillsSummon,
     SkillsQol,
     UtilitiesHeorot,
+    BossDropsHeorot,
 }

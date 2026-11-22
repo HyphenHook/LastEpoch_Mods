@@ -159,12 +159,12 @@ internal static class JewelBaseType
     private static List<JewelImplicitRow> DefaultImplicitRows() => new()
     {
         new() { Subtype = 0, Property = "Mana", ModType = "ADDED", Tags = "None", Min = 44, Max = 60 },
-        new() { Subtype = 0, Property = "Mana", ModType = "INCREASED", Tags = "None", Min = .12f, Max = .24f },
+        new() { Subtype = 0, Property = "Mana", ModType = "INCREASED", Tags = "None", Min = .06f, Max = .10f },
         new() { Subtype = 1, Property = "Health", ModType = "ADDED", Tags = "None", Min = 60, Max = 100 },
-        new() { Subtype = 1, Property = "Health", ModType = "INCREASED", Tags = "None", Min = .14f, Max = .26f },
+        new() { Subtype = 1, Property = "Health", ModType = "INCREASED", Tags = "None", Min = .06f, Max = .10f },
         new() { Subtype = 2, Property = "Damage", ModType = "INCREASED", Tags = "None", Min = .12f, Max = .16f },
-        new() { Subtype = 3, Property = "AllAttributes", ModType = "ADDED", Tags = "None", Min = 6, Max = 20 },
-        new() { Subtype = 3, Property = "AllAttributes", ModType = "INCREASED", Tags = "None", Min = .06f, Max = .10f },
+        new() { Subtype = 3, Property = "AllAttributes", ModType = "ADDED", Tags = "None", Min = 6, Max = 8 },
+        new() { Subtype = 3, Property = "AllAttributes", ModType = "INCREASED", Tags = "None", Min = .04f, Max = .06f },
     };
 
     private static ItemList.EquipmentItem Subtype(int index, params ItemList.EquipmentImplicit[] implicits)

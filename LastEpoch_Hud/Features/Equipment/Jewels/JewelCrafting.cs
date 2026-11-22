@@ -125,11 +125,12 @@ internal static class JewelCrafting
         if (!Items_Req_Class.TryGetOriginalRequirement(Id, subtype, sub.classRequirement, out var original))
             original = sub.classRequirement; // Jewel subtypes are class-neutral even if registered after the backup.
         if (original == ItemList.ClassRequirement.None) original = ItemList.ClassRequirement.Any;
-        // Corruption keeps the native jewellery pool. These are native corruption
-        // modifiers, separate from ordinary copied Jewel affixes.
+        // Only jewel-owned copies of native idol corruption affixes enter this pool.
         if (!definition.IsNullOrDestroyed() && definition.specialAffixType == AffixList.SpecialAffixType.Corrupted)
-            return definition.CanRollOn((int)EquipmentType.RING, 0, original);
+            return JewelAffixes.IsCorruptionCopy(definition.affixId)
+                && definition.weighting > 0 && definition.CanRollOnClassRequirement(original);
         return !definition.IsNullOrDestroyed() && definition.uniqueId == 0
+            && !JewelAffixes.IsCorruptionCopy(definition.affixId)
             && definition.specialAffixType == AffixList.SpecialAffixType.Standard
             && (definition.type == AffixList.AffixType.PREFIX || definition.type == AffixList.AffixType.SUFFIX)
             && !definition.canRollOn.IsNullOrDestroyed() && definition.canRollOn.Contains((EquipmentType)Id)

@@ -34,13 +34,18 @@ public sealed class TunablesTests
         ChaosRerollMath.MaxRerolledTier, string.Join("/", ChaosRerollMath.TierWeights),
         EncapsulationMath.MinAffixes, AttunementState.MinMultiplier, AttunementState.MaxMultiplier,
         AttunementState.RollMultiplier(0), AttunementState.RollMultiplier(600), AttunementState.MaxRoll,
+        LastEpoch_Hud.Scripts.Core.Heorot.HeorotCoreRules.DropChance,
+        string.Join("/", LastEpoch_Hud.Scripts.Core.Heorot.HeorotCoreRules.VariantWeights),
     };
 
     [Fact]
     public void TheShippedTableMatchesTheBuiltInDefaults()
     {
         var defaults = Snapshot();
-        using (Tunables.Scope(Shipped()))
+        // Heorot's Core is explicitly balanced through CSV overrides.
+        var shipped = Shipped().Where(pair => !pair.Key.StartsWith("HeorotCore."))
+            .ToDictionary(pair => pair.Key, pair => pair.Value);
+        using (Tunables.Scope(shipped))
         {
             Assert.Equal(defaults, Snapshot());
         }
@@ -50,8 +55,13 @@ public sealed class TunablesTests
     public void EveryNameInTheShippedTableIsUsedByTheMaths()
     {
         // Changing each number must change something in the snapshot, so a misspelt name in the CSV cannot hide.
-        var baseline = Snapshot();
-        var extraBaseline = Extra();
+        object[] baseline;
+        object[] extraBaseline;
+        using (Tunables.Scope(Shipped()))
+        {
+            baseline = Snapshot();
+            extraBaseline = Extra();
+        }
         foreach (var (name, value) in Shipped())
         {
             if (name.StartsWith("Bazaar.") || name == "OrbDrop.ReminiscenceChance") continue; // used outside the maths

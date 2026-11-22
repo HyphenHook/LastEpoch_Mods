@@ -99,7 +99,7 @@ internal static class CharmEquipment
 
     internal static bool IsJewel(ItemData item) => JewelBaseType.Registered && !item.IsNullOrDestroyed()
         && item.itemType == JewelType && item.subType < 4
-        && item.rarity <= 6;
+        && (item.rarity <= 6 || HeorotCore.IsCore(item));
 
     internal static bool Accepts(int index, ItemData item) => index >= 0 && index < SlotCount
         && (index == 0 ? IsCharm(item) : IsJewel(item));

@@ -2,6 +2,11 @@
 # Name,Value,Note. A name missing from this file keeps its built-in default. Chances are fractions (0.15 = 15%).
 # Tier lists are one row per tier: ".1" is T1, ".2" is T2, and so on.
 Name,Value,Note
+# ---------------------------------------------------------------- Heorot's Core unique Jewel
+HeorotCore.DropChance,0.045,Combined drop chance; at most one Core per level-100 monolith Heorot encounter
+HeorotCore.VariantWeight.1,3,Conditional variant weight giving a 3% boss-kill chance for one buff
+HeorotCore.VariantWeight.2,1,Conditional variant weight giving a 1% boss-kill chance for two distinct buffs
+HeorotCore.VariantWeight.3,0.5,Conditional variant weight giving a 0.5% boss-kill chance for all three buffs
 # ---------------------------------------------------------------- Orb of Attunement
 Attunement.MinMultiplier,0.7,Lowest multiplier the orb can roll
 Attunement.MaxMultiplier,1.3,Highest multiplier the orb can roll (rolls are in steps of 0.001 between min and max)
@@ -21,7 +26,7 @@ OrbDrop.Normal,0.0003,Chance a normal enemy drops an Orb of Encapsulation
 OrbDrop.Magic,0.002,Chance a magic enemy drops an Orb of Encapsulation
 OrbDrop.Rare,0.015,Chance a rare enemy drops an Orb of Encapsulation
 OrbDrop.Boss,0.1,Chance a boss drops an Orb of Encapsulation
-OrbDrop.ReminiscenceChance,0.5,Chance an Orb of Reminiscence drops in the places it can
+OrbDrop.ReminiscenceChance,0,Disabled pending a decision on crafting orb drop sources
 # ---------------------------------------------------------------- Recombinator: chance
 Recombinator.TierSurvival.1,0.95,Chance one chosen T1 affix survives the merge
 Recombinator.TierSurvival.2,0.95,Chance one chosen T2 affix survives the merge

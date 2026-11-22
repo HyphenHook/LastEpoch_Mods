@@ -1,6 +1,7 @@
 using System;
 using LastEpoch_Hud.Application.Runtime;
 using LastEpoch_Hud.Core.Runtime;
+using LastEpoch_Hud.Presentation.Overlays;
 using LastEpoch_Hud.Scripts;
 using LastEpoch_Hud.Scripts.Dev;
 using LastEpoch_Hud.Scripts.Mods.Character.Heorot;
@@ -45,7 +46,9 @@ public static class ModComposition
                 if (JewelBaseType.Registered) JewelAffixes.EnsureRegistered();
             }),
             ModuleActions.Tick("Heorot.Buffs", HeorotBuffs.Tick),
+            ModuleActions.Tick("Catalog.HeorotCore", HeorotCore.EnsureRegistered),
             ModuleActions.Tick("Heorot.Combat", HeorotCombat.Tick),
+            ModuleActions.Tick("Heorot.Aura", HeorotAuraEffects.Tick),
             ModuleActions.Tick("Bazaar.Market", OfflineBazaarMarket.Tick),
             ModuleActions.Tick("Bazaar.Refresh", BazaarRefresh.Tick),
             ModuleActions.Tick("Crafting.Recombinator", Items_RecombinatorWindow.Tick),
@@ -54,6 +57,7 @@ public static class ModComposition
             ModuleActions.Tick("Crafting.IconSearch", Scripts.Mods.Items.Crafting.IconSearch.Tick),
             ModuleActions.Tick("Drops.OrbVisuals", OrbItemVisuals.Tick),
             ModuleActions.Tick("Equipment.Accessories", CharmEquipment.Tick),
+            ModuleActions.Tick("Heorot.Core", HeorotCore.Tick),
             ModuleActions.Tick("Equipment.BaseTypePoc", EquipmentBaseTypePoc.Tick),
             ModuleActions.Tick("Login.OfflineOnly", Login_OfflineOnly.Tick),
             ModuleActions.Tick("Login.CharacterSelect", Login_OfflineCharacterSelect.Tick),
@@ -61,8 +65,12 @@ public static class ModComposition
             ModuleActions.SceneLoaded("Scenes.Loaded", (_, _) => UpdateScene()),
             ModuleActions.SceneLoaded("Cosmetics.SceneLoaded", (_, _) => Scripts.Mods.Cosmetics.OfflineCosmeticCatalog.OnSceneLoaded()),
             ModuleActions.SceneUnloaded("Scenes.Unloaded", (_, _) => UpdateScene()),
+            ModuleActions.SceneUnloaded("Heorot.AuraCleanup", (_, _) => HeorotAuraEffects.Clear()),
+            ModuleActions.SceneUnloaded("Heorot.CoreCleanup", (_, _) => HeorotCore.Reset()),
             // Preserve the legacy quit order, even if one of these actions fails.
             ModuleActions.Shutdown("Inspector.Stop", InspectorServer.Stop),
+            ModuleActions.Shutdown("Heorot.AuraDispose", HeorotAuraEffects.Clear),
+            ModuleActions.Shutdown("Heorot.CoreDispose", HeorotCore.Reset),
             ModuleActions.Shutdown("Bazaar.Save", OfflineBazaarMarket.SaveOnQuit),
             ModuleActions.Shutdown("Unity.Cache", () => { Caching.ClearCache(); }),
         }, new LoggerFaultSink());

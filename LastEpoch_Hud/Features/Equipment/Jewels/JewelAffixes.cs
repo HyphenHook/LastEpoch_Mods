@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using LastEpoch_Hud.Scripts.Core.IO;
 using System.Linq;
 using System.Reflection;
 using HarmonyLib;
@@ -22,11 +23,15 @@ internal static class JewelAffixes
 
     // Roll step per affix from Data/JewelAffixes.csv (0 or missing: continuous).
     private static Dictionary<int, float> steps = new();
+    private static readonly Dictionary<int, string> idolTypes = new();
+    private static readonly HashSet<int> corruptionCopies = new();
+    private static readonly Dictionary<int, float> corruptionWeights = new();
+    internal static bool IsCorruptionCopy(int id) => corruptionCopies.Contains(id);
     internal static float StepOf(int id) => steps.TryGetValue(id, out float step) ? step : 0f;
     internal static AffixList.Affix Get(int id) => definitions.TryGetValue(id, out var value) ? value : null;
     internal static AffixList.Affix FindById(int id) => Get(id);
     internal static IEnumerable<AffixList.Affix> RollableDefinitions(int maxTier = 7) =>
-        definitions.Values.Where(x => MinimumTier(x.affixId) <= maxTier && x.weighting > 0);
+        definitions.Values.Where(x => !IsCorruptionCopy(x.affixId) && MinimumTier(x.affixId) <= maxTier && x.weighting > 0);
 
     /// <summary>Call after the base catalog and subtypes 0..3 exist. Safe to retry before they exist.</summary>
     internal static void EnsureRegistered()
@@ -43,6 +48,9 @@ internal static class JewelAffixes
         var singles = catalog.singleAffixes.ToArray().ToList();
         var multis = catalog.multiAffixes.ToArray().ToList();
         var staged = new Dictionary<int, AffixList.Affix>();
+        corruptionCopies.Clear();
+        corruptionWeights.Clear();
+        WriteNativeCorruptionPools(singles.Cast<AffixList.Affix>().Concat(multis));
         foreach (var source in singles.Cast<AffixList.Affix>().Concat(multis).ToArray())
         {
             if (source == null || ((int)source.classSpecificity & ~1) != 0) continue;
@@ -76,8 +84,41 @@ internal static class JewelAffixes
                 multis.Add(target);
                 copy = target;
             }
+            // Which idols the game rolls this affix on, before the copy is restricted to Jewels.
+            idolTypes[JewelAffixRules.InheritedId(source.affixId)] = source.canRollOn == null ? ""
+                : string.Join("|", source.canRollOn.ToArray().Select(type => type.ToString()));
+            if (source.specialAffixType == AffixList.SpecialAffixType.Corrupted)
+            {
+                corruptionCopies.Add(JewelAffixRules.InheritedId(source.affixId));
+                corruptionWeights[JewelAffixRules.InheritedId(source.affixId)] = source.weighting;
+            }
             Configure(copy, JewelAffixRules.InheritedId(source.affixId));
+            if (IsCorruptionCopy(copy.affixId)) copy.specialAffixType = AffixList.SpecialAffixType.Corrupted;
+            // Idol T1 is the sole baseline, including every secondary roll. Never use
+            // the idol's higher tiers when constructing jewel T2..T7.
             copy.tiers = CopiedTiers(source.tiers[0]);
+            if (IsCorruptionCopy(copy.affixId))
+                foreach (var tier in copy.tiers)
+                {
+                    var primary = JewelAffixRules.CorruptionRange(tier.minRoll, tier.maxRoll, copy.affixId);
+                    tier.minRoll = primary.Min;
+                    tier.maxRoll = primary.Max;
+                    if (tier.extraRolls == null) continue;
+                    for (int index = 0; index < tier.extraRolls.Count; index++)
+                    {
+                        var extra = tier.extraRolls[index];
+                        var secondary = JewelAffixRules.CorruptionRange(extra.minRoll, extra.maxRoll, copy.affixId, index + 1);
+                        extra.minRoll = secondary.Min;
+                        extra.maxRoll = secondary.Max;
+                    }
+                }
+            if (source.affixId == 830)
+                Main.logger_instance?.Msg("Jewel stun idol baseline: " + source.tiers.Count + " native tiers; T1 "
+                    + source.tiers[0].minRoll + " to " + source.tiers[0].maxRoll
+                    + "; T1 extra " + string.Join(" | ", source.tiers[0].extraRolls.ToArray().Select(r => r.minRoll + " to " + r.maxRoll)));
+            if (source.affixId == 830)
+                Main.logger_instance?.Msg("Jewel stun native standard effect modifier: " + source.standardAffixEffectModifier
+                    + "; jewel standard effect modifier: " + copy.standardAffixEffectModifier);
             staged.Add(copy.affixId, copy);
         }
         foreach (var affix in ExclusiveAffixes())
@@ -185,7 +226,7 @@ internal static class JewelAffixes
                     added++;
                 }
                 else changed++;
-                affix.weighting = row.Weight;
+                affix.weighting = IsCorruptionCopy(row.Id) ? corruptionWeights[row.Id] : row.Weight;
                 if (!row.IsInherited && row.Name.Length != 0) { affix.affixName = row.Name; affix.affixDisplayName = row.Name; }
                 if (row.Title.Length != 0) affix.affixTitle = row.Title;
                 if (row.TitleType.Length != 0 && Enum.TryParse(row.TitleType, true, out AffixList.AffixTitleType titleType)) affix.titleType = titleType;
@@ -210,6 +251,7 @@ internal static class JewelAffixes
                 File.WriteAllText(path, JewelAffixTable.Write(staged.Values.OrderBy(x => x.affixId).Select(ToRow)));
                 Main.logger_instance?.Msg("Jewel affixes: wrote the current table with the game's own titles to " + path);
             }
+            WriteIdolSizes(staged);
             foreach (string error in errors) Main.logger_instance?.Warning("Jewel affixes (Data/JewelAffixes.csv): " + error);
             Main.logger_instance?.Msg("Jewel affixes: loaded the table (" + changed + " changed, " + added + " added, " + errors.Count + " problems).");
         }
@@ -219,6 +261,75 @@ internal static class JewelAffixes
             JewelAffixRules.SetMinimumTierOverrides(null);
             ErrorLog.Report(ex, "Jewel affix table");
         }
+    }
+
+    // Dev aid: which idol sizes the game rolls each copied Idol affix on (JewelAffixes.idols.csv, next to the other exports).
+    private static void WriteNativeCorruptionPools(IEnumerable<AffixList.Affix> nativeAffixes)
+    {
+        try
+        {
+            var text = new System.Text.StringBuilder("NativeId,Name,Title,IdolTypes,AllowedOnRing,ClassSpecificity,Tier,RawMin,RawMax,RawSecondaryRanges,StandardAffixEffectModifier,Weight\r\n");
+            var idolNames = new List<string>();
+            foreach (var affix in nativeAffixes.OrderBy(affix => affix?.affixId ?? int.MaxValue))
+            {
+                if (affix == null || affix.specialAffixType != AffixList.SpecialAffixType.Corrupted) continue;
+                var idols = affix.canRollOn == null ? Array.Empty<EquipmentType>()
+                    : affix.canRollOn.ToArray().Where(type => ItemList.isIdol(type)).ToArray();
+                bool ring = affix.CanRollOn((int)EquipmentType.RING, 0, ItemList.ClassRequirement.Any);
+                if (idols.Length == 0 && !ring) continue;
+                if (idols.Length > 0) idolNames.Add(affix.affixId + " " + affix.affixName);
+                for (int tier = 0; affix.tiers != null && tier < affix.tiers.Count; tier++)
+                {
+                    var range = affix.tiers[tier];
+                    string secondary = range.extraRolls == null ? "" : string.Join(" | ", range.extraRolls.ToArray()
+                        .Select(roll => roll.minRoll.ToString(System.Globalization.CultureInfo.InvariantCulture)
+                            + " to " + roll.maxRoll.ToString(System.Globalization.CultureInfo.InvariantCulture)));
+                    text.Append(affix.affixId).Append(',').Append(CsvText.Quote(affix.affixName ?? ""))
+                        .Append(',').Append(CsvText.Quote(affix.affixTitle ?? ""))
+                        .Append(',').Append(CsvText.Quote(string.Join("|", idols.Select(type => type.ToString()))))
+                        .Append(',').Append(ring).Append(',').Append(affix.classSpecificity).Append(',').Append(tier + 1)
+                        .Append(',').Append(range.minRoll.ToString(System.Globalization.CultureInfo.InvariantCulture))
+                        .Append(',').Append(range.maxRoll.ToString(System.Globalization.CultureInfo.InvariantCulture))
+                        .Append(',').Append(CsvText.Quote(secondary))
+                        .Append(',').Append(affix.standardAffixEffectModifier.ToString(System.Globalization.CultureInfo.InvariantCulture))
+                        .Append(',').Append(affix.weighting.ToString(System.Globalization.CultureInfo.InvariantCulture)).Append("\r\n");
+                }
+            }
+            Directory.CreateDirectory(Path.GetDirectoryName(GeneratedPath));
+            File.WriteAllText(Path.Combine(Path.GetDirectoryName(GeneratedPath), "JewelAffixes.native-corruption.csv"), text.ToString());
+            Main.logger_instance?.Msg("Native idol corruption pool: " + string.Join(" | ", idolNames));
+        }
+        catch (Exception ex) { Main.logger_instance?.Warning("Native corruption pool export: " + ex.Message); }
+    }
+
+    private static void WriteIdolSizes(Dictionary<int, AffixList.Affix> staged)
+    {
+        try
+        {
+            var text = new System.Text.StringBuilder("Id,Name,Title,Sizes,IdolTypes\r\n");
+            foreach (var pair in staged.OrderBy(p => p.Key))
+            {
+                if (!idolTypes.TryGetValue(pair.Key, out string types)) continue;
+                var shapes = types.Split(new[] { '|' }, System.StringSplitOptions.RemoveEmptyEntries)
+                    .Select(t => t.StartsWith("IDOL_") ? t.Substring(5).Replace("_ETERRA", "").Replace("_LAGON", "") : t).Distinct();
+                string name = (string.IsNullOrEmpty(pair.Value.affixDisplayName) ? pair.Value.affixName : pair.Value.affixDisplayName) ?? "";
+                text.Append(pair.Key).Append(',').Append(CsvText.Quote(name)).Append(',').Append(CsvText.Quote(pair.Value.affixTitle ?? ""))
+                    .Append(',').Append(CsvText.Quote(string.Join(" ", shapes))).Append(',').Append(CsvText.Quote(types)).Append("\r\n");
+            }
+            File.WriteAllText(Path.Combine(Path.GetDirectoryName(GeneratedPath), "JewelAffixes.idols.csv"), text.ToString());
+            var corrupted = staged.Values.Where(affix => IsCorruptionCopy(affix.affixId)).OrderBy(affix => affix.affixId).ToList();
+            var corruptionReport = new System.Text.StringBuilder("JewelId,NativeId,InternalName,DisplayName,NativeWeight,Enabled\r\n");
+            foreach (var affix in corrupted)
+                corruptionReport.Append(affix.affixId).Append(',').Append(affix.affixId - JewelAffixRules.InheritedIdOffset)
+                    .Append(',').Append(CsvText.Quote(affix.affixName ?? ""))
+                    .Append(',').Append(CsvText.Quote(affix.affixDisplayName ?? ""))
+                    .Append(',').Append(affix.weighting.ToString(System.Globalization.CultureInfo.InvariantCulture))
+                    .Append(',').Append(affix.weighting > 0).Append("\r\n");
+            File.WriteAllText(Path.Combine(Path.GetDirectoryName(GeneratedPath), "JewelAffixes.corruption.csv"), corruptionReport.ToString());
+            Main.logger_instance?.Msg("Jewel-only corruption pool (excluded from ordinary rolls): "
+                + string.Join(" | ", corrupted.Select(affix => affix.affixId + " " + affix.affixName)));
+        }
+        catch (Exception ex) { Main.logger_instance?.Warning("Jewel affixes: could not write the idol sizes (" + ex.Message + ")"); }
     }
 
     private static void ApplyRanges(AffixList.Affix affix, JewelAffixRow row)
@@ -289,6 +400,9 @@ internal static class JewelAffixes
         affix.classSpecificity = AffixList.ClassSpecificity.NonSpecific;
         affix.specialAffixType = AffixList.SpecialAffixType.Standard;
         affix.uniqueId = 0;
+        // Native getModifier divides by (1 + standardAffixEffectModifier).
+        // Copied idol normalization must not amplify our already-scaled CSV ranges.
+        affix.standardAffixEffectModifier = 0;
         affix.canRollOn = new Il2CppSystem.Collections.Generic.List<EquipmentType>();
         affix.canRollOn.Add((EquipmentType)JewelAffixRules.BaseType);
         affix.specificRerollChances = new Il2CppSystem.Collections.Generic.List<AffixList.SpecificReroll>();
@@ -402,7 +516,7 @@ internal static class JewelAffixes
         EnsureRegistered();
         if (!Registered) throw new InvalidOperationException("The jewel base and affix catalogs are not ready.");
         var result = new Il2CppSystem.Collections.Generic.List<ItemAffix>();
-        var candidates = definitions.Values.Where(x => MinimumTier(x.affixId) <= maxTier && x.weighting > 0).ToList();
+        var candidates = RollableDefinitions(maxTier).ToList();
         while (result.Count < count && candidates.Count != 0)
         {
             double roll = random.NextDouble() * candidates.Sum(x => (double)x.weighting);

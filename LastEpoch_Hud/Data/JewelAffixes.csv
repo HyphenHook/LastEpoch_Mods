@@ -2,171 +2,170 @@
 
 # Weight 0 stops an affix being generated. MinTier is the lowest tier (1-7) it can appear on. T1..T7 are the min/max roll per tier.
 
+# Ordinary inherited ranges scale by idol size. Corruption-only affixes use balanced Idol T1 ranges at every tier (base rules and affix-specific overrides in JewelAffixRules.CorruptionRange).
 # Step: 0.01 makes the roll land only on whole 1% steps from the minimum (Damage as Extra, Mana Leech only). 0 keeps it continuous.
-
-# Inherited rows copy an Idol affix (SourceId) with its own ranges. Exclusive rows may be added with a new Id from 4000 to 4095.
 
 # Title is the word the item's own name is built from (Custom is the usual TitleType). Leave it empty to keep the game's wording.
 
 # Weight is the roll weight against every other affix: Inherited rows started at the Idol's own 1 and are set to 100 here, against 10 / 100 / 1000 for Exclusive rows. Weight 0 never rolls.
 
 Id,Origin,SourceId,Name,Title,TitleType,Side,Property,ModType,Tags,Weight,MinTier,Step,T1Min,T1Max,T2Min,T2Max,T3Min,T3Max,T4Min,T4Max,T5Min,T5Max,T6Min,T6Max,T7Min,T7Max
-2106,Inherited,106,Health on Kill,Sanctified,Custom,Prefix,HealthGain,ADDED,None,100,1,0,10,20,10,20,10,20,10,20,10,20,10,20,10,20
-2107,Inherited,107,Idol Increased Health,Vigorous,Custom,Prefix,Health,INCREASED,None,100,1,0,0.05,0.11,0.05,0.11,0.05,0.11,0.05,0.11,0.05,0.11,0.05,0.11,0.05,0.11
-2117,Inherited,117,Idol Elemental Resistance,of Insulation,Custom,Suffix,ElementalResistance,ADDED,None,100,1,0,0.08,0.2,0.08,0.2,0.08,0.2,0.08,0.2,0.08,0.2,0.08,0.2,0.08,0.2
-2119,Inherited,119,Idol Increased Damage Over Time,Blighted,Custom,Prefix,Damage,INCREASED,DoT,100,1,0,0.22,0.6,0.22,0.6,0.22,0.6,0.22,0.6,0.22,0.6,0.22,0.6,0.22,0.6
-2134,Inherited,134,Idol Increased Critical Strike Chance,Assassin's,Custom,Prefix,CriticalChance,INCREASED,None,100,1,0,0.2,0.55,0.2,0.55,0.2,0.55,0.2,0.55,0.2,0.55,0.2,0.55,0.2,0.55
-2136,Inherited,136,Idol Stun Avoidance,Tenacious,Custom,Prefix,StunAvoidance,ADDED,None,100,1,0,200,450,200,450,200,450,200,450,200,450,200,450,200,450
-2826,Inherited,826,Increased Damage Over Time and Less Damage Over Time Taken,Relentless,Custom,Prefix,,,,100,1,0,0.11,0.15,0.11,0.15,0.11,0.15,0.11,0.15,0.11,0.15,0.11,0.15,0.11,0.15
-2827,Inherited,827,Dodge Rating and Increased Dodge Rating,Graceful,Custom,Prefix,,,,100,1,0,13,25,13,25,13,25,13,25,13,25,13,25,13,25
-2828,Inherited,828,Increased Health Regeneration and Added Health,Restful,Custom,Prefix,,,,100,1,0,0.05,0.08,0.05,0.08,0.05,0.08,0.05,0.08,0.05,0.08,0.05,0.08,0.05,0.08
-2829,Inherited,829,Increased Healing Effectiveness and Added Health,Serene,Custom,Prefix,,,,100,1,0,0.05,0.1,0.05,0.1,0.05,0.1,0.05,0.1,0.05,0.1,0.05,0.1,0.05,0.1
-2830,Inherited,830,Increased Stun Chance and Added Stun Avoidance,Loom Walker's,Custom,Prefix,,,,100,1,0,0.21,0.3,0.21,0.3,0.21,0.3,0.21,0.3,0.21,0.3,0.21,0.3,0.21,0.3
-2831,Inherited,831,Void Penetration and Minion Void Penetration,Dreaded,Custom,Prefix,,,,100,1,0,0.01,0.02,0.01,0.02,0.01,0.02,0.01,0.02,0.01,0.02,0.01,0.02,0.01,0.02
-2832,Inherited,832,Poison Penetration and Minion Poison Penetration,Widow's,Custom,Prefix,,,,100,1,0,0.01,0.02,0.01,0.02,0.01,0.02,0.01,0.02,0.01,0.02,0.01,0.02,0.01,0.02
-2833,Inherited,833,Physical Penetration and Minion Physical Penetration,Fanged,Custom,Prefix,,,,100,1,0,0.01,0.02,0.01,0.02,0.01,0.02,0.01,0.02,0.01,0.02,0.01,0.02,0.01,0.02
-2834,Inherited,834,Necrotic Penetration and Minion Necrotic Penetration,Fateweaver's,Custom,Prefix,,,,100,1,0,0.01,0.02,0.01,0.02,0.01,0.02,0.01,0.02,0.01,0.02,0.01,0.02,0.01,0.02
-2835,Inherited,835,Void Resistance and Minion Void Resistance,of Phobia,Custom,Suffix,,,,100,1,0,0.09,0.12,0.09,0.12,0.09,0.12,0.09,0.12,0.09,0.12,0.09,0.12,0.09,0.12
-2836,Inherited,836,Poison Resistance and Minion Poison Resistance,of Antivenom,Custom,Suffix,,,,100,1,0,0.09,0.12,0.09,0.12,0.09,0.12,0.09,0.12,0.09,0.12,0.09,0.12,0.09,0.12
-2837,Inherited,837,Physical Resistance and Minion Physical Resistance,of Chitin,Custom,Suffix,,,,100,1,0,0.09,0.12,0.09,0.12,0.09,0.12,0.09,0.12,0.09,0.12,0.09,0.12,0.09,0.12
-2838,Inherited,838,Necrotic Resistance and Minion Necrotic Resistance,of Silk,Custom,Suffix,,,,100,1,0,0.09,0.12,0.09,0.12,0.09,0.12,0.09,0.12,0.09,0.12,0.09,0.12,0.09,0.12
-2839,Inherited,839,Damage Reflected and Damage Dealt to Attackers,of the Briar,Custom,Suffix,,,,100,1,0,0.05,0.15,0.05,0.15,0.05,0.15,0.05,0.15,0.05,0.15,0.05,0.15,0.05,0.15
-2840,Inherited,840,Critical Strike Avoidance and Increased Critical Strike Chance,of the Trapdoor,Custom,Suffix,,,,100,1,0,0.02,0.04,0.02,0.04,0.02,0.04,0.02,0.04,0.02,0.04,0.02,0.04,0.02,0.04
-2841,Inherited,841,Reduced Bonus Damage Taken from Crits and Increased Critical Strike Chance,of Needles,Custom,Suffix,,,,100,1,0,0.02,0.04,0.02,0.04,0.02,0.04,0.02,0.04,0.02,0.04,0.02,0.04,0.02,0.04
-2842,Inherited,842,Armor and Increased Armor,Armored,Custom,Prefix,,,,100,1,0,28,40,28,40,28,40,28,40,28,40,28,40,28,40
-2843,Inherited,843,Mana and Increased Mana Regen,Inspired,Custom,Prefix,,,,100,1,0,8,12,8,12,8,12,8,12,8,12,8,12,8,12
-2844,Inherited,844,Added Stun Avoidance and Increased Stun Immunity Duration,Jumping Spider's,Custom,Prefix,,,,100,1,0,78,100,78,100,78,100,78,100,78,100,78,100,78,100
-2845,Inherited,845,Ward and Ward Decay Threshold on Potion Use,Quenching,Custom,Prefix,,,,100,1,0,15,25,15,25,15,25,15,25,15,25,15,25,15,25
-2846,Inherited,846,Ward Retention and Ward Per Second,Preserving,Custom,Prefix,,,,100,1,0,0.05,0.07,0.05,0.07,0.05,0.07,0.05,0.07,0.05,0.07,0.05,0.07,0.05,0.07
-2847,Inherited,847,Cold Penetration and Minion Cold Penetration,Biting,Custom,Prefix,,,,100,1,0,0.01,0.02,0.01,0.02,0.01,0.02,0.01,0.02,0.01,0.02,0.01,0.02,0.01,0.02
-2848,Inherited,848,Fire Penetration and Minion Fire Penetration,Scorching,Custom,Prefix,,,,100,1,0,0.01,0.02,0.01,0.02,0.01,0.02,0.01,0.02,0.01,0.02,0.01,0.02,0.01,0.02
-2849,Inherited,849,Lightning Penetration and Minion Lightning Penetration,Illuminating,Custom,Prefix,,,,100,1,0,0.01,0.02,0.01,0.02,0.01,0.02,0.01,0.02,0.01,0.02,0.01,0.02,0.01,0.02
-2850,Inherited,850,Cold Resistance and Minion Cold Resistance,of Refuge,Custom,Suffix,,,,100,1,0,0.09,0.12,0.09,0.12,0.09,0.12,0.09,0.12,0.09,0.12,0.09,0.12,0.09,0.12
-2851,Inherited,851,Elemental Resistance and Minion Elemental Resistance,of Many Threads,Custom,Suffix,,,,100,1,0,0.04,0.06,0.04,0.06,0.04,0.06,0.04,0.06,0.04,0.06,0.04,0.06,0.04,0.06
-2852,Inherited,852,Fire Resistance and Minion Fire Resistance,of the Salamander,Custom,Suffix,,,,100,1,0,0.09,0.12,0.09,0.12,0.09,0.12,0.09,0.12,0.09,0.12,0.09,0.12,0.09,0.12
-2853,Inherited,853,Health and Added Health Regeneration,of Respite,Custom,Suffix,,,,100,1,0,14,18,14,18,14,18,14,18,14,18,14,18,14,18
-2854,Inherited,854,Health and Mana,of Repose,Custom,Suffix,,,,100,1,0,14,18,14,18,14,18,14,18,14,18,14,18,14,18
-2855,Inherited,855,Lightning Resistance and Minion Lightning Resistance,of Golden Light,Custom,Suffix,,,,100,1,0,0.09,0.12,0.09,0.12,0.09,0.12,0.09,0.12,0.09,0.12,0.09,0.12,0.09,0.12
-2856,Inherited,856,Endurance and Endurance Threshold,of the Tarantula,Custom,Suffix,,,,100,1,0,0.01,0.02,0.01,0.02,0.01,0.02,0.01,0.02,0.01,0.02,0.01,0.02,0.01,0.02
-2857,Inherited,857,Increased Chance to Find Potions and Health Gained on Potion Use,of Revelry,Custom,Suffix,,,,100,1,0,0.05,0.1,0.05,0.1,0.05,0.1,0.05,0.1,0.05,0.1,0.05,0.1,0.05,0.1
-2858,Inherited,858,Chance to Inflict Bleed on Hit and Physical Penetration with Bleed,Wolf Spider's,Custom,Prefix,,,,100,1,0,0.15,0.2,0.15,0.2,0.15,0.2,0.15,0.2,0.15,0.2,0.15,0.2,0.15,0.2
-2859,Inherited,859,Chance to Poison on Hit and Poison Penetration with Poison,Recluse's,Custom,Prefix,,,,100,1,0,0.15,0.2,0.15,0.2,0.15,0.2,0.15,0.2,0.15,0.2,0.15,0.2,0.15,0.2
-2860,Inherited,860,Health on Kill and Added Health,Predator's,Custom,Prefix,,,,100,1,0,9,20,9,20,9,20,9,20,9,20,9,20,9,20
-2861,Inherited,861,Increased Stun Duration and Increased Stun Chance,Paralysing,Custom,Prefix,,,,100,1,0,0.16,0.2,0.16,0.2,0.16,0.2,0.16,0.2,0.16,0.2,0.16,0.2,0.16,0.2
-2862,Inherited,862,Vitality and Added Health Regen,Swaddling,Custom,Prefix,,,,100,1,0,4,5,4,5,4,5,4,5,4,5,4,5,4,5
-2863,Inherited,863,Necrotic Penetration and Minion Necrotic Penetration,Fateweaver's,Custom,Prefix,,,,100,1,0,0.03,0.04,0.03,0.04,0.03,0.04,0.03,0.04,0.03,0.04,0.03,0.04,0.03,0.04
-2864,Inherited,864,Void Penetration and Minion Void Penetration,Dreaded,Custom,Prefix,,,,100,1,0,0.03,0.04,0.03,0.04,0.03,0.04,0.03,0.04,0.03,0.04,0.03,0.04,0.03,0.04
-2865,Inherited,865,Poison Penetration and Minion Poison Penetration,Widow's,Custom,Prefix,,,,100,1,0,0.03,0.04,0.03,0.04,0.03,0.04,0.03,0.04,0.03,0.04,0.03,0.04,0.03,0.04
-2866,Inherited,866,Physical Penetration and Minion Physical Penetration,Fanged,Custom,Prefix,,,,100,1,0,0.03,0.04,0.03,0.04,0.03,0.04,0.03,0.04,0.03,0.04,0.03,0.04,0.03,0.04
-2867,Inherited,867,Necrotic Resistance and Minion Necrotic Resistance,of Silk,Custom,Suffix,,,,100,1,0,0.18,0.24,0.18,0.24,0.18,0.24,0.18,0.24,0.18,0.24,0.18,0.24,0.18,0.24
-2868,Inherited,868,Void Resistance and Minion Void Resistance,of Phobia,Custom,Suffix,,,,100,1,0,0.18,0.24,0.18,0.24,0.18,0.24,0.18,0.24,0.18,0.24,0.18,0.24,0.18,0.24
-2869,Inherited,869,Poison Resistance and Minion Poison Resistance,of Antivenom,Custom,Suffix,,,,100,1,0,0.18,0.24,0.18,0.24,0.18,0.24,0.18,0.24,0.18,0.24,0.18,0.24,0.18,0.24
-2870,Inherited,870,Physical Resistance and Minion Physical Resistance,of Chitin,Custom,Suffix,,,,100,1,0,0.18,0.24,0.18,0.24,0.18,0.24,0.18,0.24,0.18,0.24,0.18,0.24,0.18,0.24
-2871,Inherited,871,Added Bow Damage and Increased Bow Damage,of the Hunter,Custom,Suffix,,,,100,1,0,2,5,2,5,2,5,2,5,2,5,2,5,2,5
-2872,Inherited,872,Added Melee Damage and Increased Melee Damage,of Clotho,Custom,Suffix,,,,100,1,0,3,6,3,6,3,6,3,6,3,6,3,6,3,6
-2873,Inherited,873,Added Throwing Damage and Increased Throwing Damage,of Atropos,Custom,Suffix,,,,100,1,0,1,3,1,3,1,3,1,3,1,3,1,3,1,3
-2874,Inherited,874,Added Spell Damage and Increased Spell Damage,of Lachesis,Custom,Suffix,,,,100,1,0,2,4,2,4,2,4,2,4,2,4,2,4,2,4
-2875,Inherited,875,Chance to Gain 30 Ward When Hit and Ward Decay Threshold,Gilded,Custom,Prefix,,,,100,1,0,0.16,0.3,0.16,0.3,0.16,0.3,0.16,0.3,0.16,0.3,0.16,0.3,0.16,0.3
-2876,Inherited,876,Chance to Ignite on Hit and Fire Penetration with Ignite,Lava Gatherer's,Custom,Prefix,,,,100,1,0,0.15,0.2,0.15,0.2,0.15,0.2,0.15,0.2,0.15,0.2,0.15,0.2,0.15,0.2
-2877,Inherited,877,Chance to Shock on Hit and Increased Shock Duration,Apostle's,Custom,Prefix,,,,100,1,0,0.2,0.3,0.2,0.3,0.2,0.3,0.2,0.3,0.2,0.3,0.2,0.3,0.2,0.3
-2878,Inherited,878,Increased Critical Strike Chance and Critical Strike Multiplier,Severing,Custom,Prefix,,,,100,1,0,0.22,0.3,0.22,0.3,0.22,0.3,0.22,0.3,0.22,0.3,0.22,0.3,0.22,0.3
-2879,Inherited,879,Freeze Rate Multiplier and Ward when you Freeze an Enemy,Winternid's,Custom,Prefix,,,,100,1,0,0.16,0.25,0.16,0.25,0.16,0.25,0.16,0.25,0.16,0.25,0.16,0.25,0.16,0.25
-2880,Inherited,880,Health on Kill and Increased Health,Vanquisher's,Custom,Prefix,,,,100,1,0,9,20,9,20,9,20,9,20,9,20,9,20,9,20
-2881,Inherited,881,Potion Health Converted to Ward and Ward Gained on Potion use,Venom Drinker's,Custom,Prefix,,,,100,1,0,0.22,0.25,0.22,0.25,0.22,0.25,0.22,0.25,0.22,0.25,0.22,0.25,0.22,0.25
-2882,Inherited,882,Cold Penetration and Minion Cold Penetration,Biting,Custom,Prefix,,,,100,1,0,0.03,0.04,0.03,0.04,0.03,0.04,0.03,0.04,0.03,0.04,0.03,0.04,0.03,0.04
-2883,Inherited,883,Fire Penetration and Minion Fire Penetration,Scorching,Custom,Prefix,,,,100,1,0,0.03,0.04,0.03,0.04,0.03,0.04,0.03,0.04,0.03,0.04,0.03,0.04,0.03,0.04
-2884,Inherited,884,Lightning Penetration and Minion Lightning Penetration,Illuminating,Custom,Prefix,,,,100,1,0,0.03,0.04,0.03,0.04,0.03,0.04,0.03,0.04,0.03,0.04,0.03,0.04,0.03,0.04
-2885,Inherited,885,Cold Resistance and Minion Cold Resistance,of Refuge,Custom,Suffix,,,,100,1,0,0.18,0.24,0.18,0.24,0.18,0.24,0.18,0.24,0.18,0.24,0.18,0.24,0.18,0.24
-2886,Inherited,886,Elemental Resistance and Minion Elemental Resistance,of Many Threads,Custom,Suffix,,,,100,1,0,0.08,0.12,0.08,0.12,0.08,0.12,0.08,0.12,0.08,0.12,0.08,0.12,0.08,0.12
-2887,Inherited,887,Fire Resistance and Minion Fire Resistance,of the Salamander,Custom,Suffix,,,,100,1,0,0.18,0.24,0.18,0.24,0.18,0.24,0.18,0.24,0.18,0.24,0.18,0.24,0.18,0.24
-2888,Inherited,888,Lightning Resistance and Minion Lightning Resistance,of Golden Light,Custom,Suffix,,,,100,1,0,0.18,0.24,0.18,0.24,0.18,0.24,0.18,0.24,0.18,0.24,0.18,0.24,0.18,0.24
-2889,Inherited,889,Added Block Effectiveness and Health Gained on Block,of the Firstborn,Custom,Suffix,,,,100,1,0,40,80,40,80,40,80,40,80,40,80,40,80,40,80
-2890,Inherited,890,Ward Per Second and Ward Retention,of the Loom,Custom,Suffix,,,,100,1,0,12,16,12,16,12,16,12,16,12,16,12,16,12,16
-2891,Inherited,891,Increased Damage Over Time and Chance to Apply Frailty on Hit,of the Web,Custom,Suffix,,,,100,1,0,0.14,0.25,0.14,0.25,0.14,0.25,0.14,0.25,0.14,0.25,0.14,0.25,0.14,0.25
-2892,Inherited,892,Increased Critical Strike Chance and Added Critical Strike Multiplier,of the Keen Edge,Custom,Suffix,,,,0,1,0,0.01,0.02,0.01,0.02,0.01,0.02,0.01,0.02,0.01,0.02,0.01,0.02,0.01,0.02
-2893,Inherited,893,Increased Cooldown Recovery Speed and Increased Mana Regeneration,of Renewal,Custom,Suffix,,,,0,1,0,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01
-2894,Inherited,894,Increased Movement Speed and Increased Damage,of the Hunt,Custom,Suffix,,,,0,1,0,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01
-2895,Inherited,895,Increased Armor and Reduced bonus damage taken from critical hits,of the Carapace,Custom,Suffix,,,,0,1,0,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01
-2896,Inherited,896,Added Dodge rating if you have been hit recently and Critical Strike Avoidance,of Evasion,Custom,Suffix,,,,0,1,0,5,15,5,15,5,15,5,15,5,15,5,15,5,15
-2897,Inherited,897,Ward decay threshold and Ward per second,of Tempering,Custom,Suffix,,,,0,1,0,1,2,1,2,1,2,1,2,1,2,1,2,1,2
-2898,Inherited,898,Chance to not consume Potion on use and Ward gained on potion use,of Thrift,Custom,Suffix,,,,0,1,0,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01
-2899,Inherited,899,Increased damage over time and Endurance,of Attrition,Custom,Suffix,,,,0,1,0,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01
-3029,Inherited,1029,Increased Cast Speed and Reduced Frenzy Effect,Focused,Custom,Prefix,EffectOfAilmentOnYou,INCREASED,None,100,1,0,0.1,0.2,0.1,0.2,0.1,0.2,0.1,0.2,0.1,0.2,0.1,0.2,0.1,0.2
-3030,Inherited,1030,Increased Attack Speed and Reduced Frenzy Effect,Disciplined,Custom,Prefix,EffectOfAilmentOnYou,INCREASED,None,100,1,0,0.1,0.2,0.1,0.2,0.1,0.2,0.1,0.2,0.1,0.2,0.1,0.2,0.1,0.2
+2106,Inherited,106,Health on Kill,Sanctified,Custom,Prefix,HealthGain,ADDED,None,100,1,0,7.5,15,10.125,20.25,12.75,25.5,15.375,30.75,18,36,22,44,25,50
+2107,Inherited,107,Idol Increased Health,Vigorous,Custom,Prefix,Health,INCREASED,None,100,1,0,0.03,0.066,0.0405,0.0891,0.051,0.1122,0.0615,0.1353,0.072,0.1584,0.088,0.1936,0.1,0.22
+2117,Inherited,117,Idol Elemental Resistance,of Insulation,Custom,Suffix,ElementalResistance,ADDED,None,100,1,0,0.04266667,0.10666667,0.05866667,0.14666667,0.07466667,0.18666667,0.09066667,0.22666667,0.10666667,0.26666667,0.13333333,0.33333333,0.16,0.4
+2119,Inherited,119,Idol Increased Damage Over Time,Blighted,Custom,Prefix,Damage,INCREASED,DoT,100,1,0,0.176,0.48,0.242,0.66,0.308,0.84,0.374,1.02,0.44,1.2,0.55,1.5,0.66,1.8
+2134,Inherited,134,Idol Increased Critical Strike Chance,Assassin's,Custom,Prefix,CriticalChance,INCREASED,None,100,1,0,0.15,0.4125,0.2025,0.556875,0.255,0.70125,0.3075,0.845625,0.36,0.99,0.44,1.21,0.5,1.375
+2136,Inherited,136,Idol Stun Avoidance,Tenacious,Custom,Prefix,StunAvoidance,ADDED,None,100,1,0,160,360,220,495,280,630,340,765,400,900,500,1125,600,1350
+2826,Inherited,826,Increased Damage Over Time and Less Damage Over Time Taken,Relentless,Custom,Prefix,,,,100,1,0,0.088,0.12,0.121,0.165,0.154,0.21,0.187,0.255,0.22,0.3,0.275,0.375,0.33,0.45
+2827,Inherited,827,Dodge Rating and Increased Dodge Rating,Graceful,Custom,Prefix,,,,100,1,0,10.4,20,14.3,27.5,18.2,35,22.1,42.5,26,50,32.5,62.5,39,75
+2828,Inherited,828,Increased Health Regeneration and Added Health,Restful,Custom,Prefix,,,,100,1,0,0.04,0.064,0.055,0.088,0.07,0.112,0.085,0.136,0.1,0.16,0.125,0.2,0.15,0.24
+2829,Inherited,829,Increased Healing Effectiveness and Added Health,Serene,Custom,Prefix,,,,100,1,0,0.04,0.08,0.055,0.11,0.07,0.14,0.085,0.17,0.1,0.2,0.125,0.25,0.15,0.3
+2830,Inherited,830,Increased Stun Chance and Added Stun Avoidance,Loom Walker's,Custom,Prefix,,,,100,1,0,0.168,0.24,0.231,0.33,0.294,0.42,0.357,0.51,0.42,0.6,0.525,0.75,0.63,0.9
+2831,Inherited,831,Void Penetration and Minion Void Penetration,Dreaded,Custom,Prefix,,,,100,1,0,0.008,0.016,0.011,0.022,0.014,0.028,0.017,0.034,0.02,0.04,0.025,0.05,0.03,0.06
+2832,Inherited,832,Poison Penetration and Minion Poison Penetration,Widow's,Custom,Prefix,,,,100,1,0,0.008,0.016,0.011,0.022,0.014,0.028,0.017,0.034,0.02,0.04,0.025,0.05,0.03,0.06
+2833,Inherited,833,Physical Penetration and Minion Physical Penetration,Fanged,Custom,Prefix,,,,100,1,0,0.008,0.016,0.011,0.022,0.014,0.028,0.017,0.034,0.02,0.04,0.025,0.05,0.03,0.06
+2834,Inherited,834,Necrotic Penetration and Minion Necrotic Penetration,Fateweaver's,Custom,Prefix,,,,100,1,0,0.008,0.016,0.011,0.022,0.014,0.028,0.017,0.034,0.02,0.04,0.025,0.05,0.03,0.06
+2835,Inherited,835,Void Resistance and Minion Void Resistance,of Phobia,Custom,Suffix,,,,100,1,0,0.072,0.096,0.099,0.132,0.126,0.168,0.153,0.204,0.18,0.24,0.225,0.3,0.27,0.36
+2836,Inherited,836,Poison Resistance and Minion Poison Resistance,of Antivenom,Custom,Suffix,,,,100,1,0,0.072,0.096,0.099,0.132,0.126,0.168,0.153,0.204,0.18,0.24,0.225,0.3,0.27,0.36
+2837,Inherited,837,Physical Resistance and Minion Physical Resistance,of Chitin,Custom,Suffix,,,,100,1,0,0.072,0.096,0.099,0.132,0.126,0.168,0.153,0.204,0.18,0.24,0.225,0.3,0.27,0.36
+2838,Inherited,838,Necrotic Resistance and Minion Necrotic Resistance,of Silk,Custom,Suffix,,,,100,1,0,0.072,0.096,0.099,0.132,0.126,0.168,0.153,0.204,0.18,0.24,0.225,0.3,0.27,0.36
+2839,Inherited,839,Damage Reflected and Damage Dealt to Attackers,of the Briar,Custom,Suffix,,,,100,1,0,0.04,0.12,0.055,0.165,0.07,0.21,0.085,0.255,0.1,0.3,0.125,0.375,0.15,0.45
+2840,Inherited,840,Critical Strike Avoidance and Increased Critical Strike Chance,of the Trapdoor,Custom,Suffix,,,,100,1,0,0.016,0.032,0.022,0.044,0.028,0.056,0.034,0.068,0.04,0.08,0.05,0.1,0.06,0.12
+2841,Inherited,841,Reduced Bonus Damage Taken from Crits and Increased Critical Strike Chance,of Needles,Custom,Suffix,,,,100,1,0,0.016,0.032,0.022,0.044,0.028,0.056,0.034,0.068,0.04,0.08,0.05,0.1,0.06,0.12
+2842,Inherited,842,Armor and Increased Armor,Armored,Custom,Prefix,,,,100,1,0,22.4,32,30.8,44,39.2,56,47.6,68,56,80,70,100,84,120
+2843,Inherited,843,Mana and Increased Mana Regen,Inspired,Custom,Prefix,,,,100,1,0,6.4,9.6,8.8,13.2,11.2,16.8,13.6,20.4,16,24,20,30,24,36
+2844,Inherited,844,Added Stun Avoidance and Increased Stun Immunity Duration,Jumping Spider's,Custom,Prefix,,,,100,1,0,62.4,80,85.8,110,109.2,140,132.6,170,156,200,195,250,234,300
+2845,Inherited,845,Ward and Ward Decay Threshold on Potion Use,Quenching,Custom,Prefix,,,,100,1,0,12,20,16.5,27.5,21,35,25.5,42.5,30,50,37.5,62.5,45,75
+2846,Inherited,846,Ward Retention and Ward Per Second,Preserving,Custom,Prefix,,,,100,1,0,0.04,0.056,0.055,0.077,0.07,0.098,0.085,0.119,0.1,0.14,0.125,0.175,0.15,0.21
+2847,Inherited,847,Cold Penetration and Minion Cold Penetration,Biting,Custom,Prefix,,,,100,1,0,0.008,0.016,0.011,0.022,0.014,0.028,0.017,0.034,0.02,0.04,0.025,0.05,0.03,0.06
+2848,Inherited,848,Fire Penetration and Minion Fire Penetration,Scorching,Custom,Prefix,,,,100,1,0,0.008,0.016,0.011,0.022,0.014,0.028,0.017,0.034,0.02,0.04,0.025,0.05,0.03,0.06
+2849,Inherited,849,Lightning Penetration and Minion Lightning Penetration,Illuminating,Custom,Prefix,,,,100,1,0,0.008,0.016,0.011,0.022,0.014,0.028,0.017,0.034,0.02,0.04,0.025,0.05,0.03,0.06
+2850,Inherited,850,Cold Resistance and Minion Cold Resistance,of Refuge,Custom,Suffix,,,,100,1,0,0.072,0.096,0.099,0.132,0.126,0.168,0.153,0.204,0.18,0.24,0.225,0.3,0.27,0.36
+2851,Inherited,851,Elemental Resistance and Minion Elemental Resistance,of Many Threads,Custom,Suffix,,,,100,1,0,0.032,0.048,0.044,0.066,0.056,0.084,0.068,0.102,0.08,0.12,0.1,0.15,0.12,0.18
+2852,Inherited,852,Fire Resistance and Minion Fire Resistance,of the Salamander,Custom,Suffix,,,,100,1,0,0.072,0.096,0.099,0.132,0.126,0.168,0.153,0.204,0.18,0.24,0.225,0.3,0.27,0.36
+2853,Inherited,853,Health and Added Health Regeneration,of Respite,Custom,Suffix,,,,100,1,0,11.2,14.4,15.4,19.8,19.6,25.2,23.8,30.6,28,36,35,45,42,54
+2854,Inherited,854,Health and Mana,of Repose,Custom,Suffix,,,,100,1,0,11.2,14.4,15.4,19.8,19.6,25.2,23.8,30.6,28,36,35,45,42,54
+2855,Inherited,855,Lightning Resistance and Minion Lightning Resistance,of Golden Light,Custom,Suffix,,,,100,1,0,0.072,0.096,0.099,0.132,0.126,0.168,0.153,0.204,0.18,0.24,0.225,0.3,0.27,0.36
+2856,Inherited,856,Endurance and Endurance Threshold,of the Tarantula,Custom,Suffix,,,,100,1,0,0.008,0.016,0.011,0.022,0.014,0.028,0.017,0.034,0.02,0.04,0.025,0.05,0.03,0.06
+2857,Inherited,857,Increased Chance to Find Potions and Health Gained on Potion Use,of Revelry,Custom,Suffix,,,,100,1,0,0.04,0.08,0.055,0.11,0.07,0.14,0.085,0.17,0.1,0.2,0.125,0.25,0.15,0.3
+2858,Inherited,858,Chance to Inflict Bleed on Hit and Physical Penetration with Bleed,Wolf Spider's,Custom,Prefix,,,,100,1,0,0.1125,0.15,0.151875,0.2025,0.19125,0.255,0.230625,0.3075,0.27,0.36,0.33,0.44,0.375,0.5
+2859,Inherited,859,Chance to Poison on Hit and Poison Penetration with Poison,Recluse's,Custom,Prefix,,,,100,1,0,0.1125,0.15,0.151875,0.2025,0.19125,0.255,0.230625,0.3075,0.27,0.36,0.33,0.44,0.375,0.5
+2860,Inherited,860,Health on Kill and Added Health,Predator's,Custom,Prefix,,,,100,1,0,6.75,15,9.1125,20.25,11.475,25.5,13.8375,30.75,16.2,36,19.8,44,22.5,50
+2861,Inherited,861,Increased Stun Duration and Increased Stun Chance,Paralysing,Custom,Prefix,,,,100,1,0,0.12,0.15,0.162,0.2025,0.204,0.255,0.246,0.3075,0.288,0.36,0.352,0.44,0.4,0.5
+2862,Inherited,862,Vitality and Added Health Regen,Swaddling,Custom,Prefix,,,,100,1,0,3,3.75,4.05,5.0625,5.1,6.375,6.15,7.6875,7.2,9,8.8,11,10,12.5
+2863,Inherited,863,Necrotic Penetration and Minion Necrotic Penetration,Fateweaver's,Custom,Prefix,,,,100,1,0,0.0225,0.03,0.030375,0.0405,0.03825,0.051,0.046125,0.0615,0.054,0.072,0.066,0.088,0.075,0.1
+2864,Inherited,864,Void Penetration and Minion Void Penetration,Dreaded,Custom,Prefix,,,,100,1,0,0.0225,0.03,0.030375,0.0405,0.03825,0.051,0.046125,0.0615,0.054,0.072,0.066,0.088,0.075,0.1
+2865,Inherited,865,Poison Penetration and Minion Poison Penetration,Widow's,Custom,Prefix,,,,100,1,0,0.0225,0.03,0.030375,0.0405,0.03825,0.051,0.046125,0.0615,0.054,0.072,0.066,0.088,0.075,0.1
+2866,Inherited,866,Physical Penetration and Minion Physical Penetration,Fanged,Custom,Prefix,,,,100,1,0,0.0225,0.03,0.030375,0.0405,0.03825,0.051,0.046125,0.0615,0.054,0.072,0.066,0.088,0.075,0.1
+2867,Inherited,867,Necrotic Resistance and Minion Necrotic Resistance,of Silk,Custom,Suffix,,,,100,1,0,0.09,0.12,0.1215,0.162,0.153,0.204,0.1845,0.246,0.216,0.288,0.264,0.352,0.3,0.4
+2868,Inherited,868,Void Resistance and Minion Void Resistance,of Phobia,Custom,Suffix,,,,100,1,0,0.09,0.12,0.1215,0.162,0.153,0.204,0.1845,0.246,0.216,0.288,0.264,0.352,0.3,0.4
+2869,Inherited,869,Poison Resistance and Minion Poison Resistance,of Antivenom,Custom,Suffix,,,,100,1,0,0.09,0.12,0.1215,0.162,0.153,0.204,0.1845,0.246,0.216,0.288,0.264,0.352,0.3,0.4
+2870,Inherited,870,Physical Resistance and Minion Physical Resistance,of Chitin,Custom,Suffix,,,,100,1,0,0.09,0.12,0.1215,0.162,0.153,0.204,0.1845,0.246,0.216,0.288,0.264,0.352,0.3,0.4
+2871,Inherited,871,Added Bow Damage and Increased Bow Damage,of the Hunter,Custom,Suffix,,,,100,1,0,1.5,3.75,2.025,5.0625,2.55,6.375,3.075,7.6875,3.6,9,4.4,11,5,12.5
+2872,Inherited,872,Added Melee Damage and Increased Melee Damage,of Clotho,Custom,Suffix,,,,100,1,0,2.25,4.5,3.0375,6.075,3.825,7.65,4.6125,9.225,5.4,10.8,6.6,13.2,7.5,15
+2873,Inherited,873,Added Throwing Damage and Increased Throwing Damage,of Atropos,Custom,Suffix,,,,100,1,0,0.75,2.25,1.0125,3.0375,1.275,3.825,1.5375,4.6125,1.8,5.4,2.2,6.6,2.5,7.5
+2874,Inherited,874,Added Spell Damage and Increased Spell Damage,of Lachesis,Custom,Suffix,,,,100,1,0,1.5,3,2.025,4.05,2.55,5.1,3.075,6.15,3.6,7.2,4.4,8.8,5,10
+2875,Inherited,875,Chance to Gain 30 Ward When Hit and Ward Decay Threshold,Gilded,Custom,Prefix,,,,100,1,0,0.12,0.225,0.162,0.30375,0.204,0.3825,0.246,0.46125,0.288,0.54,0.352,0.66,0.4,0.75
+2876,Inherited,876,Chance to Ignite on Hit and Fire Penetration with Ignite,Lava Gatherer's,Custom,Prefix,,,,100,1,0,0.1125,0.15,0.151875,0.2025,0.19125,0.255,0.230625,0.3075,0.27,0.36,0.33,0.44,0.375,0.5
+2877,Inherited,877,Chance to Shock on Hit and Increased Shock Duration,Apostle's,Custom,Prefix,,,,100,1,0,0.15,0.225,0.2025,0.30375,0.255,0.3825,0.3075,0.46125,0.36,0.54,0.44,0.66,0.5,0.75
+2878,Inherited,878,Increased Critical Strike Chance and Critical Strike Multiplier,Severing,Custom,Prefix,,,,100,1,0,0.165,0.225,0.22275,0.30375,0.2805,0.3825,0.33825,0.46125,0.396,0.54,0.484,0.66,0.55,0.75
+2879,Inherited,879,Freeze Rate Multiplier and Ward when you Freeze an Enemy,Winternid's,Custom,Prefix,,,,100,1,0,0.12,0.1875,0.162,0.253125,0.204,0.31875,0.246,0.384375,0.288,0.45,0.352,0.55,0.4,0.625
+2880,Inherited,880,Health on Kill and Increased Health,Vanquisher's,Custom,Prefix,,,,100,1,0,6.75,15,9.1125,20.25,11.475,25.5,13.8375,30.75,16.2,36,19.8,44,22.5,50
+2881,Inherited,881,Potion Health Converted to Ward and Ward Gained on Potion use,Venom Drinker's,Custom,Prefix,,,,100,1,0,0.165,0.1875,0.22275,0.253125,0.2805,0.31875,0.33825,0.384375,0.396,0.45,0.484,0.55,0.55,0.625
+2882,Inherited,882,Cold Penetration and Minion Cold Penetration,Biting,Custom,Prefix,,,,100,1,0,0.0225,0.03,0.030375,0.0405,0.03825,0.051,0.046125,0.0615,0.054,0.072,0.066,0.088,0.075,0.1
+2883,Inherited,883,Fire Penetration and Minion Fire Penetration,Scorching,Custom,Prefix,,,,100,1,0,0.0225,0.03,0.030375,0.0405,0.03825,0.051,0.046125,0.0615,0.054,0.072,0.066,0.088,0.075,0.1
+2884,Inherited,884,Lightning Penetration and Minion Lightning Penetration,Illuminating,Custom,Prefix,,,,100,1,0,0.0225,0.03,0.030375,0.0405,0.03825,0.051,0.046125,0.0615,0.054,0.072,0.066,0.088,0.075,0.1
+2885,Inherited,885,Cold Resistance and Minion Cold Resistance,of Refuge,Custom,Suffix,,,,100,1,0,0.09,0.12,0.1215,0.162,0.153,0.204,0.1845,0.246,0.216,0.288,0.264,0.352,0.3,0.4
+2886,Inherited,886,Elemental Resistance and Minion Elemental Resistance,of Many Threads,Custom,Suffix,,,,100,1,0,0.06,0.09,0.081,0.1215,0.102,0.153,0.123,0.1845,0.144,0.216,0.176,0.264,0.2,0.3
+2887,Inherited,887,Fire Resistance and Minion Fire Resistance,of the Salamander,Custom,Suffix,,,,100,1,0,0.09,0.12,0.1215,0.162,0.153,0.204,0.1845,0.246,0.216,0.288,0.264,0.352,0.3,0.4
+2888,Inherited,888,Lightning Resistance and Minion Lightning Resistance,of Golden Light,Custom,Suffix,,,,100,1,0,0.09,0.12,0.1215,0.162,0.153,0.204,0.1845,0.246,0.216,0.288,0.264,0.352,0.3,0.4
+2889,Inherited,889,Added Block Effectiveness and Health Gained on Block,of the Firstborn,Custom,Suffix,,,,100,1,0,30,60,40.5,81,51,102,61.5,123,72,144,88,176,100,200
+2890,Inherited,890,Ward Per Second and Ward Retention,of the Loom,Custom,Suffix,,,,100,1,0,9,12,12.15,16.2,15.3,20.4,18.45,24.6,21.6,28.8,26.4,35.2,30,40
+2891,Inherited,891,Increased Damage Over Time and Chance to Apply Frailty on Hit,of the Web,Custom,Suffix,,,,100,1,0,0.105,0.1875,0.14175,0.253125,0.1785,0.31875,0.21525,0.384375,0.252,0.45,0.308,0.55,0.35,0.625
+2892,Inherited,892,Increased Critical Strike Chance and Added Critical Strike Multiplier,of the Keen Edge,Custom,Suffix,,,,0,1,0,0.007,0.014,0.0095,0.019,0.012,0.024,0.0145,0.029,0.017,0.034,0.021,0.042,0.024,0.048
+2893,Inherited,893,Increased Cooldown Recovery Speed and Increased Mana Regeneration,of Renewal,Custom,Suffix,,,,0,1,0,0.006,0.006,0.00825,0.00825,0.0105,0.0105,0.01275,0.01275,0.015,0.015,0.017,0.017,0.02,0.02
+2894,Inherited,894,Increased Movement Speed and Increased Damage,of the Hunt,Custom,Suffix,,,,0,1,0,0.006,0.006,0.00825,0.00825,0.0105,0.0105,0.01275,0.01275,0.015,0.015,0.017,0.017,0.02,0.02
+2895,Inherited,895,Increased Armor and Reduced bonus damage taken from critical hits,of the Carapace,Custom,Suffix,,,,0,1,0,0.007,0.007,0.0095,0.0095,0.012,0.012,0.0145,0.0145,0.017,0.017,0.021,0.021,0.024,0.024
+2896,Inherited,896,Added Dodge rating if you have been hit recently and Critical Strike Avoidance,of Evasion,Custom,Suffix,,,,0,1,0,3,9,4.125,12.375,5.25,15.75,6.375,19.125,7.5,22.5,8.5,25.5,10,30
+2897,Inherited,897,Ward decay threshold and Ward per second,of Tempering,Custom,Suffix,,,,0,1,0,0.7,1.4,0.95,1.9,1.2,2.4,1.45,2.9,1.7,3.4,2.1,4.2,2.4,4.8
+2898,Inherited,898,Chance to not consume Potion on use and Ward gained on potion use,of Thrift,Custom,Suffix,,,,0,1,0,0.006,0.006,0.00825,0.00825,0.0105,0.0105,0.01275,0.01275,0.015,0.015,0.017,0.017,0.02,0.02
+2899,Inherited,899,Increased damage over time and Endurance,of Attrition,Custom,Suffix,,,,0,1,0,0.007,0.007,0.0095,0.0095,0.012,0.012,0.0145,0.0145,0.017,0.017,0.021,0.021,0.024,0.024
+3029,Inherited,1029,Increased Cast Speed and Reduced Frenzy Effect,Focused,Custom,Prefix,EffectOfAilmentOnYou,INCREASED,None,100,1,0,0.2,0.3,0.2,0.3,0.2,0.3,0.2,0.3,0.2,0.3,0.2,0.3,0.2,0.3
+3030,Inherited,1030,Increased Attack Speed and Reduced Frenzy Effect,Disciplined,Custom,Prefix,EffectOfAilmentOnYou,INCREASED,None,100,1,0,0.2,0.3,0.2,0.3,0.2,0.3,0.2,0.3,0.2,0.3,0.2,0.3,0.2,0.3
 3031,Inherited,1031,Added Throwing Damage and reduced Melee Damage,Slinger's,Custom,Prefix,AilmentImmunity,ADDED,None,100,1,0,1,1,1,1,1,1,1,1,1,1,1,1,1,1
-3032,Inherited,1032,Block Effectiveness and Block Chance,Bracing,Custom,Prefix,,,,100,1,0,20,40,20,40,20,40,20,40,20,40,20,40,20,40
-3033,Inherited,1033,Added Throwing Damage and reduced Spell Damage,Marksman's,Custom,Prefix,ElementalResistance,ADDED,Minion,100,1,0,0.05,0.1,0.05,0.1,0.05,0.1,0.05,0.1,0.05,0.1,0.05,0.1,0.05,0.1
-3034,Inherited,1034,Added Bow Damage and reduced Melee Damage,Archer's,Custom,Prefix,PlayerProperty,ADDED,"Physical, Lightning, Cold, Fire, Elemental",100,1,0,25,35,25,35,25,35,25,35,25,35,25,35,25,35
+3032,Inherited,1032,Block Effectiveness and Block Chance,Bracing,Custom,Prefix,,,,100,1,0,120,240,120,240,120,240,120,240,120,240,120,240,120,240
+3033,Inherited,1033,Added Throwing Damage and reduced Spell Damage,Marksman's,Custom,Prefix,ElementalResistance,ADDED,Minion,100,1,0,0.15,0.3,0.15,0.3,0.15,0.3,0.15,0.3,0.15,0.3,0.15,0.3,0.15,0.3
+3034,Inherited,1034,Added Bow Damage and reduced Melee Damage,Archer's,Custom,Prefix,PlayerProperty,ADDED,"Physical, Lightning, Cold, Fire, Elemental",100,1,0,25,60,25,60,25,60,25,60,25,60,25,60,25,60
 3035,Inherited,1035,Added Bow Damage and reduced Throwing Damage,Sharpshooter's,Custom,Prefix,AilmentImmunity,ADDED,Minion,100,1,0,1,1,1,1,1,1,1,1,1,1,1,1,1,1
 3036,Inherited,1036,Added Bow Damage and reduced Spell Damage,Hunter's,Custom,Prefix,AilmentImmunity,ADDED,Minion,100,1,0,1,1,1,1,1,1,1,1,1,1,1,1,1,1
-3037,Inherited,1037,Added Spell Damage and reduced Melee Damage,Sorcerer's,Custom,Prefix,Damage,ADDED,Bow,100,1,0,3,8,3,8,3,8,3,8,3,8,3,8,3,8
-3038,Inherited,1038,Added Spell Damage and reduced Throwing Damage,Spellbound,Custom,Prefix,Damage,ADDED,Spell,100,1,0,4,8,4,8,4,8,4,8,4,8,4,8,4,8
-3039,Inherited,1039,Added Spell Damage and reduced Bow Damage,Mystic's,Custom,Prefix,Damage,ADDED,Melee,100,1,0,5,10,5,10,5,10,5,10,5,10,5,10,5,10
-3040,Inherited,1040,Added Melee Damage and reduced Throwing Damage,Brawler's,Custom,Prefix,PlayerProperty,ADDED,Spell,100,1,0,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01
-3041,Inherited,1041,Added Melee Damage and reduced Bow Damage,Duelist's,Custom,Prefix,Damage,ADDED,Throwing,100,1,0,3,8,3,8,3,8,3,8,3,8,3,8,3,8
-3042,Inherited,1042,Added Melee Damage and reduced Spell Damage,Warrior's,Custom,Prefix,CriticalMultiplier,ADDED,Minion,100,1,0,0.05,0.15,0.05,0.15,0.05,0.15,0.05,0.15,0.05,0.15,0.05,0.15,0.05,0.15
+3037,Inherited,1037,Added Spell Damage and reduced Melee Damage,Sorcerer's,Custom,Prefix,Damage,ADDED,Bow,100,1,0,9,44,9,44,9,44,9,44,9,44,9,44,9,44
+3038,Inherited,1038,Added Spell Damage and reduced Throwing Damage,Spellbound,Custom,Prefix,Damage,ADDED,Spell,100,1,0,12,44,12,44,12,44,12,44,12,44,12,44,12,44
+3039,Inherited,1039,Added Spell Damage and reduced Bow Damage,Mystic's,Custom,Prefix,Damage,ADDED,Melee,100,1,0,15,50,15,50,15,50,15,50,15,50,15,50,15,50
+3040,Inherited,1040,Added Melee Damage and reduced Throwing Damage,Brawler's,Custom,Prefix,PlayerProperty,ADDED,Spell,100,1,0,0.01,0.05,0.01,0.05,0.01,0.05,0.01,0.05,0.01,0.05,0.01,0.05,0.01,0.05
+3041,Inherited,1041,Added Melee Damage and reduced Bow Damage,Duelist's,Custom,Prefix,Damage,ADDED,Throwing,100,1,0,9,44,9,44,9,44,9,44,9,44,9,44,9,44
+3042,Inherited,1042,Added Melee Damage and reduced Spell Damage,Warrior's,Custom,Prefix,CriticalMultiplier,ADDED,Minion,100,1,0,0.15,0.45,0.15,0.45,0.15,0.45,0.15,0.45,0.15,0.45,0.15,0.45,0.15,0.45
 3043,Inherited,1043,Ward Retention and Reduced Health,Warded,Custom,Prefix,AilmentImmunity,ADDED,None,100,1,0,1,1,1,1,1,1,1,1,1,1,1,1,1,1
 3044,Inherited,1044,Increased Frenzy Effect and Reduced Haste Effect,Frenzied,Custom,Prefix,AilmentImmunity,ADDED,Minion,100,1,0,1,1,1,1,1,1,1,1,1,1,1,1,1,1
 3045,Inherited,1045,Increased Haste Effect and Reduced Frenzy Effect,Hasty,Custom,Prefix,CriticalChance,ADDED,Minion,100,1,0,0.01,0.02,0.01,0.02,0.01,0.02,0.01,0.02,0.01,0.02,0.01,0.02,0.01,0.02
-3046,Inherited,1046,Increased Frenzy Effect and Reduced Movement Speed,Maddened,Custom,Prefix,PlayerProperty,ADDED,"Fire, Poison, Elemental",100,1,0,0.02,0.03,0.02,0.03,0.02,0.03,0.02,0.03,0.02,0.03,0.02,0.03,0.02,0.03
-3047,Inherited,1047,Increased Movement Speed and Reduced Haste effect,Fleet,Custom,Prefix,PlayerProperty,ADDED,"Lightning, Cold, Void, Necrotic, Poison",100,1,0,15,30,15,30,15,30,15,30,15,30,15,30,15,30
-3048,Inherited,1048,Added Block Effectiveness and Lowered Block Chance,Steadfast,Custom,Prefix,ManaRegen,INCREASED,None,100,1,0,0.03,0.05,0.03,0.05,0.03,0.05,0.03,0.05,0.03,0.05,0.03,0.05,0.03,0.05
-3049,Inherited,1049,Added Mana and Reduced Stun Avoidance,Brimming,Custom,Prefix,PhysicalResistance,ADDED,Minion,100,1,0,0.05,0.15,0.05,0.15,0.05,0.15,0.05,0.15,0.05,0.15,0.05,0.15,0.05,0.15
-3050,Inherited,1050,Added Stun Avoidance and Reduced Mana,Stalwart,Custom,Prefix,AbilityProperty,ADDED,"Lightning, Cold, Fire, Spell, Melee",100,1,0,0.02,0.05,0.02,0.05,0.02,0.05,0.02,0.05,0.02,0.05,0.02,0.05,0.02,0.05
-3051,Inherited,1051,Increased Health Regen and Reduced Ward Retention,Mending,Custom,Prefix,WardRegen,ADDED,None,100,1,0,3,7,3,7,3,7,3,7,3,7,3,7,3,7
-3052,Inherited,1052,Ward per Second and Reduced Health Regen,Shimmering,Custom,Prefix,CriticalMultiplier,ADDED,None,100,1,0,0.03,0.06,0.03,0.06,0.03,0.06,0.03,0.06,0.03,0.06,0.03,0.06,0.03,0.06
-3053,Inherited,1053,Increased Critical Strike chance and Reduced Critical Strike Multiplier,Precise,Custom,Prefix,Armour,INCREASED,None,100,1,0,0.02,0.05,0.02,0.05,0.02,0.05,0.02,0.05,0.02,0.05,0.02,0.05,0.02,0.05
-3054,Inherited,1054,Added Critical Strike Multiplier and Reduced Critical Strike Chance,Merciless,Custom,Prefix,StunAvoidance,ADDED,None,100,1,0,25,40,25,40,25,40,25,40,25,40,25,40,25,40
-3055,Inherited,1055,Increased Armor and Reduced Minion Physical Resistance,Plated,Custom,Prefix,AilmentChance,ADDED,None,100,1,0,0.05,0.1,0.05,0.1,0.05,0.1,0.05,0.1,0.05,0.1,0.05,0.1,0.05,0.1
-3056,Inherited,1056,Increased Minion Physical Resistance and Reduced Armor,Shepherd's,Custom,Prefix,AilmentChance,ADDED,Minion,100,1,0,0.05,0.1,0.05,0.1,0.05,0.1,0.05,0.1,0.05,0.1,0.05,0.1,0.05,0.1
-3057,Inherited,1057,Increased Minion Damage and Reduced Damage,Summoner's,Custom,Prefix,CriticalChance,INCREASED,None,100,1,0,0.04,0.08,0.04,0.08,0.04,0.08,0.04,0.08,0.04,0.08,0.04,0.08,0.04,0.08
-3058,Inherited,1058,Increased Damage and Reduced Minion Damage,Lone Wolf's,Custom,Prefix,HealthRegen,ADDED,None,100,1,0,2,4,2,4,2,4,2,4,2,4,2,4,2,4
-3059,Inherited,1059,Increased Damage over Time and Reduced Critical Strike Chance,Festering,Custom,Prefix,AbilityProperty,ADDED,"Lightning, Cold, Fire, Spell, Melee",100,1,0,5,14,5,14,5,14,5,14,5,14,5,14,5,14
-3060,Inherited,1060,Increased Critical Strike Chance and Reduced Damage over Time,Piercing,Custom,Prefix,VoidResistance,ADDED,Minion,100,1,0,0.04,0.1,0.04,0.1,0.04,0.1,0.04,0.1,0.04,0.1,0.04,0.1,0.04,0.1
-3061,Inherited,1061,Idol Lightning Damage taken as Physical,Grounded,Custom,Prefix,DamageTakenAsPhysical,ADDED,Lightning,0,1,0,0.02,0.03,0.02,0.03,0.02,0.03,0.02,0.03,0.02,0.03,0.02,0.03,0.02,0.03
-3062,Inherited,1062,Idol Necrotic Damage taken as Physical,Hardened,Custom,Prefix,DamageTakenAsPhysical,ADDED,Necrotic,0,1,0,0.02,0.03,0.02,0.03,0.02,0.03,0.02,0.03,0.02,0.03,0.02,0.03,0.02,0.03
+3046,Inherited,1046,Increased Frenzy Effect and Reduced Movement Speed,Maddened,Custom,Prefix,PlayerProperty,ADDED,"Fire, Poison, Elemental",100,1,0,0.06,0.09,0.06,0.09,0.06,0.09,0.06,0.09,0.06,0.09,0.06,0.09,0.06,0.09
+3047,Inherited,1047,Increased Movement Speed and Reduced Haste effect,Fleet,Custom,Prefix,PlayerProperty,ADDED,"Lightning, Cold, Void, Necrotic, Poison",100,1,0,20,50,20,50,20,50,20,50,20,50,20,50,20,50
+3048,Inherited,1048,Added Block Effectiveness and Lowered Block Chance,Steadfast,Custom,Prefix,ManaRegen,INCREASED,None,100,1,0,0.09,0.15,0.09,0.15,0.09,0.15,0.09,0.15,0.09,0.15,0.09,0.15,0.09,0.15
+3049,Inherited,1049,Added Mana and Reduced Stun Avoidance,Brimming,Custom,Prefix,PhysicalResistance,ADDED,Minion,100,1,0,0.15,0.4,0.15,0.4,0.15,0.4,0.15,0.4,0.15,0.4,0.15,0.4,0.15,0.4
+3050,Inherited,1050,Added Stun Avoidance and Reduced Mana,Stalwart,Custom,Prefix,AbilityProperty,ADDED,"Lightning, Cold, Fire, Spell, Melee",100,1,0,0.06,0.15,0.06,0.15,0.06,0.15,0.06,0.15,0.06,0.15,0.06,0.15,0.06,0.15
+3051,Inherited,1051,Increased Health Regen and Reduced Ward Retention,Mending,Custom,Prefix,WardRegen,ADDED,None,100,1,0,22.5,52.5,22.5,52.5,22.5,52.5,22.5,52.5,22.5,52.5,22.5,52.5,22.5,52.5
+3052,Inherited,1052,Ward per Second and Reduced Health Regen,Shimmering,Custom,Prefix,CriticalMultiplier,ADDED,None,100,1,0,0.09,0.18,0.09,0.18,0.09,0.18,0.09,0.18,0.09,0.18,0.09,0.18,0.09,0.18
+3053,Inherited,1053,Increased Critical Strike chance and Reduced Critical Strike Multiplier,Precise,Custom,Prefix,Armour,INCREASED,None,100,1,0,0.06,0.15,0.06,0.15,0.06,0.15,0.06,0.15,0.06,0.15,0.06,0.15,0.06,0.15
+3054,Inherited,1054,Added Critical Strike Multiplier and Reduced Critical Strike Chance,Merciless,Custom,Prefix,StunAvoidance,ADDED,None,100,1,0,75,120,75,120,75,120,75,120,75,120,75,120,75,120
+3055,Inherited,1055,Increased Armor and Reduced Minion Physical Resistance,Plated,Custom,Prefix,AilmentChance,ADDED,None,100,1,0,0.15,0.3,0.15,0.3,0.15,0.3,0.15,0.3,0.15,0.3,0.15,0.3,0.15,0.3
+3056,Inherited,1056,Increased Minion Physical Resistance and Reduced Armor,Shepherd's,Custom,Prefix,AilmentChance,ADDED,Minion,100,1,0,0.15,0.3,0.15,0.3,0.15,0.3,0.15,0.3,0.15,0.3,0.15,0.3,0.15,0.3
+3057,Inherited,1057,Increased Minion Damage and Reduced Damage,Summoner's,Custom,Prefix,CriticalChance,INCREASED,None,100,1,0,0.12000001,0.24,0.12000001,0.24,0.12000001,0.24,0.12000001,0.24,0.12000001,0.24,0.12000001,0.24,0.12000001,0.24
+3058,Inherited,1058,Increased Damage and Reduced Minion Damage,Lone Wolf's,Custom,Prefix,HealthRegen,ADDED,None,100,1,0,6,12,6,12,6,12,6,12,6,12,6,12,6,12
+3059,Inherited,1059,Increased Damage over Time and Reduced Critical Strike Chance,Festering,Custom,Prefix,AbilityProperty,ADDED,"Lightning, Cold, Fire, Spell, Melee",100,1,0,15,42,15,42,15,42,15,42,15,42,15,42,15,42
+3060,Inherited,1060,Increased Critical Strike Chance and Reduced Damage over Time,Piercing,Custom,Prefix,VoidResistance,ADDED,Minion,100,1,0,0.12000001,0.3,0.12000001,0.3,0.12000001,0.3,0.12000001,0.3,0.12000001,0.3,0.12000001,0.3,0.12000001,0.3
+3061,Inherited,1061,Idol Lightning Damage taken as Physical,Grounded,Custom,Prefix,DamageTakenAsPhysical,ADDED,Lightning,0,1,0,0.06,0.09,0.06,0.09,0.06,0.09,0.06,0.09,0.06,0.09,0.06,0.09,0.06,0.09
+3062,Inherited,1062,Idol Necrotic Damage taken as Physical,Hardened,Custom,Prefix,DamageTakenAsPhysical,ADDED,Necrotic,0,1,0,0.06,0.09,0.06,0.09,0.06,0.09,0.06,0.09,0.06,0.09,0.06,0.09,0.06,0.09
 3063,Inherited,1063,Slow chance converted to Armor Shred chance,Shredding,Custom,Prefix,AilmentConversion,ADDED,Fire,0,1,0,1,1,1,1,1,1,1,1,1,1,1,1,1,1
-3064,Inherited,1064,Increased Dodge Rating and Reduced Armor,Slippery,Custom,Prefix,PoisonResistance,ADDED,Minion,100,1,0,0.02,0.05,0.02,0.05,0.02,0.05,0.02,0.05,0.02,0.05,0.02,0.05,0.02,0.05
-3065,Inherited,1065,Increased Armor and Reduced Dodge Rating,Ironclad,Custom,Prefix,AilmentChance,ADDED,None,100,1,0,0.03,0.05,0.03,0.05,0.03,0.05,0.03,0.05,0.03,0.05,0.03,0.05,0.03,0.05
-3066,Inherited,1066,Increased Health Regeneration and Reduced Mana Regeneration,Vital,Custom,Prefix,ReducedBonusDamageTakenFromCrits,ADDED,None,100,1,0,0.01,0.02,0.01,0.02,0.01,0.02,0.01,0.02,0.01,0.02,0.01,0.02,0.01,0.02
-3067,Inherited,1067,Increased Mana Regeneration and Reduced Health Regeneration,Contemplative,Custom,Prefix,CritAvoidance,ADDED,None,100,1,0,0.02,0.03,0.02,0.03,0.02,0.03,0.02,0.03,0.02,0.03,0.02,0.03,0.02,0.03
-3068,Inherited,1068,Added Mana and Reduced Health,Overflowing,Custom,Prefix,AilmentChance,ADDED,Minion,100,1,0,0.02,0.04,0.02,0.04,0.02,0.04,0.02,0.04,0.02,0.04,0.02,0.04,0.02,0.04
-3069,Inherited,1069,Added Health and Reduced Mana,Hearty,Custom,Prefix,AilmentChance,ADDED,None,100,1,0,0.03,0.05,0.03,0.05,0.03,0.05,0.03,0.05,0.03,0.05,0.03,0.05,0.03,0.05
-3070,Inherited,1070,All Resistances for you and your Minions,Shrouded,Custom,Prefix,,,,0,1,0,0.008,0.008,0.008,0.008,0.008,0.008,0.008,0.008,0.008,0.008,0.008,0.008,0.008,0.008
-3071,Inherited,1071,Bees per 10 Seconds,Bees per 10 Seconds,Custom,Prefix,PlayerProperty,ADDED,Cold,0,1,0,0.8,0.8,0.8,0.8,0.8,0.8,0.8,0.8,0.8,0.8,0.8,0.8,0.8,0.8
-3072,Inherited,1072,Elemental Bees per 10 Seconds,Buzzing,Custom,Prefix,PlayerProperty,ADDED,"Lightning, Cold, Poison, Spell",0,1,0,0.8,0.8,0.8,0.8,0.8,0.8,0.8,0.8,0.8,0.8,0.8,0.8,0.8,0.8
+3064,Inherited,1064,Increased Dodge Rating and Reduced Armor,Slippery,Custom,Prefix,PoisonResistance,ADDED,Minion,100,1,0,0.06,0.15,0.06,0.15,0.06,0.15,0.06,0.15,0.06,0.15,0.06,0.15,0.06,0.15
+3065,Inherited,1065,Increased Armor and Reduced Dodge Rating,Ironclad,Custom,Prefix,AilmentChance,ADDED,None,100,1,0,0.09,0.15,0.09,0.15,0.09,0.15,0.09,0.15,0.09,0.15,0.09,0.15,0.09,0.15
+3066,Inherited,1066,Increased Health Regeneration and Reduced Mana Regeneration,Vital,Custom,Prefix,ReducedBonusDamageTakenFromCrits,ADDED,None,100,1,0,0.01,0.05,0.01,0.05,0.01,0.05,0.01,0.05,0.01,0.05,0.01,0.05,0.01,0.05
+3067,Inherited,1067,Increased Mana Regeneration and Reduced Health Regeneration,Contemplative,Custom,Prefix,CritAvoidance,ADDED,None,100,1,0,0.06,0.09,0.06,0.09,0.06,0.09,0.06,0.09,0.06,0.09,0.06,0.09,0.06,0.09
+3068,Inherited,1068,Added Mana and Reduced Health,Overflowing,Custom,Prefix,AilmentChance,ADDED,Minion,100,1,0,0.06,0.12,0.06,0.12,0.06,0.12,0.06,0.12,0.06,0.12,0.06,0.12,0.06,0.12
+3069,Inherited,1069,Added Health and Reduced Mana,Hearty,Custom,Prefix,AilmentChance,ADDED,None,100,1,0,0.09,0.15,0.09,0.15,0.09,0.15,0.09,0.15,0.09,0.15,0.09,0.15,0.09,0.15
+3070,Inherited,1070,All Resistances for you and your Minions,Shrouded,Custom,Prefix,,,,0,1,0,0.01,0.03,0.01,0.03,0.01,0.03,0.01,0.03,0.01,0.03,0.01,0.03,0.01,0.03
+3071,Inherited,1071,Bees per 10 Seconds,Bees per 10 Seconds,Custom,Prefix,PlayerProperty,ADDED,Cold,0,1,0,1,3,1,3,1,3,1,3,1,3,1,3,1,3
+3072,Inherited,1072,Elemental Bees per 10 Seconds,Buzzing,Custom,Prefix,PlayerProperty,ADDED,"Lightning, Cold, Poison, Spell",0,1,0,1,3,1,3,1,3,1,3,1,3,1,3,1,3
 3112,Inherited,1112,Increased Cast Speed and Reduced Frenzy Effect,Rapt,Custom,Prefix,PlayerProperty,ADDED,"Physical, Lightning, Fire, Poison, Elemental, Spell",100,1,0,1,4,1,4,1,4,1,4,1,4,1,4,1,4
-3150,Inherited,1150,Strength per Equipped Heretical Idol,Heretic's,Custom,Prefix,IdolAltarProperty,ADDED,"Lightning, Fire, Void",100,1,0,4,6,4,6,4,6,4,6,4,6,4,6,4,6
-3151,Inherited,1151,Dexterity per Equipped Heretical Idol,Zealot's,Custom,Prefix,IdolAltarProperty,ADDED,"Physical, Lightning, Fire, Void",100,1,0,4,6,4,6,4,6,4,6,4,6,4,6,4,6
-3152,Inherited,1152,Vitality per Equipped Heretical Idol,Penitent's,Custom,Prefix,IdolAltarProperty,ADDED,"Cold, Fire, Void",100,1,0,4,6,4,6,4,6,4,6,4,6,4,6,4,6
-4000,Exclusive,0,All Attributes,Harmonious,Custom,Prefix,AllAttributes,ADDED,None,5,1,0,1,1,2,2,3,3,4,4,5,5,6,8,10,12
-4001,Exclusive,0,Increased All Attributes,Ascendant,Custom,Prefix,AllAttributes,INCREASED,None,5,1,0,0.02,0.02,0.0325,0.0325,0.045,0.045,0.0575,0.0575,0.07,0.07,0.08,0.1,0.1,0.12
-4002,Exclusive,0,Strength,Mighty,Custom,Prefix,Strength,ADDED,None,10,1,0,2,2,3.5,3.5,5,5,6.5,6.5,8,8,8,12,12,16
-4003,Exclusive,0,Increased Strength,Titanic,Custom,Prefix,Strength,INCREASED,None,10,1,0,0.03,0.03,0.0425,0.0425,0.055,0.055,0.0675,0.0675,0.08,0.08,0.1,0.12,0.12,0.15
-4004,Exclusive,0,Dexterity,Nimble,Custom,Prefix,Dexterity,ADDED,None,10,1,0,2,2,3.5,3.5,5,5,6.5,6.5,8,8,8,12,12,16
-4005,Exclusive,0,Increased Dexterity,Agile,Custom,Prefix,Dexterity,INCREASED,None,10,1,0,0.03,0.03,0.0425,0.0425,0.055,0.055,0.0675,0.0675,0.08,0.08,0.1,0.12,0.12,0.15
-4006,Exclusive,0,Intelligence,Learned,Custom,Prefix,Intelligence,ADDED,None,10,1,0,2,2,3.5,3.5,5,5,6.5,6.5,8,8,8,12,12,16
-4007,Exclusive,0,Increased Intelligence,Brilliant,Custom,Prefix,Intelligence,INCREASED,None,10,1,0,0.03,0.03,0.0425,0.0425,0.055,0.055,0.0675,0.0675,0.08,0.08,0.1,0.12,0.12,0.15
-4008,Exclusive,0,Attunement,Attuned,Custom,Prefix,Attunement,ADDED,None,10,1,0,2,2,3.5,3.5,5,5,6.5,6.5,8,8,8,12,12,16
-4009,Exclusive,0,Increased Attunement,Resonant,Custom,Prefix,Attunement,INCREASED,None,10,1,0,0.03,0.03,0.0425,0.0425,0.055,0.055,0.0675,0.0675,0.08,0.08,0.1,0.12,0.12,0.15
-4010,Exclusive,0,Vitality,Hale,Custom,Prefix,Vitality,ADDED,None,10,1,0,2,2,3.5,3.5,5,5,6.5,6.5,8,8,8,12,12,16
-4011,Exclusive,0,Increased Vitality,Robust,Custom,Prefix,Vitality,INCREASED,None,10,1,0,0.03,0.03,0.0425,0.0425,0.055,0.055,0.0675,0.0675,0.08,0.08,0.1,0.12,0.12,0.15
-4012,Exclusive,0,Mana Before Health,of the Aegis,Custom,Suffix,ManaBeforeHealthPercent,ADDED,None,100,1,0,0.1,0.1,0.1,0.1,0.1,0.1,0.1,0.1,0.1,0.1,0.15,0.15,0.2,0.2
-4013,Exclusive,0,Melee Attack Speed,Furious,Custom,Prefix,AttackSpeed,INCREASED,Melee,1000,1,0,0.04,0.04,0.0675,0.0675,0.095,0.095,0.1225,0.1225,0.15,0.15,0.16,0.2,0.21,0.24
-4014,Exclusive,0,Cast Speed,Quickened,Custom,Prefix,CastSpeed,INCREASED,None,1000,1,0,0.04,0.04,0.0675,0.0675,0.095,0.095,0.1225,0.1225,0.15,0.15,0.16,0.2,0.21,0.24
-4015,Exclusive,0,More Movement Speed,of the Gale,Custom,Suffix,Movespeed,MORE,None,100,1,0,0.01,0.01,0.015,0.015,0.02,0.02,0.025,0.025,0.03,0.03,0.04,0.06,0.07,0.1
-4016,Exclusive,0,Throwing Attack Speed,Darting,Custom,Prefix,AttackSpeed,INCREASED,Throwing,1000,1,0,0.05,0.05,0.0875,0.0875,0.125,0.125,0.1625,0.1625,0.2,0.2,0.22,0.26,0.28,0.32
-4020,Exclusive,0,Damage Mana Leech,of Siphoning,Custom,Suffix,None,ADDED,None,100,1,0,0.004,0.004,0.0075,0.0075,0.011,0.011,0.0145,0.0145,0.018,0.018,0.02,0.024,0.03,0.036
-4021,Exclusive,0,Spell Damage Mana Leech,of Arcane Thirst,Custom,Suffix,None,ADDED,Spell,100,1,0,0.005,0.005,0.00875,0.00875,0.0125,0.0125,0.01625,0.01625,0.02,0.02,0.023,0.031,0.032,0.043
-4022,Exclusive,0,Melee Damage Mana Leech,of Savage Thirst,Custom,Suffix,None,ADDED,Melee,100,1,0,0.012,0.012,0.015,0.015,0.018,0.018,0.021,0.021,0.024,0.024,0.026,0.036,0.042,0.05
-4023,Exclusive,0,Throwing Damage Mana Leech,of Swift Thirst,Custom,Suffix,None,ADDED,Throwing,100,1,0,0.006,0.006,0.01,0.01,0.014,0.014,0.018,0.018,0.022,0.022,0.024,0.034,0.034,0.045
-4030,Exclusive,0,Damage As Extra Physical Damage,Crushing,Custom,Prefix,None,ADDED,None,5,6,0,0,0,0,0,0,0,0,0,0,0,0.05,0.07,0.1,0.12
-4031,Exclusive,0,Damage As Extra Fire Damage,Searing,Custom,Prefix,None,ADDED,None,5,6,0,0,0,0,0,0,0,0,0,0,0,0.05,0.07,0.1,0.12
-4032,Exclusive,0,Damage As Extra Cold Damage,Frostbound,Custom,Prefix,None,ADDED,None,5,6,0,0,0,0,0,0,0,0,0,0,0,0.05,0.07,0.1,0.12
-4033,Exclusive,0,Damage As Extra Lightning Damage,Storm-forged,Custom,Prefix,None,ADDED,None,5,6,0,0,0,0,0,0,0,0,0,0,0,0.05,0.07,0.1,0.12
-4034,Exclusive,0,Damage As Extra Necrotic Damage,Grave-touched,Custom,Prefix,None,ADDED,None,5,6,0,0,0,0,0,0,0,0,0,0,0,0.05,0.07,0.1,0.12
-4035,Exclusive,0,Damage As Extra Void Damage,Voidtouched,Custom,Prefix,None,ADDED,None,5,6,0,0,0,0,0,0,0,0,0,0,0,0.05,0.07,0.1,0.12
-4036,Exclusive,0,Damage As Extra Poison Damage,Venomous,Custom,Prefix,None,ADDED,None,5,6,0,0,0,0,0,0,0,0,0,0,0,0.05,0.07,0.1,0.12
+3150,Inherited,1150,Strength per Equipped Heretical Idol,Heretic's,Custom,Prefix,IdolAltarProperty,ADDED,"Lightning, Fire, Void",100,1,0,2.4,3.6,3.3,4.95,4.2,6.3,5.1,7.65,6,9,6.8,10.2,8,12
+3151,Inherited,1151,Dexterity per Equipped Heretical Idol,Zealot's,Custom,Prefix,IdolAltarProperty,ADDED,"Physical, Lightning, Fire, Void",100,1,0,2.4,3.6,3.3,4.95,4.2,6.3,5.1,7.65,6,9,6.8,10.2,8,12
+3152,Inherited,1152,Vitality per Equipped Heretical Idol,Penitent's,Custom,Prefix,IdolAltarProperty,ADDED,"Cold, Fire, Void",100,1,0,2.4,3.6,3.3,4.95,4.2,6.3,5.1,7.65,6,9,6.8,10.2,8,12
+4000,Exclusive,0,All Attributes,Harmonious,Custom,Prefix,AllAttributes,ADDED,None,1,6,0,0,0,0,0,0,0,0,0,0,0,6,8,10,12
+4001,Exclusive,0,Increased All Attributes,Ascendant,Custom,Prefix,AllAttributes,INCREASED,None,1,6,0,0,0,0,0,0,0,0,0,0,0,0.08,0.1,0.1,0.12
+4002,Exclusive,0,Strength,Mighty,Custom,Prefix,Strength,ADDED,None,10,1,0,2,3,3,4,4,6,6,7,8,9,8,12,12,16
+4003,Exclusive,0,Increased Strength,Titanic,Custom,Prefix,Strength,INCREASED,None,10,1,0,0.03,0.04,0.0425,0.05,0.055,0.065,0.0675,0.075,0.08,0.09,0.1,0.12,0.12,0.15
+4004,Exclusive,0,Dexterity,Nimble,Custom,Prefix,Dexterity,ADDED,None,10,1,0,2,3,3,4,4,6,6,7,8,9,8,12,12,16
+4005,Exclusive,0,Increased Dexterity,Agile,Custom,Prefix,Dexterity,INCREASED,None,10,1,0,0.03,0.04,0.0425,0.05,0.055,0.065,0.0675,0.075,0.08,0.09,0.1,0.12,0.12,0.15
+4006,Exclusive,0,Intelligence,Learned,Custom,Prefix,Intelligence,ADDED,None,10,1,0,2,3,3,4,4,6,6,7,8,9,8,12,12,16
+4007,Exclusive,0,Increased Intelligence,Brilliant,Custom,Prefix,Intelligence,INCREASED,None,10,1,0,0.03,0.04,0.0425,0.05,0.055,0.065,0.0675,0.075,0.08,0.09,0.1,0.12,0.12,0.15
+4008,Exclusive,0,Attunement,Attuned,Custom,Prefix,Attunement,ADDED,None,10,1,0,2,3,3,4,4,6,6,7,8,9,8,12,12,16
+4009,Exclusive,0,Increased Attunement,Resonant,Custom,Prefix,Attunement,INCREASED,None,10,1,0,0.03,0.04,0.0425,0.05,0.055,0.065,0.0675,0.075,0.08,0.09,0.1,0.12,0.12,0.15
+4010,Exclusive,0,Vitality,Hale,Custom,Prefix,Vitality,ADDED,None,10,1,0,2,3,3,4,4,6,6,7,8,9,8,12,12,16
+4011,Exclusive,0,Increased Vitality,Robust,Custom,Prefix,Vitality,INCREASED,None,10,1,0,0.03,0.04,0.0425,0.05,0.055,0.065,0.0675,0.075,0.08,0.09,0.1,0.12,0.12,0.15
+4012,Exclusive,0,Mana Before Health,of the Aegis,Custom,Suffix,ManaBeforeHealthPercent,ADDED,None,100,1,0,0.05,0.06,0.06,0.07,0.07,0.08,0.09,0.1,0.1,0.12,0.15,0.15,0.2,0.2
+4013,Exclusive,0,Melee Attack Speed,Furious,Custom,Prefix,AttackSpeed,INCREASED,Melee,100,1,0,0.04,0.05375,0.0675,0.08125,0.095,0.10875,0.1225,0.13625,0.15,0.155,0.16,0.2,0.21,0.24
+4014,Exclusive,0,Cast Speed,Quickened,Custom,Prefix,CastSpeed,INCREASED,None,100,1,0,0.04,0.05375,0.0675,0.08125,0.095,0.10875,0.1225,0.13625,0.15,0.155,0.16,0.2,0.21,0.24
+4015,Exclusive,0,More Movement Speed,of the Gale,Custom,Suffix,Movespeed,MORE,None,100,1,0,0.01,0.0125,0.015,0.0175,0.02,0.0225,0.025,0.0275,0.03,0.035,0.04,0.06,0.07,0.1
+4016,Exclusive,0,Throwing Attack Speed,Darting,Custom,Prefix,AttackSpeed,INCREASED,Throwing,100,1,0,0.05,0.06875,0.0875,0.10625,0.125,0.14375,0.1625,0.18125,0.2,0.21,0.22,0.26,0.28,0.32
+4020,Exclusive,0,Damage Mana Leech,of Siphoning,Custom,Suffix,None,ADDED,None,100,6,0,0,0,0,0,0,0,0,0,0,0,0.001,0.002,0.004,0.006
+4021,Exclusive,0,Spell Damage Mana Leech,of Arcane Thirst,Custom,Suffix,None,ADDED,Spell,100,6,0,0,0,0,0,0,0,0,0,0,0,0.001,0.002,0.004,0.006
+4022,Exclusive,0,Melee Damage Mana Leech,of Savage Thirst,Custom,Suffix,None,ADDED,Melee,100,6,0,0,0,0,0,0,0,0,0,0,0,0.001,0.002,0.004,0.006
+4023,Exclusive,0,Throwing Damage Mana Leech,of Swift Thirst,Custom,Suffix,None,ADDED,Throwing,100,6,0,0,0,0,0,0,0,0,0,0,0,0.001,0.002,0.004,0.006
+4030,Exclusive,0,Damage As Extra Physical Damage,Crushing,Custom,Prefix,None,ADDED,None,1,6,0,0,0,0,0,0,0,0,0,0,0,0.04,0.05,0.08,0.09
+4031,Exclusive,0,Damage As Extra Fire Damage,Searing,Custom,Prefix,None,ADDED,None,1,6,0,0,0,0,0,0,0,0,0,0,0,0.04,0.05,0.08,0.09
+4032,Exclusive,0,Damage As Extra Cold Damage,Frostbound,Custom,Prefix,None,ADDED,None,1,6,0,0,0,0,0,0,0,0,0,0,0,0.04,0.05,0.08,0.09
+4033,Exclusive,0,Damage As Extra Lightning Damage,Storm-forged,Custom,Prefix,None,ADDED,None,1,6,0,0,0,0,0,0,0,0,0,0,0,0.04,0.05,0.08,0.09
+4034,Exclusive,0,Damage As Extra Necrotic Damage,Grave-touched,Custom,Prefix,None,ADDED,None,1,6,0,0,0,0,0,0,0,0,0,0,0,0.04,0.05,0.08,0.09
+4035,Exclusive,0,Damage As Extra Void Damage,Voidtouched,Custom,Prefix,None,ADDED,None,1,6,0,0,0,0,0,0,0,0,0,0,0,0.04,0.05,0.08,0.09
+4036,Exclusive,0,Damage As Extra Poison Damage,Venomous,Custom,Prefix,None,ADDED,None,1,6,0,0,0,0,0,0,0,0,0,0,0,0.04,0.05,0.08,0.09
 4040,Exclusive,0,Damage Taken As Physical,of the Anvil,Custom,Suffix,DamageTakenAsPhysical,ADDED,None,5,6,0,0,0,0,0,0,0,0,0,0,0,0.03,0.06,0.08,0.1
 4041,Exclusive,0,Damage Taken As Fire,of Cinders,Custom,Suffix,DamageTakenAsFire,ADDED,None,5,6,0,0,0,0,0,0,0,0,0,0,0,0.03,0.06,0.08,0.1
 4042,Exclusive,0,Damage Taken As Cold,of Rime,Custom,Suffix,DamageTakenAsCold,ADDED,None,5,6,0,0,0,0,0,0,0,0,0,0,0,0.03,0.06,0.08,0.1

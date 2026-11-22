@@ -51,6 +51,34 @@ public static class JewelAffixRules
     public static bool IsTierAllowed(int id, int tier) => tier >= MinimumTier(id) && tier <= 7;
     public static float Roll(float minimum, float maximum, byte roll) => minimum + (maximum - minimum) * (roll / 255f);
 
+    public static (float Min, float Max) CorruptionRange(float minimum, float maximum, int affixId = 0, int propertyIndex = 0)
+    {
+        if (affixId == 3032) return propertyIndex == 0 ? (120f, 240f) : (.02f, .10f);
+        if (affixId == 3070) return (.01f, .03f);
+        if (propertyIndex == 0)
+        {
+            switch (affixId)
+            {
+                case 3029:
+                case 3030: return (.20f, .30f);
+                case 3034: return (75f, 200f);
+                case 3037:
+                case 3041: return (9f, 44f);
+                case 3038: return (12f, 44f);
+                case 3039: return (15f, 50f);
+                case 3045: return (.01f, .02f);
+                case 3047: return (45f, 200f);
+                case 3051: return (22.5f, 52.5f);
+                case 3071:
+                case 3072: return (1f, 3f);
+                case 3112: return (1f, 4f);
+            }
+        }
+        if (Math.Abs(minimum - 0.01f) < 0.000001f) return (0.01f, 0.05f);
+        if (minimum == maximum) return (minimum, maximum);
+        return (minimum * 3f, maximum * 3f);
+    }
+
     /// <summary>
     /// A roll that can only land on whole steps of <paramref name="step" /> from the minimum (0.01 gives 10%, 11%, 12% for a
     /// 10-12% range), each step equally likely. A step of 0 or less keeps the continuous roll.

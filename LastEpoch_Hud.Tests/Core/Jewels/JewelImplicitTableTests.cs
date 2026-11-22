@@ -18,10 +18,11 @@ public sealed class JewelImplicitTableTests
         Assert.Equal(new[] { 2, 2, 1, 2 }, Enumerable.Range(0, 4).Select(i => rows.Count(r => r.Subtype == i)).ToArray());
         var prismatic = rows.Where(r => r.Subtype == 3).ToList();
         Assert.Equal("AllAttributes", prismatic[0].Property);
-        Assert.Equal(6f, prismatic[0].Min);
-        Assert.Equal(20f, prismatic[0].Max);
+        Assert.Equal(1f, prismatic[0].Min);
+        Assert.Equal(6f, prismatic[0].Max);
         Assert.Equal("INCREASED", prismatic[1].ModType);
-        Assert.Equal(0.06f, prismatic[1].Min);
+        Assert.Equal(0.01f, prismatic[1].Min);
+        Assert.Equal(0.04f, prismatic[1].Max);
     }
 
     [Fact]

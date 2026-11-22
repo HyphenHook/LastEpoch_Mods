@@ -11,6 +11,7 @@ public static class HudPageRoutes
             HudPageId.UtilitiesCurrency => "Utilities_Currency",
             HudPageId.UtilitiesBuffs => "Utilities_Buffs",
             HudPageId.UtilitiesHeorot => "Utilities_Heorot",
+            HudPageId.BossDropsHeorot => "BossDrops_Heorot",
             HudPageId.UtilitiesQol => "Utilities_QOL",
             HudPageId.ItemsDrop => "Items_Drop",
             HudPageId.ItemsTestDrops => "Items_TestDrops",

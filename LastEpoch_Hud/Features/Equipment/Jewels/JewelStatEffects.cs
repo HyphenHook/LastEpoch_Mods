@@ -225,11 +225,75 @@ internal static class JewelStatEffects
 
     private static string Describe(int id, float value)
     {
-        string number = (value * 100f).ToString("0.##", CultureInfo.InvariantCulture) + "%";
+        string number = FormatCustomPercentage(id, value);
         if (JewelAffixRules.IsExtraDamage(id))
             return "Gain " + number + " of Damage as Extra " + ((DamageType)(id - JewelAffixRules.ExtraDamageIdStart)).ToString().ToLowerInvariant() + " Damage";
         int tag = id - JewelAffixRules.ManaLeechIdStart;
         return number + " of " + (tag == 0 ? "Damage" : leechTags[tag] + " Damage") + " Leeched as Mana";
+    }
+
+    private static string FormatCustomPercentage(int id, float value) =>
+        (value * 100f).ToString("0.00", CultureInfo.InvariantCulture) + "%";
+
+    // The legacy hover builder can format rows without using the modifier-info path.
+    // Match the stat wording, never a rounded numeric value shared with another affix.
+    [HarmonyPatch]
+    private static class HoverCustomValues
+    {
+        private static readonly HashSet<string> loggedRows = new();
+        private static IEnumerable<MethodBase> TargetMethods()
+        {
+            yield return AccessTools.Method(typeof(TooltipItemManager), nameof(TooltipItemManager.CreateTooltipDefaultContent));
+            yield return AccessTools.Method(typeof(TooltipItemManager), nameof(TooltipItemManager.CreateTooltipFullContent));
+        }
+
+        [HarmonyPostfix, HarmonyPriority(Priority.Last)]
+        private static void Postfix(ItemDataUnpacked __0, TooltipMode __1, UITooltipItem.ItemTooltipInfo __result)
+        {
+            if (!JewelBaseType.IsJewel(__0) || __0.affixes == null || __result == null) return;
+            foreach (var affix in __0.affixes)
+            {
+                if (affix == null || !JewelAffixRules.IsCustomEffect(affix.affixId)) continue;
+                var definition = JewelAffixes.Get(affix.affixId);
+                if (definition?.tiers == null || affix.affixTier >= definition.tiers.Count) continue;
+                var rows = definition.type == AffixList.AffixType.SUFFIX ? __result.suffixesText : __result.prefixesText;
+                if (rows == null) continue;
+                string description = Describe(affix.affixId, CustomValue(__0, affix));
+                string wording = description.Substring(description.IndexOf('%') + 1).Trim();
+                var range = definition.tiers[affix.affixTier];
+                bool matched = false;
+                for (int i = 0; i < rows.Count; i++)
+                {
+                    var row = rows[i];
+                    if (!JewelTooltipText.Matches(row.Item1, wording)) continue;
+                    row.Item1 = JewelTooltipText.ReplaceValues(row.Item1,
+                        FormatCustomPercentage(affix.affixId, CustomValue(__0, affix)),
+                        FormatCustomPercentage(affix.affixId, range.minRoll),
+                        FormatCustomPercentage(affix.affixId, range.maxRoll),
+                        __1 == TooltipMode.DefaultModRanges || __1 == TooltipMode.CompareModRanges);
+                    rows[i] = row;
+                    matched = true;
+                    if (loggedRows.Add(affix.affixId + ":" + __1))
+                        Main.logger_instance?.Msg("Jewel custom hover " + affix.affixId + " " + __1 + ": " + row.Item1);
+                    break;
+                }
+                if (!matched && loggedRows.Add("unmatched:" + affix.affixId + ":" + __1))
+                    Main.logger_instance?.Warning("Jewel custom hover unmatched " + affix.affixId + " " + __1 + ": "
+                        + string.Join(" | ", rows.ToArray().Select(row => row.Item1)));
+            }
+        }
+    }
+
+    // Range and comparison values also pass through the native number formatter.
+    [HarmonyPatch(typeof(ItemTooltipPropertyModifierInfo), nameof(ItemTooltipPropertyModifierInfo.ConvertValueToString))]
+    private static class CustomPercentageValues
+    {
+        private static bool Prefix(ItemTooltipPropertyModifierInfo __instance, float __0, ref string __result)
+        {
+            if (__instance._property != SP.None || !JewelAffixRules.IsCustomEffect(__instance._extraTag)) return true;
+            __result = FormatCustomPercentage(__instance._extraTag, __0);
+            return false;
+        }
     }
 
     [HarmonyPatch]
@@ -241,7 +305,7 @@ internal static class JewelStatEffects
         {
             if (__1 == null || !JewelAffixRules.IsCustomEffect(__1.affixId)) return true;
             __result = Describe(__1.affixId, CustomValue(__0, __1));
-            if (__7) __result = __result.Replace((CustomValue(__0, __1) * 100f).ToString("0.##", CultureInfo.InvariantCulture) + "%", "X%");
+            if (__7) __result = __result.Replace(FormatCustomPercentage(__1.affixId, CustomValue(__0, __1)), "X%");
             if (__10) __result += "\n";
             return false;
         }
@@ -260,7 +324,8 @@ internal static class JewelStatEffects
             float rolled = JewelAffixRules.RollStepped(range.minRoll, range.maxRoll, __1.affixRoll, JewelAffixes.StepOf(__1.affixId));
             float factor = rolled == 0 ? 1 : value / rolled;
             var info = new ItemTooltipPropertyModifierInfo(Describe(__1.affixId, value),
-                new BasePropertyInfo { hideModifierValue = true, displayAddedAsPercentage = true },
+                new BasePropertyInfo { hideModifierValue = true, displayAddedAsPercentage = true,
+                    roundingForAdded = PropertyRounding.Hundredth },
                 SP.None, AT.None, 0, __1.affixId, BaseStats.ModType.ADDED, value);
             info.MinValue = range.minRoll * factor;
             info.MaxValue = range.maxRoll * factor;

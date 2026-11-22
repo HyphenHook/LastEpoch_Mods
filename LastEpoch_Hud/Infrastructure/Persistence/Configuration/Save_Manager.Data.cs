@@ -135,6 +135,12 @@ public partial class Save_Manager
 
         public struct Drop
         {
+            public bool HeorotCoreRatesInitialized;
+            public bool HeorotCoreOverride;
+            public bool HeorotCoreIgnoreScaling;
+            public float HeorotCoreSingleChance;
+            public float HeorotCoreDoubleChance;
+            public float HeorotCoreTripleChance;
             public bool Enable_ForceUnique;
             public bool Enable_ForceSet;
             public bool Enable_ForceLegendary;

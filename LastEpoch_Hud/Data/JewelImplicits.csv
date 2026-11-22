@@ -4,9 +4,9 @@
 # Keep the number of rows per subtype if you already hold Jewels: their saved rolls follow the rows.
 Subtype,SubtypeName,Property,ModType,Tags,SpecialTag,Min,Max
 0,Cobalt Jewel,Mana,ADDED,None,0,44,60
-0,Cobalt Jewel,Mana,INCREASED,None,0,0.12,0.24
+0,Cobalt Jewel,Mana,INCREASED,None,0,0.06,0.10
 1,Ruby Jewel,Health,ADDED,None,0,60,100
-1,Ruby Jewel,Health,INCREASED,None,0,0.14,0.26
+1,Ruby Jewel,Health,INCREASED,None,0,0.06,0.10
 2,Emerald Jewel,Damage,INCREASED,None,0,0.12,0.16
-3,Prismatic Jewel,AllAttributes,ADDED,None,0,6,20
-3,Prismatic Jewel,AllAttributes,INCREASED,None,0,0.06,0.1
+3,Prismatic Jewel,AllAttributes,ADDED,None,0,1,6
+3,Prismatic Jewel,AllAttributes,INCREASED,None,0,0.01,0.04

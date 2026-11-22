@@ -3,7 +3,7 @@
 # Property = a game stat name (SyntheticProperty), or for AilmentChance the ailment name (Chill, Frostbite, ...). Tags = an AttackTag name or None.
 # Value: Added is a flat amount; Increased and chances are fractions (0.75 = 75%, 1.2 = +120%). The tooltip wording is generated from these rows.
 Buff,Kind,Property,Tags,Value
-Power,Added,Damage,Cold,120
+Power,Added,Damage,Cold,40
 Energy,AilmentChance,Chill,None,1.2
 Energy,AilmentChance,Frostbite,None,0.35
 Energy,Increased,Damage,Cold,0.75

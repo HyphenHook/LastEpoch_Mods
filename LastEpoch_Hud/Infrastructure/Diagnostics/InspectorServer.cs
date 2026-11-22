@@ -221,6 +221,9 @@ internal static class InspectorServer
                     "charm-equipment" => Mods.Items.Charms.CharmBaseType.InspectEquipment(),
                     "jewels" => Mods.Items.Jewels.JewelItems.Inspect(),
                     "heorot" => Mods.Character.Heorot.HeorotBuffs.Inspect(),
+                    "heorot-core" => Mods.Items.Jewels.HeorotCore.Inspect(),
+                    "heorot-cache" => Mods.Items.Jewels.HeorotCoreCacheProbe.Inspect(),
+                    "heorot-vfx" => LastEpoch_Hud.Presentation.Overlays.HeorotAuraEffects.Inspect(),
                     "base-type-poc" => Mods.Items.BaseTypePoc.EquipmentBaseTypePoc.Inspect(),
                     _ => InspectorCrafting.Describe(q["affixId"]),
                 };

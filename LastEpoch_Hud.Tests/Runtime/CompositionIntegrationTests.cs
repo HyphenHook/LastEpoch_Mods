@@ -20,12 +20,12 @@ public sealed class CompositionIntegrationTests
         Assert.Equal(new[] {
             "Data.Tunables", "Inspector.Start", "TestActions", "Base", "Inspector.Tick",
             "Catalog.Poc", "Catalog.Charms", "Catalog.Jewels", "Catalog.JewelAffixes",
-            "Heorot.Buffs", "Heorot.Combat", "Bazaar.Market", "Bazaar.Refresh",
+            "Heorot.Buffs", "Catalog.HeorotCore", "Heorot.Combat", "Heorot.Aura", "Bazaar.Market", "Bazaar.Refresh",
             "Crafting.Recombinator", "Crafting.MemoryReflector", "Crafting.AdvancedForge", "Crafting.IconSearch",
-            "Drops.OrbVisuals", "Equipment.Accessories", "Equipment.BaseTypePoc",
+            "Drops.OrbVisuals", "Equipment.Accessories", "Heorot.Core", "Equipment.BaseTypePoc",
             "Login.OfflineOnly", "Login.CharacterSelect", "Bazaar.WarmUp",
-            "Scenes.Loaded", "Cosmetics.SceneLoaded", "Scenes.Unloaded",
-            "Inspector.Stop", "Bazaar.Save", "Unity.Cache"
+            "Scenes.Loaded", "Cosmetics.SceneLoaded", "Scenes.Unloaded", "Heorot.AuraCleanup", "Heorot.CoreCleanup",
+            "Inspector.Stop", "Heorot.AuraDispose", "Heorot.CoreDispose", "Bazaar.Save", "Unity.Cache"
         }, names);
         Assert.Equal("LastEpoch_Hud.Application.Runtime.ModRuntime", root.Properties.Single(p => p.Name == "Runtime").PropertyType.FullName);
     }

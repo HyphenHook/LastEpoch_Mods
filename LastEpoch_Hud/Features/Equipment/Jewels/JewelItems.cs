@@ -14,6 +14,7 @@ internal static class JewelItems
     {
         JewelBaseType.Ensure();
         if (JewelBaseType.Registered) JewelAffixes.EnsureRegistered();
+        JewelCorruptionTooltips.Export();
     }
 
     internal static ItemDataUnpacked Create(int subtype, bool exalted = false, int legendaryPotential = 0)

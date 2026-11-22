@@ -7,4 +7,5 @@ internal enum HudSectionId
     Items,
     World,
     Skills,
+    BossDrops,
 }

@@ -1,9 +1,24 @@
 using LastEpoch_Hud.Tests.Support;
+using Mono.Cecil;
+using Mono.Cecil.Cil;
 
 namespace LastEpoch_Hud.Tests.Patches;
 
 public class JewelCraftingHookTests
 {
+    [Fact]
+    public void JewelCopiesClearNativeIdolNormalization()
+    {
+        GameEnvironment.SkipWithoutModBuild();
+        using var module = ModuleDefinition.ReadModule(GameEnvironment.ModDll);
+        var configure = module.GetType("LastEpoch_Hud.Scripts.Mods.Items.Jewels.JewelAffixes")
+            .Methods.Single(method => method.Name == "Configure");
+        var setter = Assert.Single(configure.Body.Instructions.Where(instruction =>
+            instruction.Operand is MethodReference method && method.Name == "set_standardAffixEffectModifier"));
+        Assert.Equal(OpCodes.Ldc_R4, setter.Previous.OpCode);
+        Assert.Equal(0f, (float)setter.Previous.Operand);
+    }
+
     private static readonly Lazy<Cpp2IlAddressIndex> Index = new(() => Cpp2IlAddressIndex.Load(GameEnvironment.Cpp2IlOutDir));
 
     [Theory]

@@ -106,6 +106,13 @@ internal static class HudNavigation
             )
         ),
         new(
+            HudSectionId.BossDrops,
+            "Boss Drop",
+            true,
+            Page(HudPageId.BossDropsHeorot, "Heorot’s Core", BossDropsHeorotPage.Build,
+                BossDropsHeorotPage.Show, BossDropsHeorotPage.Hide, BossDropsHeorotPage.Refresh)
+        ),
+        new(
             HudSectionId.World,
             "World",
             true,
