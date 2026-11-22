@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using Il2Cpp;
+using Il2CppLE.Services.Bazaar;
 using Newtonsoft.Json;
 
 namespace LastEpoch_Hud.Scripts.Mods.Economy;
@@ -22,6 +23,9 @@ internal static partial class OfflineBazaarMarket
     private const double WarmMaxSeconds = 180; // never hold the game longer than this
     private const double WarmStallSeconds = 4; // give up on one stall that will not fill
     private const double WarmReadySeconds = 4; // the game must have been ready this long
+
+    // TESTING: false skips the hold-the-game warm-up. The shelves then fill in the background, a stall at a time.
+    private const bool WarmUpEnabled = false;
 
     private static bool _warmDone;
     private static bool _warming;
@@ -145,12 +149,15 @@ internal static partial class OfflineBazaarMarket
             }
         }
         catch (Exception) { }
+        // Native category definitions take precedence over saved search-filter subsets.
+        for (int stall = 0; stall < StallCount; stall++)
+        {
+            var types = BazaarStallTypeExtensions.GetStallBaseTypes((BazaarStallType)stall);
+            if (types != null && types.Length > 0) known[stall] = types.ToArray();
+        }
         foreach (var kv in known)
         {
-            if (!_itemTypesOfStall.ContainsKey(kv.Key))
-            {
-                _itemTypesOfStall[kv.Key] = kv.Value;
-            }
+            _itemTypesOfStall[kv.Key] = kv.Value;
         }
     }
 
@@ -187,6 +194,17 @@ internal static partial class OfflineBazaarMarket
     {
         if (_warmDone)
         {
+            return false;
+        }
+        if (!WarmUpEnabled)
+        {
+            if (GameIsReady())
+            {
+                EnsureLoaded();
+                LearnDefaultStalls();
+                _warmDone = true;
+                Crumb("warm-up: skipped (disabled for testing)");
+            }
             return false;
         }
         if (!_warming)

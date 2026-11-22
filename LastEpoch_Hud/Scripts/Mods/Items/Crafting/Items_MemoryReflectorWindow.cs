@@ -18,9 +18,7 @@ using R = LastEpoch_Hud.Scripts.Mods.Items.Crafting.Items_RecombinatorWindow;
 namespace LastEpoch_Hud.Scripts.Mods.Items.Crafting;
 
 /// <summary>
-/// The Memory Reflector window, opened from a button on the forge. Item A sits at the top and item B at the bottom
-/// with a mirror tunnel between them. One affix of item B is reflected onto item A; B is destroyed either way. B
-/// shatters, and its shards either stream up the tunnel into A or are swallowed by a black hole.
+/// The donor mirror shatters into the Woven Echo. The shards either transfer a memory to the left item or dissolve.
 /// </summary>
 internal static class Items_MemoryReflectorWindow
 {
@@ -28,8 +26,8 @@ internal static class Items_MemoryReflectorWindow
     private const string ButtonName = "MemoryReflectorButton";
     private const string RootName = "MemoryReflectorWindow";
 
-    private const float Left = 48, WinW = 670, IconW = 140, IconH = 196;
-    private const float AY = 104, BY = 470; // top of item A and of item B
+    private const float Left = 48, WinW = 670, IconW = 119f, IconH = 174f;
+    private const float AY = 142, BY = AY, SlotOffset = 149f;
     private static float CenterX => Left + WinW / 2;
 
     // ---------------------------------------------------------------- state
@@ -136,18 +134,18 @@ internal static class Items_MemoryReflectorWindow
         rect.sizeDelta = new Vector2(190, source.sizeDelta.y);
         if (help != null)
         {
-            // just left of the Guide button, which hangs from the top right corner
+            // directly under the Guide button, which hangs from the top right corner
             rect.anchorMin = help.anchorMin;
             rect.anchorMax = help.anchorMax;
             rect.pivot = help.pivot;
-            rect.anchoredPosition = new Vector2(help.anchoredPosition.x - help.sizeDelta.x - 12, help.anchoredPosition.y);
+            rect.anchoredPosition = new Vector2(help.anchoredPosition.x, help.anchoredPosition.y - help.sizeDelta.y - 6);
         }
         else
         {
             rect.anchorMin = source.anchorMin;
             rect.anchorMax = source.anchorMax;
             rect.pivot = source.pivot;
-            rect.anchoredPosition = new Vector2(source.anchoredPosition.x + source.sizeDelta.x + 12 + 150 + 12, source.anchoredPosition.y);
+            rect.anchoredPosition = new Vector2(source.anchoredPosition.x, source.anchoredPosition.y - 2 * (source.sizeDelta.y + 6));
         }
         R.OnClick(button, OpenFromForge);
         button.SetActive(true);
@@ -163,6 +161,7 @@ internal static class Items_MemoryReflectorWindow
                 return;
             }
             Items_RecombinatorWindow.Close();
+            Items_AdvancedForgeWindow.Close();
             if (!Build(forge, forge.transform.parent))
             {
                 return;
@@ -297,36 +296,9 @@ internal static class Items_MemoryReflectorWindow
         {
             R.OnClick(close.gameObject, Close);
         }
-        CaptureForgeArt(main);
+        AffixCard.Prepare(main);
         root.SetActive(false);
         return true;
-    }
-
-    // the forge's own frame pieces, for the item slots
-    private sealed class EdgeSprite
-    {
-        public Sprite Sprite;
-        public Image.Type Type;
-        public Color Color;
-        public float Thickness;
-    }
-
-    private static readonly EdgeSprite[] edges = new EdgeSprite[4];
-
-    private static void CaptureForgeArt(Transform main)
-    {
-        string[] names = { "Framing/border-piece-top", "Framing/border-piece-bottom", "Framing/border-piece-left", "Framing/border-piece-right" };
-        for (int i = 0; i < 4; i++)
-        {
-            Image img = main.Find(names[i])?.GetComponent<Image>();
-            if (img == null)
-            {
-                continue;
-            }
-            Vector2 size = img.rectTransform.sizeDelta;
-            float thick = i < 2 ? Mathf.Abs(size.y) : Mathf.Abs(size.x);
-            edges[i] = new EdgeSprite { Sprite = img.sprite, Type = img.type, Color = img.color, Thickness = Mathf.Clamp(thick > 0 ? thick : 10, 6, 12) };
-        }
     }
 
     // ---------------------------------------------------------------- small drawing helpers
@@ -353,11 +325,12 @@ internal static class Items_MemoryReflectorWindow
         r.anchoredPosition = new Vector2(x, -y);
         r.sizeDelta = new Vector2(w, h);
         TextMeshProUGUI t = go.GetComponent<TextMeshProUGUI>();
-        TMP_FontAsset font = size >= 18 ? headFont : bodyFont;
+        TMP_FontAsset font = headFont;
         if (font != null)
         {
             t.font = font;
         }
+        t.fontStyle = FontStyles.UpperCase; // all text of the windows is in capitals, in the game's own font
         t.text = text;
         t.fontSize = size;
         t.color = color;
@@ -583,51 +556,351 @@ internal static class Items_MemoryReflectorWindow
                     content.sprite = icon.Content;
                     content.preserveAspect = true;
                     content.raycastTarget = false;
-                    Stretch(content.rectTransform, 14);
+                    Stretch(content.rectTransform, 6);
                 }
             }
             slotRects[id] = br;
             slotItems[id] = item;
         }
-        SlotFrame(box, item != null ? ItemColour(item) : (Color?)null);
+        DressWovenSlot(box, id, item);
         Button button = box.gameObject.AddComponent<Button>();
         button.transition = Selectable.Transition.None;
         button.onClick.AddListener(click);
     }
 
-    /// <summary>The forge's own frame pieces round a slot, with a thin line of the item's rarity colour just inside.</summary>
-    private static void SlotFrame(Image box, Color? rarity)
+    private static Vector2 EchoCenter => (ACenter + BCenter) * 0.5f;
+    private static readonly List<Image> wovenLights = new();
+    private const int EchoMotesPerArm = 8;
+    private static float nextWovenTick;
+    private static bool wovenNeedsPose, silkSettled, eyesSettled, mirrorSettled;
+    private static Image echoBody, echoLight, mirrorLiquid, mirrorCurrent, mirrorFrost;
+    private static readonly List<(Image Image, Vector2 From, Vector2 To, Vector2 Anchor)> webStrands = new();
+    private static readonly List<Image> wovenEyes = new();
+    private static ItemData reflectedItem;
+    private static readonly ItemData[] wovenItems = new ItemData[2];
+    private static readonly float[] wovenEntered = new float[2];
+
+    private static Image WovenImage(Transform parent, string name, Sprite sprite, Vector2 position, Vector2 size)
     {
-        float th = 8f;
-        for (int side = 0; side < 4; side++)
+        Image image = R.MakeImage(parent, name, Color.clear);
+        image.sprite = sprite;
+        image.raycastTarget = false;
+        RectTransform rect = image.rectTransform;
+        rect.anchorMin = rect.anchorMax = new Vector2(0, 1);
+        rect.pivot = new Vector2(0.5f, 0.5f);
+        rect.anchoredPosition = position;
+        rect.sizeDelta = size;
+        return image;
+    }
+
+    private static void DressWovenSlot(Image box, int id, ItemData item)
+    {
+        if (wovenItems[id] != item)
         {
-            EdgeSprite e = edges[side];
-            if (e == null || e.Sprite == null)
+            wovenItems[id] = item;
+            if (id == 0 && reflectedItem != item)
             {
-                continue;
+                reflectedItem = null;
             }
-            th = Mathf.Min(e.Thickness, 12f);
-            Image img = R.MakeImage(box.transform, "Border", e.Color);
-            img.sprite = e.Sprite;
-            img.type = e.Type;
-            img.raycastTarget = false;
-            RectTransform r = img.rectTransform;
-            switch (side)
-            {
-                case 0: r.anchorMin = new Vector2(0, 1); r.anchorMax = new Vector2(1, 1); r.pivot = new Vector2(0.5f, 1); r.sizeDelta = new Vector2(0, th); break;
-                case 1: r.anchorMin = new Vector2(0, 0); r.anchorMax = new Vector2(1, 0); r.pivot = new Vector2(0.5f, 0); r.sizeDelta = new Vector2(0, th); break;
-                case 2: r.anchorMin = new Vector2(0, 0); r.anchorMax = new Vector2(0, 1); r.pivot = new Vector2(0, 0.5f); r.sizeDelta = new Vector2(th, 0); break;
-                default: r.anchorMin = new Vector2(1, 0); r.anchorMax = new Vector2(1, 1); r.pivot = new Vector2(1, 0.5f); r.sizeDelta = new Vector2(th, 0); break;
-            }
-            r.anchoredPosition = Vector2.zero;
+            wovenEntered[id] = Time.unscaledTime;
         }
-        Color line = rarity ?? new Color(0.5f, 0.4f, 0.24f);
-        line.a = 0.9f;
-        Transform ft = box.transform;
-        R.Part(ft, "RarityTop", line, new Vector2(0, 1), new Vector2(1, 1), new Vector2(0.5f, 1), new Vector2(0, -th), new Vector2(-2 * th, 2));
-        R.Part(ft, "RarityBottom", line, new Vector2(0, 0), new Vector2(1, 0), new Vector2(0.5f, 0), new Vector2(0, th), new Vector2(-2 * th, 2));
-        R.Part(ft, "RarityLeft", line, new Vector2(0, 0), new Vector2(0, 1), new Vector2(0, 0.5f), new Vector2(th, 0), new Vector2(2, -2 * th));
-        R.Part(ft, "RarityRight", line, new Vector2(1, 0), new Vector2(1, 1), new Vector2(1, 0.5f), new Vector2(-th, 0), new Vector2(2, -2 * th));
+        Sprite frame = OrbArt.Named(id == 0 ? "woven_item_frame" : "woven_mirror_frame");
+        if (frame == null)
+        {
+            return;
+        }
+
+        Vector2 center = new(IconW * 0.5f, -IconH * 0.5f);
+        // The left opening is taller and narrower than the oval opening in the mirror texture.
+        Vector2 frameSize = id == 0 ? new Vector2(181f, 297f) : new Vector2(160f, 284f);
+        var itemArt = new List<Transform>();
+        for (int i = 0; i < box.transform.childCount; i++)
+        {
+            itemArt.Add(box.transform.GetChild(i));
+        }
+
+        Color baseColor = box.color;
+        box.color = Color.clear;
+        Image aperture = WovenImage(box.transform, "SlotAperture", FrameOpening(frame, id), center, frameSize);
+        aperture.color = Color.white;
+        aperture.gameObject.AddComponent<Mask>().showMaskGraphic = false;
+        aperture.transform.SetAsFirstSibling();
+        Vector2 surfaceCenter = new(frameSize.x * 0.5f, -frameSize.y * 0.5f);
+        Image backing = WovenImage(aperture.transform, "SlotWell", null, surfaceCenter, frameSize);
+        backing.color = id == 0 ? new Color(baseColor.r, baseColor.g, baseColor.b) : new Color(0.075f, 0.14f, 0.21f);
+
+        if (id == 1)
+        {
+            Sprite liquid = OrbArt.Named("woven_mirror_liquid");
+            mirrorLiquid = WovenImage(aperture.transform, "LiquidSilver", liquid, surfaceCenter, new Vector2(190f, 276f));
+            mirrorCurrent = WovenImage(aperture.transform, "SilverCurrent", liquid, surfaceCenter, new Vector2(184f, 263f));
+        }
+
+        var iconLayer = new GameObject("SlotItemArt");
+        RectTransform iconRect = iconLayer.AddComponent<RectTransform>();
+        iconLayer.transform.SetParent(aperture.transform, false);
+        iconRect.anchorMin = iconRect.anchorMax = new Vector2(0.5f, 0.5f);
+        iconRect.sizeDelta = new Vector2(IconW, IconH);
+        iconRect.anchoredPosition = Vector2.zero;
+        foreach (Transform art in itemArt)
+        {
+            art.SetParent(iconLayer.transform, false);
+            if (art.name == "ItemBack")
+            {
+                // Push the native sprite's inset edge behind the rim. The stencil limits the visible fill.
+                Stretch(art.GetComponent<RectTransform>(), -16f);
+            }
+        }
+
+        Image border = WovenImage(box.transform, "WovenFrame", frame, center, frameSize);
+        border.color = Color.white;
+        if (id == 0)
+        {
+            Sprite glint = OrbArt.Named("sparkle_star");
+            BuildSilkWeb(box.transform, center);
+
+            Vector2[] eyeSockets = { new(0, 103), new(-72, 98), new(71, 98), new(-83, 2),
+                new(83, 2), new(-67, -107), new(67, -107), new(0, -110) };
+            foreach (Vector2 socket in eyeSockets)
+            {
+                Vector2 scaledSocket = new(socket.x * frameSize.x / 222f, socket.y * frameSize.y / 306f);
+                Image eye = WovenImage(box.transform, "CrimsonEye", glint, center + scaledSocket, Vector2.zero);
+                eye.material = Items_AdvancedForgeWindow.Additive();
+                wovenEyes.Add(eye);
+            }
+        }
+        else
+        {
+            mirrorFrost = WovenImage(aperture.transform, "FrozenWeave", OrbArt.Named("woven_mirror_frost"),
+                surfaceCenter + Vector2.up * 4f, new Vector2(162f, 260f));
+            border.transform.SetAsLastSibling();
+            mirrorFrost.type = Image.Type.Filled;
+            mirrorFrost.fillMethod = Image.FillMethod.Vertical;
+            mirrorFrost.fillOrigin = (int)Image.OriginVertical.Bottom;
+        }
+    }
+
+    private static readonly Sprite[] frameOpenings = new Sprite[2];
+
+    private static Sprite FrameOpening(Sprite frame, int id)
+    {
+        if (frameOpenings[id] != null) return frameOpenings[id];
+
+        // Trace the connected transparent opening from the middle of the frame.
+        // The stencil cuts away the rest of the surface even when the liquid overscans the frame.
+        const int width = 128, height = 170;
+        Texture2D source = frame.texture;
+        var sourcePixels = source.GetPixels32();
+        var clear = new bool[width * height];
+        var mask = new Color32[width * height];
+        for (int y = 0; y < height; y++)
+        {
+            int sy = y * source.height / height;
+            for (int x = 0; x < width; x++)
+            {
+                int sx = x * source.width / width;
+                clear[y * width + x] = sourcePixels[sy * source.width + sx].a < 112;
+            }
+        }
+
+        var frontier = new Queue<int>();
+        void Visit(int x, int y)
+        {
+            int at = y * width + x;
+            if (!clear[at]) return;
+            clear[at] = false;
+            frontier.Enqueue(at);
+        }
+
+        Visit(width / 2, height / 2);
+        bool touchesExterior = frontier.Count == 0;
+        while (frontier.Count != 0)
+        {
+            int at = frontier.Dequeue();
+            int x = at % width, y = at / width;
+            mask[at] = new Color32(255, 255, 255, 255);
+            if (x == 0 || y == 0 || x == width - 1 || y == height - 1)
+            {
+                touchesExterior = true;
+                break;
+            }
+            Visit(x - 1, y);
+            Visit(x + 1, y);
+            Visit(x, y - 1);
+            Visit(x, y + 1);
+        }
+
+        if (touchesExterior)
+        {
+            for (int y = 0; y < height; y++)
+            {
+                float v = (y / (height - 1f) - 0.5f) / 0.34f;
+                for (int x = 0; x < width; x++)
+                {
+                    float u = (x / (width - 1f) - 0.5f) / 0.39f;
+                    bool inside = id == 0 ? Mathf.Abs(u) < 0.84f && Mathf.Abs(v) < 0.83f : u * u + v * v <= 1f;
+                    mask[y * width + x] = new Color32(255, 255, 255, inside ? (byte)255 : (byte)0);
+                }
+            }
+        }
+
+        var texture = new Texture2D(width, height, TextureFormat.RGBA32, false);
+        texture.SetPixels32(mask);
+        texture.Apply(false, true);
+        texture.hideFlags = HideFlags.HideAndDontSave;
+        frameOpenings[id] = Sprite.Create(texture, new Rect(0, 0, width, height), new Vector2(0.5f, 0.5f), 100f);
+        frameOpenings[id].hideFlags = HideFlags.HideAndDontSave;
+        return frameOpenings[id];
+    }
+
+    private static void BuildSilkWeb(Transform parent, Vector2 center)
+    {
+        const int spokes = 10;
+        var rim = new Vector2[spokes];
+        Vector2 hub = center + new Vector2(-13f, 9f);
+        float halfW = IconW * 0.5f;
+        float halfH = IconH * 0.5f;
+        for (int i = 0; i < spokes; i++)
+        {
+            float angle = (i + 0.16f) * Mathf.PI * 2f / spokes;
+            Vector2 direction = new(Mathf.Cos(angle), Mathf.Sin(angle));
+            float radius = Mathf.Min(halfW / Mathf.Max(0.01f, Mathf.Abs(direction.x)),
+                halfH / Mathf.Max(0.01f, Mathf.Abs(direction.y)));
+            rim[i] = center + direction * radius;
+            AddSilk(parent, hub, rim[i], rim[i]);
+        }
+
+        // Sagging threads connect the spokes into offset rings. Each strand retracts toward a rim anchor.
+        for (int ring = 1; ring <= 3; ring++)
+        {
+            for (int i = 0; i < spokes; i++)
+            {
+                int next = (i + 1) % spokes;
+                float ratio = ring * 0.25f;
+                Vector2 a = Vector2.Lerp(hub, rim[i], ratio + 0.025f * Mathf.Sin(i * 2.3f));
+                Vector2 b = Vector2.Lerp(hub, rim[next], ratio + 0.025f * Mathf.Sin(next * 2.3f));
+                Vector2 joint = Vector2.Lerp((a + b) * 0.5f, hub, 0.12f);
+                AddSilk(parent, a, joint, rim[i]);
+                AddSilk(parent, joint, b, rim[next]);
+            }
+        }
+    }
+
+    private static void AddSilk(Transform parent, Vector2 from, Vector2 to, Vector2 anchor)
+    {
+        Image strand = WovenImage(parent, "SilkStrand", null, (from + to) * 0.5f, Vector2.zero);
+        webStrands.Add((strand, from, to, anchor));
+    }
+
+    private static void BuildWovenEcho()
+    {
+        Sprite spiral = OrbArt.Named("woven_echo_spiral");
+        echoBody = WovenImage(Content, "WovenEchoSilk", spiral, EchoCenter, new Vector2(141f, 141f));
+        echoLight = WovenImage(Content, "WovenEchoEmission", spiral, EchoCenter, new Vector2(115f, 115f));
+        echoLight.material = Items_AdvancedForgeWindow.Additive();
+        dynamic.Add(echoBody.gameObject);
+        dynamic.Add(echoLight.gameObject);
+        Sprite light = OrbArt.Named("sparkle_star");
+        for (int i = 0; i < EchoMotesPerArm * 2; i++)
+        {
+            Image mote = WovenImage(Content, "WovenEcho", light, EchoCenter, new Vector2(9f, 4f));
+            dynamic.Add(mote.gameObject);
+            wovenLights.Add(mote);
+        }
+    }
+
+    private static void TickWoven(float now)
+    {
+        if (now < nextWovenTick && !wovenNeedsPose)
+        {
+            return;
+        }
+
+        bool initialPose = wovenNeedsPose;
+        wovenNeedsPose = false;
+        nextWovenTick = now + 1f / 30f;
+        bool failed = animating && !animSuccess && shattered;
+        float energy = animating && shattered ? 1f : 0f;
+        if (echoBody != null && echoLight != null)
+        {
+            float pulse = 1f + 0.055f * Mathf.Sin(now * 4f);
+            echoBody.rectTransform.localRotation = Quaternion.Euler(0f, 0f, -now * 42f);
+            echoLight.rectTransform.localRotation = Quaternion.Euler(0f, 0f, -now * 68f + 63f);
+            echoBody.rectTransform.localScale = Vector3.one * pulse;
+            echoBody.color = failed ? new Color(1f, 0.25f, 0.30f, 0.92f) : new Color(1f, 1f, 1f, 0.69f + 0.22f * energy);
+            echoLight.color = failed ? new Color(1f, 0.11f, 0.17f, 0.48f) : new Color(0.64f, 0.77f, 1f, 0.28f + 0.17f * energy);
+        }
+        for (int i = 0; i < wovenLights.Count; i++)
+        {
+            Image light = wovenLights[i];
+            if (light == null) continue;
+            float run = Mathf.Repeat(now * (0.43f + 0.35f * energy) + (i % EchoMotesPerArm) / (float)EchoMotesPerArm, 1f);
+            float angle = now * -0.9f + run * Mathf.PI * 3.4f + (i / EchoMotesPerArm) * Mathf.PI;
+            float radius = Mathf.Lerp(64f, 6f, run);
+            light.rectTransform.anchoredPosition = EchoCenter + new Vector2(Mathf.Cos(angle), Mathf.Sin(angle)) * radius;
+            light.rectTransform.localRotation = Quaternion.Euler(0f, 0f, angle * Mathf.Rad2Deg);
+            float alpha = 0.66f * Mathf.Sin(run * Mathf.PI);
+            light.color = failed ? new Color(1f, 0.17f, 0.13f, alpha)
+                : i < EchoMotesPerArm ? new Color(0.32f, 0.56f, 1f, alpha) : new Color(1f, 0.76f, 0.33f, alpha);
+        }
+
+        float webAge = now - wovenEntered[0];
+        bool itemLoaded = wovenItems[0] != null;
+        Vector2 center = new(IconW * 0.5f, -IconH * 0.5f);
+        for (int i = 0; (initialPose || !silkSettled) && i < webStrands.Count; i++)
+        {
+            var strand = webStrands[i];
+            float snap = itemLoaded ? Mathf.SmoothStep(0f, 1f, Mathf.InverseLerp(0.025f * (i % 5), 0.39f, webAge)) : 0f;
+            Vector2 from = Vector2.Lerp(strand.From, strand.Anchor, snap);
+            Vector2 to = Vector2.Lerp(strand.To, strand.Anchor, snap * snap);
+            Vector2 length = to - from;
+            RectTransform silk = strand.Image.rectTransform;
+            silk.anchoredPosition = (from + to) * 0.5f;
+            silk.localRotation = Quaternion.Euler(0f, 0f, Mathf.Atan2(length.y, length.x) * Mathf.Rad2Deg);
+            silk.sizeDelta = new Vector2(length.magnitude + 0.5f, i < 10 ? 1.2f : 0.8f);
+            strand.Image.color = new Color(0.78f, 0.78f, 0.84f, (i < 10 ? 0.65f : 0.47f) * (1f - snap));
+            strand.Image.enabled = snap < 1f;
+        }
+        silkSettled = !itemLoaded || webAge >= 0.39f;
+        bool reflected = itemLoaded && reflectedItem == wovenItems[0];
+        for (int i = 0; (initialPose || reflected || !eyesSettled) && i < wovenEyes.Count; i++)
+        {
+            float open = itemLoaded ? Mathf.SmoothStep(0f, 1f, Mathf.InverseLerp(0.12f + i * 0.025f, 0.62f, webAge)) : 0f;
+            Image eye = wovenEyes[i];
+            eye.rectTransform.sizeDelta = new Vector2(17f, Mathf.Lerp(0.4f, 9f, open));
+            eye.enabled = open > 0f;
+            if (reflected)
+            {
+                float flicker = 0.55f + 0.33f * Mathf.Sin(now * 6f + i * 1.8f);
+                eye.color = i % 2 == 0 ? new Color(0.22f, 0.43f, 1f, flicker) : new Color(1f, 0.75f, 0.22f, flicker);
+            }
+            else
+            {
+                eye.color = new Color(1f, 0.075f, 0.12f, open * 0.86f);
+            }
+        }
+
+        eyesSettled = !itemLoaded || webAge >= 0.62f;
+        if (mirrorLiquid == null || mirrorCurrent == null || mirrorFrost == null) return;
+        bool donorLoaded = wovenItems[1] != null;
+        float age = Mathf.Max(0f, now - wovenEntered[1]);
+        if (mirrorSettled && !animating && !initialPose) return;
+        float freeze = donorLoaded ? Mathf.SmoothStep(0f, 1f, Mathf.InverseLerp(0.07f, 0.68f, age)) : 0f;
+        float clock = donorLoaded ? wovenEntered[1] + Mathf.Min(0.7f, age) * (1f - freeze * 0.5f) : now;
+        float ripple = Mathf.Sin(clock * 3.5f);
+        var aperture = mirrorCurrent.rectTransform.parent.GetComponent<RectTransform>();
+        Vector2 surfaceCenter = new(aperture.sizeDelta.x * 0.5f, -aperture.sizeDelta.y * 0.5f);
+        mirrorCurrent.rectTransform.anchoredPosition = surfaceCenter + new Vector2(2.5f * ripple, Mathf.Cos(clock * 2.9f) * 6f);
+        mirrorCurrent.rectTransform.localScale = new Vector3(1f + 0.023f * ripple, 1f - 0.035f * ripple, 1f);
+        mirrorCurrent.color = new Color(0.63f, 0.82f, 1f, (1f - freeze) * (0.25f + 0.07f * ripple));
+        mirrorLiquid.color = Color.Lerp(new Color(0.91f, 0.95f, 1f, 0.97f), new Color(0.61f, 0.80f, 1f, 0.68f), freeze);
+        mirrorCurrent.enabled = freeze < 1f;
+        mirrorFrost.fillAmount = freeze;
+        mirrorSettled = freeze >= 1f;
+        float charge = animating && !shattered ? Mathf.Clamp01((now - animStart) / CrackTime) : 0f;
+        Color ice = Color.Lerp(new Color(0.83f, 0.94f, 1f), new Color(1f, 0.36f, 0.49f), charge);
+        ice.a = 0.35f + 0.42f * Mathf.Sin(freeze * Mathf.PI) + 0.46f * charge;
+        mirrorFrost.color = ice;
     }
 
     private static void ClickSlot(int index)
@@ -673,187 +946,9 @@ internal static class Items_MemoryReflectorWindow
         }
     }
 
-    // ---------------------------------------------------------------- the mirror tunnel
-
-    private static GameObject tubeRoot;
-    private static readonly List<Image> tubeGlow = new();
-    private static readonly List<float> tubeAlong = new(); // 0 at item B, 1 at item A
-    private static readonly List<Color> tubeBase = new();
-    private static float TubeTop => AY + IconH + 6;
-    private static float TubeBottom => BY - 6;
-
-    /// <summary>
-    /// A tall mirror tube between the items, built once: chrome rails and a dark glass core, both halves exactly
-    /// mirrored about the centre line, with pale sheen stripes and a ladder of rungs that light up as shards pass.
-    /// </summary>
-    private static void BuildTube()
-    {
-        if (tubeRoot != null)
-        {
-            return;
-        }
-        tubeRoot = new GameObject("MirrorTube");
-        RectTransform tr = tubeRoot.AddComponent<RectTransform>();
-        tubeRoot.transform.SetParent(Content, false);
-        tr.anchorMin = Vector2.zero;
-        tr.anchorMax = Vector2.one;
-        tr.offsetMin = tr.offsetMax = Vector2.zero;
-        tubeGlow.Clear();
-        tubeAlong.Clear();
-        tubeBase.Clear();
-
-        float top = TubeTop, bottom = TubeBottom, length = bottom - top;
-        Image Rect(float cx, float y0, float y1, float w, Color c)
-        {
-            Image img = R.MakeImage(tubeRoot.transform, "Tube", c);
-            img.raycastTarget = false;
-            RectTransform r = img.rectTransform;
-            r.anchorMin = r.anchorMax = new Vector2(0, 1);
-            r.pivot = new Vector2(0.5f, 0);
-            r.anchoredPosition = new Vector2(cx, -y1);
-            r.sizeDelta = new Vector2(w, y1 - y0);
-            return img;
-        }
-        Image Block(float cx, float cy, float w, float h, float rot, Color c)
-        {
-            Image img = R.MakeImage(tubeRoot.transform, "Tube", c);
-            img.raycastTarget = false;
-            RectTransform r = img.rectTransform;
-            r.anchorMin = r.anchorMax = new Vector2(0, 1);
-            r.pivot = new Vector2(0.5f, 0.5f);
-            r.anchoredPosition = new Vector2(cx, -cy);
-            r.sizeDelta = new Vector2(w, h);
-            r.localRotation = Quaternion.Euler(0, 0, rot);
-            return img;
-        }
-
-        // the glass core and its mirror axis
-        Rect(CenterX, top, bottom, 38, new Color(0.02f, 0.035f, 0.07f, 0.97f));
-        Rect(CenterX, top, bottom, 1.5f, new Color(0.75f, 0.88f, 1f, 0.28f));
-
-        // pale sheen stripes, mirrored left and right of the axis
-        for (float y = top + 10; y < bottom - 10; y += 26)
-        {
-            Block(CenterX - 9, y, 15, 3, 55, new Color(0.8f, 0.92f, 1f, 0.11f));
-            Block(CenterX + 9, y, 15, 3, -55, new Color(0.8f, 0.92f, 1f, 0.11f));
-        }
-
-        // the ladder of rungs: these are what the shards light
-        for (float y = top + 6; y < bottom - 4; y += 9)
-        {
-            float along = 1f - (y - top) / length;
-            Color baseColour = new(0.22f, 0.30f, 0.44f, 0.5f);
-            foreach (float side in new[] { -1f, 1f })
-            {
-                Image rung = Block(CenterX + side * 9, y, 16, 2, side * 18, baseColour);
-                tubeGlow.Add(rung);
-                tubeAlong.Add(along);
-                tubeBase.Add(baseColour);
-            }
-        }
-
-        // chrome rails, the two sides mirror images of each other
-        var rng = new System.Random(311);
-        for (float y = top; y < bottom; y += 8)
-        {
-            float v = 0.38f + (float)rng.NextDouble() * 0.3f;
-            Color chrome = new(v * 0.9f, v, v * 1.15f, 1f);
-            Color dark = new(0.07f, 0.08f, 0.1f, 1f);
-            foreach (float side in new[] { -1f, 1f })
-            {
-                Block(CenterX + side * 22, y + 4, 8, 9, 0, dark);
-                Block(CenterX + side * 21.5f, y + 4, 5, 7, 0, chrome);
-                Block(CenterX + side * 19.5f, y + 4, 1.5f, 8, 0, new Color(0.9f, 0.95f, 1f, 0.5f));
-            }
-        }
-
-        // flared ends, wider toward each item, and a diamond at the middle
-        for (int k = 0; k < 4; k++)
-        {
-            float w = 44 + k * 14;
-            Color c = new(0.35f + 0.05f * k, 0.38f + 0.05f * k, 0.46f + 0.05f * k, 1f);
-            Rect(CenterX, top + k * 5, top + k * 5 + 4, w, c);
-            Rect(CenterX, bottom - k * 5 - 4, bottom - k * 5, w, c);
-        }
-        float midY = (top + bottom) / 2;
-        Block(CenterX, midY, 14, 14, 45, new Color(0.45f, 0.5f, 0.6f));
-        Block(CenterX, midY, 8, 8, 45, new Color(0.05f, 0.07f, 0.12f));
-        Block(CenterX, midY, 3.5f, 3.5f, 45, new Color(0.75f, 0.9f, 1f));
-    }
-
-    /// <summary>A faint upside-down copy of an item, as if the tunnel were a mirror: below item A, above item B.</summary>
-    private static void Reflection(ItemData item, int id, bool belowItem, float edgeY)
-    {
-        if (item == null)
-        {
-            return;
-        }
-        Icon icon = icons[id];
-        const float shown = 70f;
-        var container = new GameObject("Reflection");
-        RectTransform cr = container.AddComponent<RectTransform>();
-        container.AddComponent<CanvasRenderer>();
-        Image mask = container.AddComponent<Image>();
-        mask.color = Color.white;
-        Mask m = container.AddComponent<Mask>();
-        m.showMaskGraphic = false;
-        CanvasGroup group = container.AddComponent<CanvasGroup>();
-        group.alpha = 0.22f;
-        group.blocksRaycasts = false;
-        container.transform.SetParent(Content, false);
-        cr.anchorMin = cr.anchorMax = new Vector2(0, 1);
-        cr.pivot = new Vector2(0.5f, belowItem ? 1 : 0);
-        cr.anchoredPosition = new Vector2(CenterX, -edgeY);
-        cr.sizeDelta = new Vector2(IconW, shown);
-        dynamic.Add(container);
-        if (icon == null)
-        {
-            return;
-        }
-        // the art, flipped, hung from the clipping box so only the nearest part of it shows
-        var art = new GameObject("Art");
-        RectTransform ar = art.AddComponent<RectTransform>();
-        art.transform.SetParent(container.transform, false);
-        ar.anchorMin = ar.anchorMax = new Vector2(0.5f, belowItem ? 1 : 0);
-        ar.pivot = new Vector2(0.5f, belowItem ? 1 : 0);
-        ar.anchoredPosition = Vector2.zero;
-        ar.sizeDelta = new Vector2(IconW, IconH);
-        ar.localScale = new Vector3(1, -1, 1);
-        if (icon.Back != null)
-        {
-            Image back = R.MakeImage(art.transform, "Back", icon.BackColor);
-            back.sprite = icon.Back;
-            back.raycastTarget = false;
-            Stretch(back.rectTransform, 4);
-        }
-        if (icon.Content != null)
-        {
-            Image content = R.MakeImage(art.transform, "Icon", Color.white);
-            content.sprite = icon.Content;
-            content.preserveAspect = true;
-            content.raycastTarget = false;
-            Stretch(content.rectTransform, 14);
-        }
-    }
-
     // ---------------------------------------------------------------- affix plates (item B's affixes)
 
-    private sealed class Row
-    {
-        public RectTransform Rect;
-        public Image Bg, Bar;
-        public Image[] Edge = new Image[4];
-        public TextMeshProUGUI Name, Tier;
-        public bool On, Hover, Static;
-    }
-
-    private static readonly List<Row> rows = new();
-    private static readonly Color RowBase = new(0.035f, 0.03f, 0.026f, 0.82f);
-    private static readonly Color RowHover = new(0.085f, 0.07f, 0.05f, 0.9f);
-    private static readonly Color RowOn = new(0.13f, 0.10f, 0.055f, 0.94f);
-    private static readonly Color EdgeBase = new(0.55f, 0.50f, 0.44f, 1f);
-    private static readonly Color EdgeHover = new(0.9f, 0.8f, 0.6f, 1f);
-    private static readonly Color EdgeOn = new(1f, 0.82f, 0.4f, 1f);
+    private static readonly List<AffixCardView> rows = new();
 
     private static readonly Regex ColourTags = new("</?color[^>]*>|</?link[^>]*>", RegexOptions.Compiled);
     private static readonly Regex LineBreaks = new(@"<br\s*/?>|\r\n|\r| | |\v|\\n", RegexOptions.IgnoreCase | RegexOptions.Compiled);
@@ -885,92 +980,28 @@ internal static class Items_MemoryReflectorWindow
 
     private static ItemData itemBForText => itemB;
 
-    private static TextMeshProUGUI RowText(Transform parent, TextAlignmentOptions align, float size, float left, float right)
+    private static void AffixPlate(Items_MemoryReflector.Candidate c, float x, float y)
     {
-        GameObject go = Object.Instantiate(labelTemplate, parent, false);
-        R.StripGameLogic(go);
-        RectTransform r = go.GetComponent<RectTransform>();
-        r.anchorMin = Vector2.zero;
-        r.anchorMax = Vector2.one;
-        r.pivot = new Vector2(0.5f, 0.5f);
-        r.offsetMin = new Vector2(left, 0);
-        r.offsetMax = new Vector2(-right, 0);
-        TextMeshProUGUI t = go.GetComponent<TextMeshProUGUI>();
-        if (bodyFont != null)
-        {
-            t.font = bodyFont;
-        }
-        t.alignment = align;
-        t.fontSize = size;
-        t.fontStyle = FontStyles.Normal;
-        t.enableWordWrapping = false;
-        t.overflowMode = TextOverflowModes.Ellipsis;
-        t.raycastTarget = false;
-        go.SetActive(true);
-        return t;
-    }
-
-    private static void AffixPlate(Items_MemoryReflector.Candidate c, float x, float y, float w, float h, float fontSize)
-    {
-        bool on = c.CanGo && c.AffixId == selectedId;
-        Image bg = R.MakeImage(Content, "AffixRow", RowBase);
-        RectTransform r = bg.rectTransform;
-        r.anchorMin = r.anchorMax = new Vector2(0, 1);
-        r.pivot = new Vector2(0, 1);
-        r.anchoredPosition = new Vector2(x, -y);
-        r.sizeDelta = new Vector2(w, h);
-        dynamic.Add(bg.gameObject);
-
-        var row = new Row { Rect = r, Bg = bg, On = on, Static = !c.CanGo };
-        for (int side = 0; side < 4; side++)
-        {
-            Image e = R.MakeImage(bg.transform, "Edge", EdgeBase);
-            e.raycastTarget = false;
-            RectTransform er = e.rectTransform;
-            switch (side)
-            {
-                case 0: er.anchorMin = new Vector2(0, 1); er.anchorMax = new Vector2(1, 1); er.pivot = new Vector2(0.5f, 1); er.sizeDelta = new Vector2(0, 2); break;
-                case 1: er.anchorMin = new Vector2(0, 0); er.anchorMax = new Vector2(1, 0); er.pivot = new Vector2(0.5f, 0); er.sizeDelta = new Vector2(0, 2); break;
-                case 2: er.anchorMin = new Vector2(0, 0); er.anchorMax = new Vector2(0, 1); er.pivot = new Vector2(0, 0.5f); er.sizeDelta = new Vector2(2, 0); break;
-                default: er.anchorMin = new Vector2(1, 0); er.anchorMax = new Vector2(1, 1); er.pivot = new Vector2(1, 0.5f); er.sizeDelta = new Vector2(2, 0); break;
-            }
-            er.anchoredPosition = Vector2.zero;
-            row.Edge[side] = e;
-        }
-        row.Bar = R.Part(bg.transform, "Bar", EdgeOn, new Vector2(0, 0), new Vector2(0, 1), new Vector2(0, 0.5f), new Vector2(4, 0), new Vector2(3, -10));
-        row.Bar.color = new Color(EdgeOn.r, EdgeOn.g, EdgeOn.b, 0f);
-
-        TextMeshProUGUI tier = RowText(bg.transform, TextAlignmentOptions.Center, 8, 8, 0);
-        RectTransform tr = tier.GetComponent<RectTransform>();
-        tr.anchorMin = new Vector2(0, 0);
-        tr.anchorMax = new Vector2(0, 1);
-        tr.pivot = new Vector2(0, 0.5f);
-        tr.offsetMin = new Vector2(8, 0);
-        tr.offsetMax = new Vector2(34, 0);
-        tier.overflowMode = TextOverflowModes.Overflow;
-        tier.fontStyle = FontStyles.UpperCase;
-        tier.text = "T" + c.Tier;
-        tier.color = new Color(0.52f, 0.50f, 0.47f);
-        row.Tier = tier;
-        R.Part(bg.transform, "Divider", new Color(0.55f, 0.46f, 0.32f, 0.55f), new Vector2(0, 0), new Vector2(0, 1), new Vector2(0, 0.5f), new Vector2(38, 0), new Vector2(1, -12));
-
         string text = Wording(c);
         if (!c.CanGo && c.Why.Length > 0)
         {
             text += "\n<size=75%>(" + c.Why + ")</size>";
         }
-        TextMeshProUGUI name = RowText(bg.transform, TextAlignmentOptions.MidlineLeft, fontSize, 46, 10);
-        name.enableWordWrapping = true;
-        name.overflowMode = TextOverflowModes.Overflow;
-        name.enableAutoSizing = true;
-        name.fontSizeMin = 8;
-        name.fontSizeMax = fontSize;
-        name.text = text;
-        row.Name = name;
-
+        ItemData owner = itemB ?? animB;
+        var data = new AffixCardData
+        {
+            Text = text,
+            Tier = c.Tier,
+            Group = c.Placement == 1 ? AffixCard.Prefix : c.Placement == 2 ? AffixCard.Suffix : -1,
+            Encapsulated = owner != null && c.Source != null && Items_Encapsulate.IsEncapsulated(owner, c.Source),
+            Reminded = c.Reminded,
+            Static = !c.CanGo,
+            On = c.CanGo && c.AffixId == selectedId,
+        };
+        AffixCardView view = AffixCard.Build(Content, labelTemplate, bodyFont, data, x, y, dynamic);
         if (c.CanGo)
         {
-            Button button = bg.gameObject.AddComponent<Button>();
+            Button button = view.Bg.gameObject.AddComponent<Button>();
             button.transition = Selectable.Transition.None;
             int id = c.AffixId;
             button.onClick.AddListener((Action)(() =>
@@ -983,32 +1014,7 @@ internal static class Items_MemoryReflectorWindow
                 dirty = true;
             }));
         }
-        else
-        {
-            bg.raycastTarget = false;
-        }
-        ApplyRow(row, 1f);
-        rows.Add(row);
-    }
-
-    private static void ApplyRow(Row row, float blend)
-    {
-        Color bg = row.On ? RowOn : row.Hover ? RowHover : RowBase;
-        Color edge = row.On ? EdgeOn : row.Hover ? EdgeHover : EdgeBase;
-        Color text = row.Static ? new Color(0.5f, 0.48f, 0.45f)
-            : row.On ? new Color(1f, 0.93f, 0.68f) : row.Hover ? new Color(0.98f, 0.95f, 0.88f) : new Color(0.82f, 0.79f, 0.72f);
-        row.Bg.color = Color.Lerp(row.Bg.color, bg, blend);
-        foreach (Image e in row.Edge)
-        {
-            if (e != null)
-            {
-                e.color = Color.Lerp(e.color, row.Static ? new Color(0.3f, 0.28f, 0.25f, 0.8f) : edge, blend);
-            }
-        }
-        row.Name.color = Color.Lerp(row.Name.color, text, blend);
-        Color bar = row.Bar.color;
-        bar.a = Mathf.Lerp(bar.a, row.On ? 1f : row.Hover ? 0.45f : 0f, blend);
-        row.Bar.color = bar;
+        rows.Add(view);
     }
 
     private static UnityEngine.Camera PointerCamera()
@@ -1017,25 +1023,7 @@ internal static class Items_MemoryReflectorWindow
         return canvas != null && canvas.renderMode != RenderMode.ScreenSpaceOverlay ? canvas.worldCamera : null;
     }
 
-    private static void TickRows()
-    {
-        if (rows.Count == 0)
-        {
-            return;
-        }
-        Vector2 mouse = Input.mousePosition;
-        UnityEngine.Camera cam = PointerCamera();
-        float blend = Mathf.Clamp01(Time.unscaledDeltaTime * 16f);
-        foreach (Row row in rows)
-        {
-            if (row.Rect == null)
-            {
-                continue;
-            }
-            row.Hover = !row.Static && !animating && RectTransformUtility.RectangleContainsScreenPoint(row.Rect, mouse, cam);
-            ApplyRow(row, blend);
-        }
-    }
+    private static void TickRows() => AffixCard.Tick(rows, animating, PointerCamera());
 
     private static void TickHover()
     {
@@ -1225,16 +1213,20 @@ internal static class Items_MemoryReflectorWindow
         Array.Clear(slotItems, 0, slotItems.Length);
         Array.Clear(slotGroups, 0, slotGroups.Length);
         rows.Clear();
-        BuildTube();
+        wovenLights.Clear();
+        wovenNeedsPose = true;
+        silkSettled = eyesSettled = mirrorSettled = false;
+        webStrands.Clear();
+        wovenEyes.Clear();
+        mirrorLiquid = mirrorCurrent = mirrorFrost = null;
+        BuildWovenEcho();
         R.EnsureCurrencyIcons();
         FindAmberIcon();
 
         // while item B is still being cracked it is drawn as it was
         ItemData shownB = itemB ?? (animating && !shattered ? animB : null);
-        SlotBox(itemA, 0, CenterX - IconW / 2, AY, () => ClickSlot(0));
-        SlotBox(shownB, 1, CenterX - IconW / 2, BY, () => ClickSlot(1));
-        Reflection(itemA, 0, true, AY + IconH);
-        Reflection(shownB, 1, false, BY);
+        SlotBox(itemA, 0, CenterX - SlotOffset - IconW / 2, AY, () => ClickSlot(0));
+        SlotBox(shownB, 1, CenterX + SlotOffset - IconW / 2, BY, () => ClickSlot(1));
 
         offer = null;
         string why = Items_MemoryReflector.WhyNot(itemA, itemB);
@@ -1243,16 +1235,18 @@ internal static class Items_MemoryReflectorWindow
             offer = Items_MemoryReflector.Describe(itemA, itemB);
         }
 
+        int candidateRows = 0;
         // item B's affixes: prefixes on its left, suffixes on its right. A legendary item moves a random one instead.
         if (offer != null && !offer.Legendary && !animating)
         {
             var left = offer.Candidates.Where(c => c.Placement != 2).ToList();
             var right = offer.Candidates.Where(c => c.Placement == 2).ToList();
-            Column(left, Left, BY);
-            Column(right, Left + WinW - ColumnWidth, BY);
+            candidateRows = Math.Max(left.Count, right.Count);
+            Column(left, Left, BY + IconH + 50);
+            Column(right, Left + WinW - ColumnWidth, BY + IconH + 50);
         }
 
-        float y = BY + IconH + 30;
+        float y = BY + IconH + 64 + candidateRows * (AffixCard.Height + AffixCard.Gap);
         if (offer == null)
         {
             if (!animating && itemA != null && itemB != null)
@@ -1296,36 +1290,13 @@ internal static class Items_MemoryReflectorWindow
 
     private static void Column(List<Items_MemoryReflector.Candidate> list, float x, float y)
     {
-        if (list.Count == 0)
-        {
-            return;
-        }
-        const float gap = 4, space = IconH, chars = 25;
-        float units = 0;
-        var heights = new List<int>();
+        float cursor = y;
         foreach (var c in list)
         {
-            string text = Wording(c) + (c.CanGo ? "" : "\n(" + c.Why + ")");
-            int lines = 0;
-            foreach (string l in text.Split('\n'))
-            {
-                lines += Mathf.Max(1, Mathf.CeilToInt(l.Length / chars));
-            }
-            heights.Add(Mathf.Max(1, lines));
-            units += Mathf.Max(1, lines);
-        }
-        float perLine = Mathf.Min(30f, (space - (list.Count - 1) * gap - list.Count * 10f) / units);
-        float fontSize = Mathf.Clamp(perLine - 5f, 9f, 14f);
-        float cursor = y;
-        for (int i = 0; i < list.Count; i++)
-        {
-            float h = heights[i] * perLine + 10f;
-            AffixPlate(list[i], x, cursor, ColumnWidth, h, fontSize);
-            cursor += h + gap;
+            AffixPlate(c, x, cursor);
+            cursor += AffixCard.Height + AffixCard.Gap;
         }
     }
-
-    // ---------------------------------------------------------------- performing the reflection
 
     private static void DoReflect(long gold, int amber, int bones)
     {
@@ -1386,7 +1357,6 @@ internal static class Items_MemoryReflectorWindow
     private static ItemData animB;
     private static Icon animIconB;
     private static bool finalDone;
-    private static bool holeBuilt;
     private static readonly List<GameObject> effects = new(); // everything the animation has made, to keep above the window
 
     private const float CrackTime = 0.8f;
@@ -1400,7 +1370,7 @@ internal static class Items_MemoryReflectorWindow
         public CanvasGroup Group;
         public Vector2 Pos, Vel;
         public float Spin, Rot, Delay, Scale = 1f;
-        public float Angle, Radius; // for the black hole
+        public float Angle, Radius; // orbit around the Woven Echo
         public bool Captured;
         public Vector2 PullFrom;
         public bool Pulling;
@@ -1415,26 +1385,11 @@ internal static class Items_MemoryReflectorWindow
         public float Gravity, Born, Life, Spin;
     }
 
-    private sealed class Crack
-    {
-        public Image Glow, Dark;
-        public float At;
-    }
-
     private static readonly List<Shard> shards = new();
     private static readonly List<Spark> sparks = new();
-    private static readonly List<Crack> cracks = new();
-    private static readonly List<Image> holeLayers = new();
-    private static readonly List<float> holeSpeed = new();
-    private static readonly List<Image> holeDots = new();
-    private static readonly List<float> holeDotAngle = new();
-    private static readonly List<float> holeDotRadius = new();
-    private static GameObject holeRoot;
-    private static float holeScale;
-    private static Image darkness;
 
-    private static Vector2 BCenter => new(CenterX, -(BY + IconH / 2));
-    private static Vector2 ACenter => new(CenterX, -(AY + IconH / 2));
+    private static Vector2 BCenter => new(CenterX + SlotOffset, -(BY + IconH / 2));
+    private static Vector2 ACenter => new(CenterX - SlotOffset, -(AY + IconH / 2));
 
     private static GameObject Effect(string name)
     {
@@ -1450,7 +1405,6 @@ internal static class Items_MemoryReflectorWindow
         animating = true;
         shattered = false;
         finalDone = false;
-        holeBuilt = false;
         animSuccess = success;
         animStart = Time.unscaledTime;
         animB = itemB;
@@ -1458,52 +1412,7 @@ internal static class Items_MemoryReflectorWindow
         itemB = null; // item B is spent
         selectedId = -1;
         offer = null;
-        // the cracks start on item B at once
-        Vector2 centre = BCenter;
-        float halfW = IconW / 2f - 4, halfH = IconH / 2f - 4;
-        var rng = new System.Random();
-        for (int k = 0; k < 11; k++)
-        {
-            float angle = k * Mathf.PI * 2 / 11 + (float)(rng.NextDouble() - 0.5) * 0.4f;
-            Vector2 pos = centre;
-            for (int step = 0; step < 6; step++)
-            {
-                float len = 14f + (float)rng.NextDouble() * 18f;
-                angle += ((float)rng.NextDouble() - 0.5f) * 0.6f;
-                Vector2 next = pos + new Vector2(Mathf.Cos(angle), Mathf.Sin(angle)) * len;
-                next.x = Mathf.Clamp(next.x, centre.x - halfW, centre.x + halfW);
-                next.y = Mathf.Clamp(next.y, centre.y - halfH, centre.y + halfH);
-                AddCrack(pos, next, animStart + k * 0.02f + step * 0.09f);
-                pos = next;
-            }
-        }
         dirty = true;
-    }
-
-    private static void AddCrack(Vector2 from, Vector2 to, float at)
-    {
-        Vector2 mid = (from + to) / 2;
-        Vector2 d = to - from;
-        float angle = Mathf.Atan2(d.y, d.x) * Mathf.Rad2Deg;
-        GameObject holder = Effect("Crack");
-        RectTransform hrect = holder.GetComponent<RectTransform>();
-        hrect.anchorMin = hrect.anchorMax = new Vector2(0, 1);
-        hrect.pivot = new Vector2(0, 1);
-        hrect.anchoredPosition = Vector2.zero;
-        hrect.sizeDelta = Vector2.zero;
-        Image glow = R.MakeImage(holder.transform, "Glow", new Color(0.6f, 0.85f, 1f, 0f));
-        Image dark = R.MakeImage(holder.transform, "Dark", new Color(0.02f, 0.02f, 0.03f, 0f));
-        foreach ((Image img, float thick) in new[] { (glow, 7f), (dark, 2.4f) })
-        {
-            img.raycastTarget = false;
-            RectTransform r = img.rectTransform;
-            r.anchorMin = r.anchorMax = new Vector2(0, 1);
-            r.pivot = new Vector2(0.5f, 0.5f);
-            r.anchoredPosition = mid;
-            r.sizeDelta = new Vector2(d.magnitude + 2, thick);
-            r.localRotation = Quaternion.Euler(0, 0, angle);
-        }
-        cracks.Add(new Crack { Glow = glow, Dark = dark, At = at });
     }
 
     private static Spark NewSpark(Vector2 at, Color colour, float size, Vector2 vel, float gravity, float life, float delay = 0)
@@ -1538,10 +1447,36 @@ internal static class Items_MemoryReflectorWindow
     }
 
     /// <summary>Item B breaks into shards: each is a cut-out of its own icon, so it really looks shattered.</summary>
+    private static Sprite mirrorSplinter;
+
+    private static Sprite MirrorSplinter()
+    {
+        if (mirrorSplinter != null) return mirrorSplinter;
+        const int size = 48;
+        var texture = new Texture2D(size, size, TextureFormat.RGBA32, false);
+        var pixels = new Color32[size * size];
+        for (int y = 0; y < size; y++)
+        {
+            float v = y / (size - 1f);
+            for (int x = 0; x < size; x++)
+            {
+                float u = x / (size - 1f);
+                bool inside = u > Mathf.Abs(v - 0.37f) * 0.56f && u < 0.96f - v * 0.79f;
+                pixels[y * size + x] = new Color32(255, 255, 255, inside ? (byte)255 : (byte)0);
+            }
+        }
+        texture.SetPixels32(pixels);
+        texture.Apply(false, true);
+        texture.hideFlags = HideFlags.HideAndDontSave;
+        mirrorSplinter = Sprite.Create(texture, new Rect(0, 0, size, size), new Vector2(0.5f, 0.5f), 100f);
+        mirrorSplinter.hideFlags = HideFlags.HideAndDontSave;
+        return mirrorSplinter;
+    }
+
     private static void Shatter()
     {
         shattered = true;
-        const int cols = 6, rows = 8;
+        const int cols = 4, rows = 6;
         float tw = IconW / cols, th = IconH / rows;
         Vector2 centre = BCenter;
         Icon icon = animIconB;
@@ -1560,6 +1495,8 @@ internal static class Items_MemoryReflectorWindow
                 r.sizeDelta = new Vector2(tw + 1, th + 1);
                 Image clip = go.AddComponent<Image>();
                 clip.color = Color.white;
+                clip.sprite = MirrorSplinter();
+                clip.raycastTarget = false;
                 Mask mask = go.AddComponent<Mask>();
                 mask.showMaskGraphic = false;
                 CanvasGroup group = go.AddComponent<CanvasGroup>();
@@ -1591,8 +1528,12 @@ internal static class Items_MemoryReflectorWindow
                     content.sprite = icon.Content;
                     content.preserveAspect = true;
                     content.raycastTarget = false;
-                    Stretch(content.rectTransform, 14);
+                    Stretch(content.rectTransform, 6);
                 }
+                Image glint = WovenImage(art.transform, "ShardRedGlint", OrbArt.Named("sparkle_star"),
+                    new Vector2(IconW * 0.5f, -IconH * 0.5f) + offset, new Vector2(tw, 8f));
+                glint.color = new Color(1f, 0.22f, 0.28f, 0.78f);
+                glint.rectTransform.localRotation = Quaternion.Euler(0f, 0f, (cx + cy) % 2 == 0 ? 34f : -38f);
                 Vector2 away = offset.normalized;
                 float speed = 120f + (float)rng.NextDouble() * 330f;
                 var shard = new Shard
@@ -1609,61 +1550,12 @@ internal static class Items_MemoryReflectorWindow
                 shards.Add(shard);
             }
         }
-        SparkBurst(centre, 70, 120f, 560f, 380f, new Color(0.7f, 0.9f, 1f), new Color(1f, 1f, 1f), 0.5f, 1.2f);
+        SparkBurst(centre, 38, 120f, 560f, 380f, new Color(0.7f, 0.9f, 1f), new Color(1f, 1f, 1f), 0.5f, 1.2f);
         crushShake = Time.unscaledTime;
         dirty = true; // item B's slot now draws empty
     }
 
     private static float crushShake = -10f;
-
-    private static void BuildBlackHole()
-    {
-        holeBuilt = true;
-        holeRoot = Effect("BlackHole");
-        RectTransform hr = holeRoot.GetComponent<RectTransform>();
-        hr.anchorMin = hr.anchorMax = new Vector2(0, 1);
-        hr.pivot = new Vector2(0.5f, 0.5f);
-        hr.anchoredPosition = BCenter;
-        hr.sizeDelta = new Vector2(10, 10);
-        holeLayers.Clear();
-        holeSpeed.Clear();
-        holeDots.Clear();
-        holeDotAngle.Clear();
-        holeDotRadius.Clear();
-        for (int i = 0; i < 12; i++)
-        {
-            float size = 150 - i * 11;
-            float t = i / 11f;
-            Color c = Color.Lerp(new Color(0.3f, 0.06f, 0.5f, 0.35f), new Color(0f, 0f, 0f, 0.97f), t);
-            Image layer = R.MakeImage(holeRoot.transform, "Layer", c);
-            layer.raycastTarget = false;
-            RectTransform r = layer.rectTransform;
-            r.anchorMin = r.anchorMax = new Vector2(0.5f, 0.5f);
-            r.pivot = new Vector2(0.5f, 0.5f);
-            r.sizeDelta = new Vector2(size, size);
-            r.localRotation = Quaternion.Euler(0, 0, i * 8f);
-            holeLayers.Add(layer);
-            holeSpeed.Add((i % 2 == 0 ? 1 : -1) * (20f + i * 9f));
-        }
-        for (int i = 0; i < 40; i++)
-        {
-            Image dot = R.MakeImage(holeRoot.transform, "Dot", Color.Lerp(new Color(1f, 0.55f, 0.15f), new Color(1f, 0.95f, 0.8f), UnityEngine.Random.value));
-            dot.raycastTarget = false;
-            RectTransform r = dot.rectTransform;
-            r.anchorMin = r.anchorMax = new Vector2(0.5f, 0.5f);
-            r.pivot = new Vector2(0.5f, 0.5f);
-            float s = UnityEngine.Random.Range(2f, 5f);
-            r.sizeDelta = new Vector2(s, s);
-            holeDots.Add(dot);
-            holeDotAngle.Add(UnityEngine.Random.Range(0f, 360f));
-            holeDotRadius.Add(UnityEngine.Random.Range(48f, 82f));
-        }
-        darkness = R.MakeImage(Content, "Darkness", new Color(0f, 0f, 0.02f, 0f));
-        darkness.raycastTarget = false;
-        effects.Add(darkness.gameObject);
-        Stretch(darkness.rectTransform, 0);
-        holeScale = 0;
-    }
 
     private static Vector2 Polyline(Vector2[] pts, float u)
     {
@@ -1689,17 +1581,16 @@ internal static class Items_MemoryReflectorWindow
     {
         float now = Time.unscaledTime;
         float dt = Mathf.Min(Time.unscaledDeltaTime, 0.05f);
-        TickCracks(now);
         TickSparks(now, dt);
-        TickTubeGlow(now);
+        TickWoven(now);
         float t = now - animStart;
         if (animating)
         {
-            // item B shakes while it cracks, then breaks
+            // The charged mirror rattles just before the glass breaks.
             if (slotRects[1] != null && !shattered)
             {
                 float amp = Mathf.Clamp01(t / CrackTime) * 5f;
-                slotRects[1].anchoredPosition = new Vector2(CenterX - IconW / 2, -BY) + new Vector2(UnityEngine.Random.Range(-1f, 1f), UnityEngine.Random.Range(-1f, 1f)) * amp;
+                slotRects[1].anchoredPosition = new Vector2(CenterX + SlotOffset - IconW / 2, -BY) + new Vector2(UnityEngine.Random.Range(-1f, 1f), UnityEngine.Random.Range(-1f, 1f)) * amp;
             }
             if (!shattered && t >= CrackTime)
             {
@@ -1745,12 +1636,12 @@ internal static class Items_MemoryReflectorWindow
 
     private static void TickShardsSuccess(float t, float now, float dt)
     {
-        // out through the tunnel and up into item A
+        // The glass travels through the Woven Echo into the left slot.
         Vector2[] path =
         {
             BCenter,
-            new Vector2(CenterX, -(BY - 10)),
-            new Vector2(CenterX, -(AY + IconH + 12)),
+            EchoCenter + new Vector2(45f, 28f),
+            EchoCenter + new Vector2(-38f, -22f),
             ACenter,
         };
         int alive = 0;
@@ -1786,6 +1677,11 @@ internal static class Items_MemoryReflectorWindow
                     float swirl = Mathf.Sin(u * Mathf.PI * 3f + s.Delay * 6f) * 26f * (1f - e);
                     s.Pos = Vector2.Lerp(s.PullFrom, onPath, Mathf.Clamp01(u * 3f)) + new Vector2(swirl, 0);
                     s.Rot += s.Spin * dt * 0.4f;
+                    if (u < 0.88f && UnityEngine.Random.value < dt * 4f)
+                    {
+                        SparkBurst(s.Pos, 1, 22f, 75f, 35f,
+                            new Color(0.18f, 0.36f, 0.95f), new Color(1f, 0.73f, 0.20f), 0.23f, 0.46f);
+                    }
                     s.Scale = Mathf.Lerp(1f, 0.35f, e);
                     s.Group.alpha = u > 0.88f ? Mathf.Clamp01((1f - u) / 0.12f) : 1f;
                     if (u >= 1f)
@@ -1812,43 +1708,12 @@ internal static class Items_MemoryReflectorWindow
 
     private static void TickShardsFailure(float t, float now, float dt)
     {
-        if (!holeBuilt && t >= BurstEnd - 0.5f)
-        {
-            BuildBlackHole();
-        }
-        float holeT = t - (BurstEnd - 0.5f);
-        if (holeBuilt && holeRoot != null)
-        {
-            // grows, holds, then collapses
-            float grow = Mathf.Clamp01(holeT / 0.5f);
-            float collapse = Mathf.Clamp01((t - (BurstEnd + 1.5f)) / 0.45f);
-            holeScale = grow * (1f - collapse * collapse);
-            holeRoot.GetComponent<RectTransform>().localScale = new Vector3(holeScale, holeScale, 1);
-            for (int i = 0; i < holeLayers.Count; i++)
-            {
-                holeLayers[i].rectTransform.Rotate(0, 0, holeSpeed[i] * dt);
-            }
-            for (int i = 0; i < holeDots.Count; i++)
-            {
-                holeDotAngle[i] += (260f + 7000f / Mathf.Max(20f, holeDotRadius[i])) * dt;
-                float rad = holeDotAngle[i] * Mathf.Deg2Rad;
-                holeDots[i].rectTransform.anchoredPosition = new Vector2(Mathf.Cos(rad), Mathf.Sin(rad)) * holeDotRadius[i];
-            }
-            if (darkness != null)
-            {
-                Color c = darkness.color;
-                c.a = 0.35f * holeScale;
-                darkness.color = c;
-            }
-        }
-        int alive = 0;
         foreach (Shard s in shards)
         {
             if (s.Go == null)
             {
                 continue;
             }
-            alive++;
             if (t < BurstEnd)
             {
                 s.Vel *= Mathf.Max(0f, 1f - 2.4f * dt);
@@ -1856,7 +1721,7 @@ internal static class Items_MemoryReflectorWindow
                 s.Pos += s.Vel * dt;
                 s.Rot += s.Spin * dt;
                 s.Group.alpha = 1f;
-                Vector2 rel = s.Pos - BCenter;
+                Vector2 rel = s.Pos - EchoCenter;
                 s.Angle = Mathf.Atan2(rel.y, rel.x);
                 s.Radius = rel.magnitude;
             }
@@ -1868,7 +1733,7 @@ internal static class Items_MemoryReflectorWindow
                     // spiral in: the angle runs ahead faster as the radius falls
                     s.Radius = Mathf.Max(0f, s.Radius - (60f + s.Radius * 2.1f) * dt);
                     s.Angle += (1.6f + 140f / Mathf.Max(18f, s.Radius)) * dt;
-                    s.Pos = BCenter + new Vector2(Mathf.Cos(s.Angle), Mathf.Sin(s.Angle)) * s.Radius;
+                    s.Pos = EchoCenter + new Vector2(Mathf.Cos(s.Angle), Mathf.Sin(s.Angle)) * s.Radius;
                     s.Rot += s.Spin * dt * 1.5f;
                     s.Scale = Mathf.Clamp01(s.Radius / 70f);
                     s.Group.alpha = Mathf.Clamp01(s.Radius / 20f);
@@ -1890,7 +1755,15 @@ internal static class Items_MemoryReflectorWindow
             {
                 finalDone = true;
                 finalAt = now;
-                SparkBurst(BCenter, 28, 60f, 200f, 120f, new Color(0.35f, 0.1f, 0.55f), new Color(0.9f, 0.8f, 1f), 0.4f, 0.9f);
+                GameObject beam = Effect("WovenDisintegration");
+                Image flare = WovenImage(beam.transform, "CrimsonBeam", OrbArt.Named("glow_violet"), Vector2.zero, new Vector2(86f, 285f));
+                flare.rectTransform.anchorMin = flare.rectTransform.anchorMax = new Vector2(0.5f, 0.5f);
+                flare.rectTransform.anchoredPosition = Vector2.zero;
+                flare.color = new Color(1f, 0.12f, 0.17f, 0.68f);
+                RectTransform beamRect = beam.GetComponent<RectTransform>();
+                beamRect.anchorMin = beamRect.anchorMax = new Vector2(0f, 1f);
+                beamRect.anchoredPosition = EchoCenter;
+                SparkBurst(EchoCenter, 28, 100f, 360f, 70f, new Color(0.56f, 0.02f, 0.05f), new Color(1f, 0.27f, 0.19f), 0.4f, 0.9f);
             }
             if (now - finalAt > 0.7f)
             {
@@ -1904,46 +1777,14 @@ internal static class Items_MemoryReflectorWindow
     {
         finalDone = true;
         finalAt = now;
+        reflectedItem = itemA;
         Vector2 centre = ACenter;
-        GameObject wash = Effect("FinalWash");
-        Image washImg = R.MakeImage(wash.transform, "Wash", new Color(0.85f, 0.95f, 1f, 0.38f));
-        washImg.raycastTarget = false;
-        Stretch(washImg.rectTransform, 0);
-        RectTransform wr = wash.GetComponent<RectTransform>();
-        wr.anchorMin = Vector2.zero;
-        wr.anchorMax = Vector2.one;
-        wr.offsetMin = wr.offsetMax = Vector2.zero;
-        finalFlash.Add((washImg, now, 0.38f, 0.4f));
-        for (int k = 0; k < 14; k++)
-        {
-            GameObject rayGo = Effect("Ray");
-            Image ray = R.MakeImage(rayGo.transform, "R", k % 3 == 1 ? new Color(1f, 0.9f, 0.55f, 0.7f) : new Color(0.7f, 0.9f, 1f, 0.7f));
-            ray.raycastTarget = false;
-            Stretch(ray.rectTransform, 0);
-            RectTransform rr = rayGo.GetComponent<RectTransform>();
-            rr.anchorMin = rr.anchorMax = new Vector2(0, 1);
-            rr.pivot = new Vector2(0.5f, 0f);
-            rr.sizeDelta = new Vector2(UnityEngine.Random.Range(3f, 9f), UnityEngine.Random.Range(220f, 400f));
-            rr.anchoredPosition = centre;
-            rr.localRotation = Quaternion.Euler(0, 0, k * (360f / 14f));
-            finalFlash.Add((ray, now, 0.7f, 0.9f));
-        }
-        GameObject glow = Effect("Glow");
-        Image glowImg = R.MakeImage(glow.transform, "G", new Color(0.7f, 0.9f, 1f, 0.8f));
-        glowImg.raycastTarget = false;
-        Stretch(glowImg.rectTransform, 0);
-        RectTransform gr = glow.GetComponent<RectTransform>();
-        gr.anchorMin = gr.anchorMax = new Vector2(0, 1);
-        gr.pivot = new Vector2(0.5f, 0.5f);
-        gr.sizeDelta = new Vector2(IconW + 90, IconH + 90);
-        gr.anchoredPosition = centre;
-        finalFlash.Add((glowImg, now, 0.8f, 0.8f));
-        for (int k = 0; k < 36; k++)
-        {
-            float a = k * Mathf.PI * 2 / 36;
-            NewSpark(centre, new Color(0.85f, 0.95f, 1f), 6f, new Vector2(Mathf.Cos(a), Mathf.Sin(a)) * 600f, 0f, 0.6f);
-        }
-        SparkBurst(centre, 80, 140f, 700f, 480f, new Color(0.6f, 0.85f, 1f), new Color(1f, 0.95f, 0.7f), 0.7f, 1.4f);
+        Image seal = WovenImage(Content, "WovenSeal", OrbArt.Named("woven_echo_spiral"), centre, new Vector2(174f, 174f));
+        seal.material = Items_AdvancedForgeWindow.Additive();
+        seal.color = new Color(0.71f, 0.83f, 1f, 0.52f);
+        effects.Add(seal.gameObject);
+        finalFlash.Add((seal, now, 0.52f, 0.7f));
+        SparkBurst(centre, 44, 140f, 700f, 480f, new Color(0.19f, 0.36f, 0.91f), new Color(1f, 0.79f, 0.22f), 0.7f, 1.4f);
         dirty = true;
     }
 
@@ -2004,70 +1845,11 @@ internal static class Items_MemoryReflectorWindow
         }
     }
 
-    private static void TickCracks(float now)
-    {
-        if (cracks.Count == 0)
-        {
-            return;
-        }
-        float age = now - animStart;
-        float fade = age < CrackTime + 0.4f ? 1f : Mathf.Clamp01(1f - (age - CrackTime - 0.4f) / 0.3f);
-        foreach (Crack c in cracks)
-        {
-            if (c.Dark == null)
-            {
-                continue;
-            }
-            float on = now >= c.At ? 1f : 0f;
-            Color d = c.Dark.color;
-            d.a = 0.95f * on * fade;
-            c.Dark.color = d;
-            Color g = c.Glow.color;
-            g.a = 0.6f * on * fade * (0.7f + 0.3f * Mathf.Sin(now * 14f));
-            c.Glow.color = g;
-        }
-        if (age > CrackTime + 0.8f)
-        {
-            foreach (Crack c in cracks)
-            {
-                if (c.Glow != null) Object.Destroy(c.Glow.transform.parent.gameObject);
-            }
-            cracks.Clear();
-        }
-    }
-
-    /// <summary>Light climbs the tunnel's rungs from item B toward item A while the shards fly.</summary>
-    private static void TickTubeGlow(float now)
-    {
-        bool active = animating && animSuccess && shattered;
-        float t = now - animStart - BurstEnd;
-        float front = Mathf.Clamp01(t / 1.6f) * 1.25f;
-        for (int k = 0; k < tubeGlow.Count; k++)
-        {
-            Image img = tubeGlow[k];
-            if (img == null)
-            {
-                continue;
-            }
-            Color baseColour = tubeBase[k];
-            if (!active || t < 0)
-            {
-                img.color = Color.Lerp(img.color, baseColour, 0.2f);
-                continue;
-            }
-            float behind = front - tubeAlong[k];
-            float glow = behind <= 0 ? 0f : Mathf.Exp(-behind * 2.6f);
-            Color hot = Color.Lerp(new Color(0.5f, 0.75f, 1f, 0.9f), new Color(1f, 1f, 1f, 1f), glow * glow);
-            img.color = Color.Lerp(baseColour, hot, Mathf.Clamp01(glow));
-        }
-    }
-
     private static void EndAnimationNow()
     {
         animating = false;
         shattered = false;
         finalDone = false;
-        holeBuilt = false;
         foreach (Shard s in shards)
         {
             if (s.Go != null) Object.Destroy(s.Go);
@@ -2078,21 +1860,12 @@ internal static class Items_MemoryReflectorWindow
             if (s.Go != null) Object.Destroy(s.Go);
         }
         sparks.Clear();
-        foreach (Crack c in cracks)
-        {
-            if (c.Glow != null) Object.Destroy(c.Glow.transform.parent.gameObject);
-        }
-        cracks.Clear();
         finalFlash.Clear();
         foreach (GameObject go in effects)
         {
             if (go != null) Object.Destroy(go);
         }
         effects.Clear();
-        holeRoot = null;
-        darkness = null;
-        holeLayers.Clear();
-        holeDots.Clear();
         animIconB?.Dispose();
         if (icons[1] == animIconB)
         {

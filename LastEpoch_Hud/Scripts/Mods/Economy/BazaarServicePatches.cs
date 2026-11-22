@@ -197,6 +197,7 @@ internal static class BazaarReply
 
     public static ItemListingData ToData(OfflineListing l)
     {
+        BazaarCraftedItems.BindPreview(l);
         var bytes = new Il2CppInterop.Runtime.InteropTypes.Arrays.Il2CppStructArray<byte>(l.ItemBytes.Length);
         for (int i = 0; i < l.ItemBytes.Length; i++)
         {
@@ -260,11 +261,18 @@ public class BazaarQueryItemsPatch
         try
         {
             BazaarQuery q = BazaarQuery.Read(requestData);
-            if (q.Stall < 0)
+            // PackData contains the category the native filter actually selected. A boxed
+            // currentStallType can be an enum instead of a Nullable and must not override it.
+            if (!Enum.IsDefined(typeof(BazaarStallType), q.Stall))
             {
-                q.Stall = StallNpcClickedPatch.LastStall;
+                int clicked = StallNpcClickedPatch.LastStall;
+                q.Stall = Enum.IsDefined(typeof(BazaarStallType), clicked) ? clicked : -1;
             }
-            OfflineBazaarMarket.LearnStall(q.Stall, q.ItemTypes);
+            if (q.Stall >= 0)
+            {
+                var types = BazaarStallTypeExtensions.GetStallBaseTypes((BazaarStallType)q.Stall);
+                if (types != null) OfflineBazaarMarket.LearnStall(q.Stall, types.ToArray());
+            }
             var stock = OfflineBazaarMarket.StockFor(q.Stall);
             var all = q.Sort(stock.Where(q.Matches)).ToList();
             OfflineBazaarMarket.Crumb("browse stall " + q.Stall + ": " + all.Count + " match, page " + q.Page);
@@ -426,8 +434,13 @@ public class BazaarBuyItemPatch
             {
                 return BazaarOperationError.LISTING_FAILED_GENERIC;
             }
+            if (!BazaarCraftedItems.PrepareDelivery(l, item))
+            {
+                return BazaarOperationError.LISTING_FAILED_GENERIC;
+            }
             gold.modifyGold(-(int)l.Price);
             l.Sold = true;
+            BazaarCraftedItems.ForgetPreview(l);
             OfflineBazaarMarket.MarkChanged();
             OfflineBazaarMarket.DeliverToPlayer(item);
             return null;
@@ -472,6 +485,10 @@ public class BazaarUnlistItemPatch
             }
             ItemData item = OfflineBazaarMarket.ToItem(l);
             if (item == null)
+            {
+                return BazaarOperationError.LISTING_FAILED_GENERIC;
+            }
+            if (!BazaarCraftedItems.PrepareDelivery(l, item))
             {
                 return BazaarOperationError.LISTING_FAILED_GENERIC;
             }

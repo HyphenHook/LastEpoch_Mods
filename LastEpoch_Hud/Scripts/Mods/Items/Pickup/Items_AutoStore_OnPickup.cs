@@ -77,7 +77,7 @@ public class Items_AutoStore_OnPickup
 
     public static void StorePicked(ItemData data)
     {
-        if (storing || data.IsNullOrDestroyed())
+        if (storing || data.IsNullOrDestroyed() || Drop.OrbDrop.IsOrb(data))
         {
             return;
         }
@@ -147,7 +147,7 @@ public class Items_AutoStore_OnPickup
         for (int i = content.Count - 1; i >= 0; i--)
         {
             ItemContainerEntry entry = content[i];
-            if ((entry == null) || (entry.data.IsNullOrDestroyed()))
+            if ((entry == null) || (entry.data.IsNullOrDestroyed()) || Drop.OrbDrop.IsOrb(entry.data))
             {
                 continue;
             }
@@ -200,7 +200,7 @@ public class Items_AutoStore_OnPickup
         for (int i = 0; i < content.Count; i++)
         {
             ItemContainerEntry entry = content[i];
-            if ((entry == null) || (entry.data.IsNullOrDestroyed()))
+            if ((entry == null) || (entry.data.IsNullOrDestroyed()) || Drop.OrbDrop.IsOrb(entry.data))
             {
                 continue;
             }

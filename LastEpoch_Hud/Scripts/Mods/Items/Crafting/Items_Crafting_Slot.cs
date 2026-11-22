@@ -1,4 +1,4 @@
-﻿using HarmonyLib;
+using HarmonyLib;
 using Il2Cpp;
 using LastEpoch_Hud.Scripts.Core.Items;
 
@@ -36,6 +36,7 @@ public class Items_Crafting_Slot
                 (!item.IsNullOrDestroyed())
                 && (!Save_Manager.instance.IsNullOrDestroyed())
                 && (first_time)
+                && CraftProtection.Blocked(item).Length == 0
             )
             {
                 first_time = false;
@@ -142,6 +143,11 @@ public class Items_Crafting_Slot
                         int ordinary_index = 0;
                         foreach (ItemAffix affix in item.affixes)
                         {
+                            if (CraftProtection.IsAttached(item, affix))
+                            {
+                                if (!affix.IsSealed) ordinary_index++;
+                                continue;
+                            }
                             if (affix.IsSealed)
                             {
                                 // Preserve existing primordial sealed tiers; ordinary overrides must not downgrade them.

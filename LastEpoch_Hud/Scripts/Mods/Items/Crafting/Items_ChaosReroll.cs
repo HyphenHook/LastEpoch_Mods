@@ -1,102 +1,87 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using Il2Cpp;
 using LastEpoch_Hud.Scripts.Core.Crafting;
-using LastEpoch_Hud.Scripts.Core.ForceDrop;
 using LastEpoch_Hud.Scripts.ModUI.ForceDrop;
 using LastEpoch_Hud.Scripts.Mods.Economy;
 
 namespace LastEpoch_Hud.Scripts.Mods.Items.Crafting;
 
-/// <summary>
-/// The chaos reroll: replaces an item's ordinary affixes with new legal ones. Sealed affixes and found-only
-/// T6/T7 affixes stay (they cannot be crafted back). New affixes are craftable tiers drawn by the game's own
-/// weights, and legal for the item's base. See <see cref="ChaosRerollMath" /> for the rules.
-/// </summary>
 internal static class Items_ChaosReroll
 {
-    private static readonly Random _rng = new();
+    private static readonly Random Rng = new();
 
-    /// <summary>Rerolls the item in place. Returns how many affixes were replaced, or 0 with a reason.</summary>
-    public static int Reroll(ItemData item, out string reason)
+    public static string WhyNot(ItemData item)
     {
-        reason = "";
-        if (item.IsNullOrDestroyed() || item.affixes == null)
-        {
-            reason = "No item.";
-            return 0;
-        }
-        if (item.isUniqueSetOrLegendary())
-        {
-            reason = "Uniques, sets and legendaries cannot be rerolled.";
-            return 0;
-        }
-        int baseType = item.itemType;
-        int subType = item.subType;
+        string blocked = CraftProtection.Blocked(item);
+        if (blocked.Length != 0) return blocked;
+        if (item.affixes == null) return "There are no rerollable affixes.";
+        return item.affixes.ToArray().Any(a => Eligible(item, a)) ? "" : "There are no rerollable affixes.";
+    }
 
-        var replace = new List<ItemAffix>();
-        foreach (ItemAffix a in item.affixes)
-        {
-            if (a != null && !ChaosRerollMath.IsKept(a.affixTier + 1, a.IsSealed))
-            {
-                replace.Add(a);
-            }
-        }
-        if (replace.Count == 0)
-        {
-            reason = "Nothing to reroll: every affix is sealed or too high a tier.";
-            return 0;
-        }
+    private static bool Eligible(ItemData item, ItemAffix affix) =>
+        affix != null && !CraftProtection.IsAttached(item, affix)
+        && (affix.affixType == AffixList.AffixType.PREFIX || affix.affixType == AffixList.AffixType.SUFFIX);
 
-        // The affixes that stay decide what the new ones may not repeat.
-        var existing = new List<int>();
-        foreach (ItemAffix a in item.affixes)
-        {
-            if (a != null && !replace.Contains(a))
-            {
-                existing.Add(a.affixId);
-            }
-        }
+    public static bool UseOn(ItemData item, out string message)
+    {
+        message = WhyNot(item);
+        if (message.Length != 0) return false;
 
-        // Choose every replacement first, so a failure leaves the item untouched.
-        List<AffixList.Affix> pool = BazaarCustomItems.Pool(baseType, subType, false, false);
-        var chosen = new List<(AffixList.Affix Def, int Tier, int Roll)>();
-        for (int n = 0; n < replace.Count; n++)
+        var ids = item.affixes.ToArray().Where(a => a != null).Select(a => (int)a.affixId).ToHashSet();
+        var pool = BazaarCustomItems.Pool(item.itemType, item.subType, false, false);
+        var replacements = new List<(int Index, ItemAffix Original, ItemAffix Replacement)>();
+        for (int i = 0; i < item.affixes.Count; i++)
         {
-            var legal = new ForceDropLegalAffixes(baseType, subType, 2, existing);
-            AffixList.Affix pick = null;
-            for (int tries = 0; tries < 120 && pool.Count > 0; tries++)
+            ItemAffix original = item.affixes[i];
+            if (!Eligible(item, original)) continue;
+
+            // Keep the position and side of every slot. Pick against the affixes that will remain and all new choices.
+            var compatible = item.affixes.ToArray().Where(a => a != null && !Eligible(item, a)).Select(a => (int)a.affixId)
+                .Concat(replacements.Select(p => (int)p.Replacement.affixId));
+            var legal = new ForceDropLegalAffixes(item.itemType, item.subType, item.rarity, compatible);
+            var candidates = pool.Where(a => a != null && a.type == original.affixType
+                && a.specialAffixType == AffixList.SpecialAffixType.Standard
+                && !ids.Contains(a.affixId) && legal.OrdinaryReason(a, false, false).Length == 0).ToList();
+            var choice = candidates.Count == 0 ? null : BazaarCustomItems.WeightedPick(candidates, Rng);
+            if (choice == null)
             {
-                AffixList.Affix def = BazaarCustomItems.WeightedPick(pool, _rng);
-                if (def == null || def.specialAffixType != AffixList.SpecialAffixType.Standard || existing.Contains(def.affixId))
-                {
-                    continue;
-                }
-                if (legal.OrdinaryReason(def, false, false).Length == 0)
-                {
-                    pick = def;
-                    break;
-                }
+                message = "No legal replacement was found for every eligible affix.";
+                return false;
             }
-            if (pick == null)
-            {
-                reason = "No legal affix was found for this base.";
-                return 0;
-            }
-            int tier = BazaarCustomItems.DisplayTier(pick, _rng, ChaosRerollMath.TierWeights);
-            chosen.Add((pick, tier, _rng.Next(0, 256)));
-            existing.Add(pick.affixId);
+
+            int tier = Math.Clamp(BazaarCustomItems.DisplayTier(choice, Rng, ChaosRerollMath.TierWeights), 1, ChaosRerollMath.MaxRerolledTier);
+            var replacement = new ItemAffix((ushort)choice.affixId, (byte)(tier - 1), (byte)Rng.Next(256), item.itemType, SealedAffixType.None);
+            replacements.Add((i, original, replacement));
+            ids.Add(choice.affixId);
         }
 
-        foreach (ItemAffix a in replace)
+        if (!AdvancedMaterials.TryTake(AdvancedMaterials.ChaosOrb))
         {
-            item.affixes.Remove(a);
+            message = "You have no Chaos Orbs.";
+            return false;
         }
-        foreach (var (def, tier, roll) in chosen)
+
+        byte originalRarity = item.rarity;
+        try
         {
-            item.affixes.Add(new ItemAffix((ushort)def.affixId, (byte)Math.Max(0, tier - 1), (byte)roll, (byte)baseType, SealedAffixType.None));
+            foreach (var entry in replacements) item.affixes[entry.Index] = entry.Replacement;
+            item.rarity = LastEpoch_Hud.Scripts.Core.Items.AffixLimits.LoadableRarity(item.affixes.ToArray().Count(a => a != null && !a.IsSealed));
+            item.RefreshIDAndValues();
         }
-        item.RefreshIDAndValues();
-        return replace.Count;
+        catch (Exception ex)
+        {
+            foreach (var entry in replacements) item.affixes[entry.Index] = entry.Original;
+            item.rarity = originalRarity;
+            AdvancedMaterials.Add(AdvancedMaterials.ChaosOrb, 1);
+            item.RefreshIDAndValues();
+            Main.logger_instance?.Warning("Chaos Orb: " + ex.Message);
+            message = "The Chaos reroll could not be applied.";
+            return false;
+        }
+
+        message = $"Chaos rerolled {replacements.Count} affix{(replacements.Count == 1 ? "" : "es")}.";
+        return true;
     }
 }

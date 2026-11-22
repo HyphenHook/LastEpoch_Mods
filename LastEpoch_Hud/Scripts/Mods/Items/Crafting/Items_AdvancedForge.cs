@@ -313,10 +313,23 @@ internal static class Items_AdvancedForge
             if (!Ready() || item.IsNullOrDestroyed() || IsIdol(item))
                 return true;
 
+            string blocked = CraftProtection.Blocked(item);
+            if (blocked.Length > 0)
+            {
+                Items_RecombinatorWindow.Notify(blocked);
+                return false;
+            }
+
             int affixId = __instance.appliedAffixID;
             ItemAffix affix = GetAffix(item, affixId);
             if (affix.IsNullOrDestroyed())
                 return true;
+
+            if (CraftProtection.IsAttached(item, affix))
+            {
+                Items_RecombinatorWindow.Notify("A protected affix cannot be changed.");
+                return false;
+            }
 
             // Below T5 the native forge handles the craft (and its resource use);
             // remember the state so Postfix can enforce the guaranteed glyph outcome.
