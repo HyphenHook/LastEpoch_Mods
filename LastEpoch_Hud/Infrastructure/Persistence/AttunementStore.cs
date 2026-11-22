@@ -4,6 +4,7 @@ using System.IO;
 using Newtonsoft.Json;
 using LastEpoch_Hud.Scripts.Infrastructure.Persistence;
 
+using LastEpoch_Hud.Scripts.Core.Tuning;
 namespace LastEpoch_Hud.Scripts.Core.Crafting;
 
 /// <summary>Persists base-item attunements atomically and keeps failed writes out of the live cache.</summary>
@@ -70,5 +71,5 @@ public sealed class AttunementStore
     }
 
     private static bool ValidMultiplier(double multiplier) =>
-        double.IsFinite(multiplier) && multiplier >= AttunementState.MinMultiplier && multiplier <= AttunementState.MaxMultiplier;
+        double.IsFinite(multiplier) && multiplier >= AttunementState.LowestValidMultiplier && multiplier <= AttunementState.HighestValidMultiplier;
 }

@@ -2,6 +2,7 @@ using LastEpoch_Hud.Scripts.Core.Jewels;
 
 namespace LastEpoch_Hud.Tests.Core.Jewels;
 
+[Collection("JewelAffixRulesState")]
 public sealed class JewelAffixRulesTests
 {
     [Theory]
@@ -39,6 +40,25 @@ public sealed class JewelAffixRulesTests
         Assert.Equal((10f, 12f), JewelAffixRules.ExclusiveRange(7, 1, 5, 6, 8, 10, 12));
         Assert.Equal(.02f, JewelAffixRules.Roll(.02f, .024f, 0));
         Assert.Equal(.024f, JewelAffixRules.Roll(.02f, .024f, 255));
+    }
+
+    [Fact]
+    public void SteppedRollsLandOnWholeStepsAndEveryStepIsEquallyLikely()
+    {
+        // 10-12% in 1% steps: 10, 11 or 12, each from a third of the rolls.
+        var counts = new Dictionary<float, int>();
+        for (int roll = 0; roll <= 255; roll++)
+        {
+            float value = JewelAffixRules.RollStepped(.10f, .12f, (byte)roll, .01f);
+            counts[value] = counts.GetValueOrDefault(value) + 1;
+        }
+        Assert.Equal(new[] { .10f, .11f, .12f }, counts.Keys.OrderBy(x => x).Select(x => (float)Math.Round(x, 2)).ToArray());
+        Assert.All(counts.Values, count => Assert.InRange(count, 85, 86));
+        Assert.Equal(.10f, JewelAffixRules.RollStepped(.10f, .12f, 0, .01f));
+        Assert.Equal(.12f, JewelAffixRules.RollStepped(.10f, .12f, 255, .01f), 5);
+        // No step, or a range that is a single value: unchanged behaviour.
+        Assert.Equal(JewelAffixRules.Roll(.02f, .024f, 100), JewelAffixRules.RollStepped(.02f, .024f, 100, 0f));
+        Assert.Equal(.05f, JewelAffixRules.RollStepped(.05f, .05f, 200, .01f));
     }
 
     [Fact]

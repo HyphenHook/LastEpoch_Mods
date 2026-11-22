@@ -2,6 +2,7 @@ using LastEpoch_Hud.Scripts.Core.Heorot;
 
 namespace LastEpoch_Hud.Tests.Core.Heorot;
 
+[Collection("HeorotValuesState")]
 public sealed class HeorotRulesTests
 {
     [Theory]

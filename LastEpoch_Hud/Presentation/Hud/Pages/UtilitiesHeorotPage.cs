@@ -12,12 +12,11 @@ internal static class UtilitiesHeorotPage
     {
         page = HudFormPage.Build(parent, hud, font, id);
         if (page == null) return;
-        Add(HeorotBuffKind.Power, "Heorot’s Power",
-            "Adds 120 Cold Damage.\n25% increased Cold Damage per stack of Chill on the target.");
-        Add(HeorotBuffKind.Energy, "Heorot’s Energy",
-            "+120% chance to inflict Chill on hit.\n+35% chance to inflict Frostbite on hit.\n75% increased Cold Damage.");
-        Add(HeorotBuffKind.Defence, "Heorot’s Defence",
-            "+120% chance to Chill attackers when hit.\n+65% Cold Resistance.\nYou can inflict 2 additional stacks of Chill.");
+        // The wording and numbers come from the Heorot CSV tables once the statuses are registered.
+        const string waiting = "Available once the game's status list has loaded.";
+        Add(HeorotBuffKind.Power, "Heorot’s Power", waiting);
+        Add(HeorotBuffKind.Energy, "Heorot’s Energy", waiting);
+        Add(HeorotBuffKind.Defence, "Heorot’s Defence", waiting);
     }
     private static void Add(HeorotBuffKind kind, string name, string description)
     {

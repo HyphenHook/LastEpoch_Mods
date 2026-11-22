@@ -1,4 +1,6 @@
 using System.Collections.Generic;
+using System.Linq;
+using LastEpoch_Hud.Scripts.Core.Jewels;
 using System.Reflection;
 using HarmonyLib;
 using Il2Cpp;
@@ -22,6 +24,295 @@ internal static class JewelVisuals
         if (sprite != null) Owned.Add(sprite);
         return sprite;
     }
+    // Diagnostic for missing Jewel implicit lines: once per tooltip kind and subtype, the item's resolved implicits
+    // against what the game's tooltip builder produced. -1 means the list was null.
+    private static readonly HashSet<string> loggedImplicits = new();
+    private static void LogImplicits(string kind, int subtype, int itemImplicits, int tooltipImplicits)
+    {
+        if (!loggedImplicits.Add(kind + subtype)) return;
+        Main.logger_instance?.Msg("Jewel tooltip (" + kind + ") subtype " + subtype + ": item implicits " + itemImplicits
+            + ", tooltip implicits " + tooltipImplicits);
+    }
+
+    /// <summary>
+    /// The Jewel's name from its affix titles: the highest tier prefix title, the subtype, then the highest tier suffix
+    /// title ("Mighty Cobalt Jewel of the Gale"). The titles come from Data/JewelAffixes.csv.
+    /// </summary>
+    internal static string NameFor(ItemData item)
+    {
+        string baseName = JewelBaseType.Names[item.subType];
+        string prefix = null, suffix = null;
+        int prefixTier = -1, suffixTier = -1;
+        if (item.affixes != null)
+        {
+            foreach (var affix in item.affixes)
+            {
+                if (affix == null || affix.IsSealed || affix.specialAffixType != AffixList.SpecialAffixType.Standard) continue;
+                var definition = JewelAffixes.Get(affix.affixId);
+                string title = definition?.affixTitle?.Trim();
+                if (string.IsNullOrEmpty(title)) continue;
+                if (definition.type == AffixList.AffixType.SUFFIX)
+                {
+                    if (affix.affixTier <= suffixTier) continue;
+                    suffixTier = affix.affixTier;
+                    suffix = title.StartsWith("of ", System.StringComparison.OrdinalIgnoreCase) ? title : "of " + title;
+                }
+                else
+                {
+                    if (affix.affixTier <= prefixTier) continue;
+                    prefixTier = affix.affixTier;
+                    prefix = title;
+                }
+            }
+        }
+        return (prefix == null ? "" : prefix + " ") + baseName + (suffix == null ? "" : " " + suffix);
+    }
+
+    // Tooltip numbers on a Jewel keep their decimals (4.25%, 0.4%) instead of being rounded to whole numbers.
+    [System.ThreadStatic] private static bool showDecimals;
+
+    [HarmonyPatch]
+    private static class DecimalScope
+    {
+        private static IEnumerable<MethodBase> TargetMethods() =>
+            AccessTools.GetDeclaredMethods(typeof(TooltipItemManager)).Where(m => m.Name == nameof(TooltipItemManager.FormatAffix));
+
+        [HarmonyPrefix, HarmonyPriority(Priority.First)]
+        private static void Prefix(ItemDataUnpacked __0, out bool __state)
+        {
+            __state = showDecimals;
+            showDecimals = JewelBaseType.IsJewel(__0);
+        }
+
+        [HarmonyFinalizer]
+        private static void Finalizer(bool __state) => showDecimals = __state;
+    }
+
+    [HarmonyPatch(typeof(ItemTooltipPropertyModifierInfo), nameof(ItemTooltipPropertyModifierInfo.ConvertValueToString))]
+    private static class DecimalValues
+    {
+        [HarmonyPostfix]
+        private static void Postfix(float __0, ref string __result)
+        {
+            if (!showDecimals || string.IsNullOrEmpty(__result)) return;
+            bool percent = __result.IndexOf('%') >= 0;
+            float shown = percent ? __0 * 100f : __0;
+            string decimals = shown.ToString("0.##", System.Globalization.CultureInfo.InvariantCulture) + (percent ? "%" : "");
+            // Only swap in the decimal form when it is the same number the game rounded.
+            var digits = System.Text.RegularExpressions.Regex.Match(__result, @"-?\d+(\.\d+)?");
+            if (digits.Success && float.TryParse(digits.Value, System.Globalization.NumberStyles.Float,
+                    System.Globalization.CultureInfo.InvariantCulture, out float native) && System.Math.Abs(native - shown) <= 1f)
+                __result = decimals;
+        }
+    }
+
+    // The game rounds the numbers on its affix lines to whole numbers. The finished lines of a Jewel's tooltip (the
+    // prefix and suffix lists) get the real rolled value instead: 4.25% rather than 4%.
+    private static void DecimalizeRows(ItemDataUnpacked item, UITooltipItem.ItemTooltipInfo info)
+    {
+        if (item?.affixes == null || info == null) return;
+        var prefixes = new List<(ItemAffix Affix, float Value)>();
+        var suffixes = new List<(ItemAffix Affix, float Value)>();
+        var attunement = LastEpoch_Hud.Scripts.Mods.Items.Crafting.Items_Attunement.StateOf(item);
+        foreach (var affix in item.affixes)
+        {
+            if (affix == null || affix.IsSealed || JewelAffixRules.IsCustomEffect(affix.affixId)) continue;
+            var definition = JewelAffixes.Get(affix.affixId);
+            if (definition?.tiers == null || affix.affixTier >= definition.tiers.Count) continue;
+            var range = definition.tiers[affix.affixTier];
+            float value = JewelAffixRules.Roll(range.minRoll, range.maxRoll, affix.affixRoll);
+            if (attunement != null) value *= (float)attunement.AffixMultiplier(affix.affixId, affix.affixTier, affix.affixRoll);
+            (definition.type == AffixList.AffixType.SUFFIX ? suffixes : prefixes).Add((affix, value));
+        }
+        DecimalizeList(info.prefixesText, prefixes);
+        DecimalizeList(info.suffixesText, suffixes);
+    }
+
+    private static void DecimalizeList(Il2CppSystem.Collections.Generic.List<Il2CppSystem.ValueTuple<string, bool>> rows,
+        List<(ItemAffix Affix, float Value)> candidates)
+    {
+        if (rows == null) return;
+        var done = new HashSet<int>();
+        // The row's own number says which affix it is: take the first not-yet-used affix whose value rounds to it. A second,
+        // looser pass catches a game that truncates instead of rounding.
+        foreach (float tolerance in new[] { 0.5001f, 1.001f })
+        {
+            for (int i = 0; i < rows.Count; i++)
+            {
+                if (done.Contains(i)) continue;
+                var row = rows[i];
+                string text = row.Item1;
+                if (string.IsNullOrEmpty(text)) continue;
+                for (int c = 0; c < candidates.Count; c++)
+                {
+                    string changed = WithDecimals(text, candidates[c].Value, tolerance);
+                    if (changed == null) continue;
+                    row.Item1 = changed;
+                    rows[i] = row;
+                    candidates.RemoveAt(c);
+                    done.Add(i);
+                    break;
+                }
+            }
+        }
+    }
+
+    /// <summary>Replaces the first number outside the colour/size tags with <paramref name="value" />, when it is the same number rounded.</summary>
+    internal static string WithDecimals(string text, float value, float tolerance = 0.5001f)
+    {
+        var result = new System.Text.StringBuilder();
+        int at = 0;
+        bool done = false, replaced = false;
+        while (at < text.Length)
+        {
+            if (text[at] == '<')
+            {
+                int close = text.IndexOf('>', at);
+                if (close < 0) close = text.Length - 1;
+                result.Append(text, at, close - at + 1);
+                at = close + 1;
+                continue;
+            }
+            int next = text.IndexOf('<', at);
+            if (next < 0) next = text.Length;
+            string segment = text.Substring(at, next - at);
+            if (!done)
+            {
+                var number = System.Text.RegularExpressions.Regex.Match(segment, @"\d+(\.\d+)?");
+                if (number.Success)
+                {
+                    done = true;
+                    int end = number.Index + number.Length;
+                    bool percent = end < segment.Length && segment[end] == '%';
+                    float shown = percent ? value * 100f : value;
+                    if (float.TryParse(number.Value, System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out float native)
+                        && System.Math.Abs(native - shown) <= tolerance)
+                    {
+                        segment = segment.Substring(0, number.Index) + shown.ToString("0.##", System.Globalization.CultureInfo.InvariantCulture) + segment.Substring(end);
+                        replaced = true;
+                    }
+                }
+            }
+            result.Append(segment);
+            at = next;
+        }
+        return replaced ? result.ToString() : null;
+    }
+
+    private static readonly HashSet<string> loggedAffixes = new();
+
+    // For checking the numbers: each affix's table range, the effect the game applies to the item, and the attunement factor.
+    private static void LogAffixes(ItemData item)
+    {
+        try
+        {
+            if (item.affixes == null) return;
+            float effect = ItemList.get().getAffixEffectModifier(item);
+            double attunement = LastEpoch_Hud.Scripts.Mods.Items.Crafting.Items_AttunementStats.ImplicitFactor(item);
+            foreach (var affix in item.affixes)
+            {
+                var definition = affix == null ? null : JewelAffixes.Get(affix.affixId);
+                if (definition?.tiers == null || affix.affixTier >= definition.tiers.Count) continue;
+                if (!loggedAffixes.Add(item.individualID + ":" + affix.affixId + ":" + affix.affixTier + ":" + affix.affixRoll)) continue;
+                var range = definition.tiers[affix.affixTier];
+                Main.logger_instance?.Msg("Jewel affix " + affix.affixId + " " + definition.affixTitle + " T" + (affix.affixTier + 1) + " roll " + affix.affixRoll
+                    + ": table range " + range.minRoll + " to " + range.maxRoll + ", item effect bonus " + effect + ", implicit attunement x" + attunement
+                    + ", rolled " + JewelAffixRules.RollStepped(range.minRoll, range.maxRoll, affix.affixRoll, JewelAffixes.StepOf(affix.affixId)));
+            }
+        }
+        catch (System.Exception ex) { Main.logger_instance?.Warning("Jewel affix log: " + ex.Message); }
+    }
+
+    private static bool ShowsRanges(TooltipMode mode) => mode == TooltipMode.DefaultModRanges || mode == TooltipMode.CompareModRanges;
+
+    // The game ends each line with a line break, which opened a gap between implicits.
+    private static string Clean(string text) => text?.Trim('\r', '\n');
+
+    private static string Format(ItemDataUnpacked item, ItemList.EquipmentImplicit definition, int index, TooltipMode mode,
+        TooltipItemManager.SlotType slot, float value, ValueRangeFormat format) =>
+        Clean(TooltipItemManager.ImplicitFormatter(item, definition.property, definition.type, value, definition.tags,
+            definition.specialTag, definition.extraTag, mode, slot, index, false, format));
+
+    private static readonly HashSet<TooltipMode> loggedModes = new();
+
+    /// <summary>
+    /// The implicit through the game's own formatter. In a range mode the game already puts its usual blue "Range" line
+    /// under the implicit (and the Explanation mode adds its explanation line), so nothing is added here.
+    /// </summary>
+    private static string NativeImplicit(ItemDataUnpacked item, ItemList.EquipmentImplicit definition,
+        int index, TooltipMode mode, TooltipItemManager.SlotType slot, float value)
+    {
+        showDecimals = true;
+        try
+        {
+            string text = Format(item, definition, index, mode, slot, value, ValueRangeFormat.None);
+            if (string.IsNullOrWhiteSpace(text)) return null;
+            if (loggedModes.Add(mode))
+                Main.logger_instance?.Msg("Jewel implicit from the game's formatter (" + mode + "): \"" + text.Replace("\n", "<LF>") + "\"");
+            return text;
+        }
+        catch (System.Exception ex)
+        {
+            if (loggedModes.Add(TooltipMode.None))
+                Main.logger_instance?.Warning("Jewel implicit: the game's formatter failed, using the mod's own text (" + ex.Message + ")");
+            return null;
+        }
+        finally { showDecimals = false; }
+    }
+
+    // The blue "Range" line under an implicit, for when the game gives no line of its own.
+    private static string OwnRangeLine(ItemList.EquipmentImplicit definition)
+    {
+        var info = PropertyList.get().GetPropertyInfo(definition.property, definition.tags, definition.specialTag);
+        if (info.IsNullOrDestroyed()) return "";
+        var modifier = new ItemTooltipPropertyModifierInfo(info.getPropertyName(definition.specialTag), info,
+            definition.property, definition.tags, definition.specialTag, 0, definition.type, definition.implicitValue);
+        return "<size=85%><color=#6C8FD6>Range: " + modifier.ConvertValueToString(definition.implicitValue)
+            + " to " + modifier.ConvertValueToString(definition.implicitMaxValue) + "</color></size>";
+    }
+
+    // The Jewel's implicit lines, written with the game's own stat wording from the rolled values.
+    internal static string ImplicitText(ItemDataUnpacked item, TooltipItemManager manager, TooltipMode mode, TooltipItemManager.SlotType slot)
+    {
+        var lines = new List<string>();
+        // Ctrl + Alt: the game's own key for the roll ranges on a tooltip.
+        bool ranges = ShowsRanges(mode);
+        try
+        {
+            var definitions = item.Implicits;
+            var rolls = item.implicitRolls;
+            if (definitions == null) return "";
+            for (int i = 0; i < definitions.Count; i++)
+            {
+                var definition = definitions[i];
+                if (definition == null) continue;
+                byte roll = rolls != null && i < rolls.Length ? rolls[i] : (byte)0;
+                float value = definition.implicitValue + (definition.implicitMaxValue - definition.implicitValue) * roll / 255f;
+                // The game's formatter first: same colours, sizes and blue range line as every other implicit.
+                float attuned = JewelAffixRules.Roll(definition.implicitValue, definition.implicitMaxValue, roll)
+                    * (float)LastEpoch_Hud.Scripts.Mods.Items.Crafting.Items_AttunementStats.ImplicitFactor(item);
+                string native = NativeImplicit(item, definition, i, mode, slot, attuned);
+                if (!string.IsNullOrWhiteSpace(native))
+                {
+                    lines.Add(native);
+                    // The game's own range line is already part of the text; only add one if it is somehow missing.
+                    if (ranges && native.IndexOf("Range", System.StringComparison.OrdinalIgnoreCase) < 0) lines.Add(OwnRangeLine(definition));
+                    continue;
+                }
+                var info = PropertyList.get().GetPropertyInfo(definition.property, definition.tags, definition.specialTag);
+                if (info.IsNullOrDestroyed()) continue;
+                var modifier = new ItemTooltipPropertyModifierInfo(info.getPropertyName(definition.specialTag), info,
+                    definition.property, definition.tags, definition.specialTag, 0, definition.type, value);
+                string text = modifier.GetModifierString(false);
+                if (string.IsNullOrWhiteSpace(text)) continue;
+                lines.Add(Clean(text));
+                if (ranges) lines.Add(OwnRangeLine(definition));
+            }
+        }
+        catch (System.Exception ex) { ErrorLog.Report(ex, "Jewel implicit text"); }
+        return string.Join("\n", lines);
+    }
+
     private static void Apply(Image image, Sprite sprite)
     {
         if (image.IsNullOrDestroyed()) return;
@@ -68,9 +359,10 @@ internal static class JewelVisuals
         private static void Postfix(ItemDataUnpacked __0, ItemTooltipInfo __result)
         {
             if (__result == null || !JewelBaseType.IsJewel(__0)) return;
-            __result.Name = JewelBaseType.Names[__0.subType];
+            __result.Name = NameFor(__0);
             __result.PrimaryType = "Jewel";
             __result.SecondaryType = "";
+            LogImplicits("modern", __0.subType, __0.Implicits?.Count ?? -1, __result.Implicits?.Count ?? -1);
         }
     }
 
@@ -93,11 +385,19 @@ internal static class JewelVisuals
             yield return AccessTools.Method(typeof(TooltipItemManager), nameof(TooltipItemManager.CreateTooltipFullContent));
         }
         [HarmonyPostfix]
-        private static void Postfix(ItemDataUnpacked __0, UITooltipItem.ItemTooltipInfo __result)
+        private static void Postfix(TooltipItemManager __instance, ItemDataUnpacked __0, TooltipMode __1,
+            TooltipItemManager.SlotType __2, UITooltipItem.ItemTooltipInfo __result)
         {
             if (__result == null || !JewelBaseType.IsJewel(__0)) return;
-            __result.nameText = JewelBaseType.Names[__0.subType];
+            __result.nameText = NameFor(__0);
             __result.typeText = "Jewel";
+            LogAffixes(__0);
+            try { DecimalizeRows(__0, __result); }
+            catch (System.Exception ex) { Main.logger_instance?.Warning("Jewel affix decimals: " + ex.Message); }
+            // The game's own builder leaves the implicit lines empty for base type 44, so they are written here
+            // with the game's own implicit formatter (which also draws the blue roll range in the range mode).
+            if (string.IsNullOrEmpty(__result.implicitText)) __result.implicitText = ImplicitText(__0, __instance, __1, __2);
+            LogImplicits("legacy", __0.subType, __0.Implicits?.Count ?? -1, string.IsNullOrEmpty(__result.implicitText) ? 0 : 1);
         }
     }
 
@@ -105,16 +405,21 @@ internal static class JewelVisuals
     private static class LegacyIcons
     {
         [HarmonyPrefix]
-        private static void Prefix(UITooltipItem __instance, ItemDataUnpacked __3)
-        {
-            var sprite = IconFor(__3);
-            Apply(__instance.itemImage, sprite);
-            Apply(__instance.smallItemImage, sprite);
-            Apply(__instance.mediumItemImage, sprite);
-            Apply(__instance.tallMediumItemImage, sprite);
-            Apply(__instance.largeItemImage, sprite);
-            Apply(__instance.spearItemImage, sprite);
-            Apply(__instance.wideItemImage, sprite);
-        }
+        private static void Prefix(UITooltipItem __instance, ItemDataUnpacked __3) => ApplyLegacyIcons(__instance, __3);
+    }
+
+    // The game fills the item picture again in UITooltipItem.SetItemImage, after the prefix above has run,
+    // which left a plain white block for a Jewel. OrbItemVisuals' existing SetItemImage patch calls this too.
+    internal static void ApplyLegacyIcons(UITooltipItem ui, ItemDataUnpacked item)
+    {
+        if (ui.IsNullOrDestroyed()) return;
+        var sprite = IconFor(item);
+        Apply(ui.itemImage, sprite);
+        Apply(ui.smallItemImage, sprite);
+        Apply(ui.mediumItemImage, sprite);
+        Apply(ui.tallMediumItemImage, sprite);
+        Apply(ui.largeItemImage, sprite);
+        Apply(ui.spearItemImage, sprite);
+        Apply(ui.wideItemImage, sprite);
     }
 }

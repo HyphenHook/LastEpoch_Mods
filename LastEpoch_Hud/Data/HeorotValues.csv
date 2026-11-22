@@ -1,0 +1,5 @@
+# Heorot buffs: the named numbers used by custom code. Embedded at compile time; edit here and rebuild.
+# A future buff adds its own rows here (Name,Value,Note) and reads them with HeorotValues.Get(name, default).
+Name,Value,Note
+IncreasedColdPerChill,0.25,Power: increased Cold Damage per stack of Chill on the target (0.25 = 25%)
+AdditionalChillStacks,2,Defence: extra Chill stacks the wearer can inflict

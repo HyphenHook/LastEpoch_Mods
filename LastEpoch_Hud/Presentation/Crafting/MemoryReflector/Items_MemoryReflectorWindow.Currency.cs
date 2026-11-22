@@ -21,7 +21,23 @@ internal static partial class Items_MemoryReflectorWindow
 
     private static void FindAmberIcon()
     {
-        if (amberIcon != null || Time.unscaledTime < nextAmberSearch)
+        if (amberIcon != null)
+        {
+            return;
+        }
+        // The icon search spreads its work over many frames, so opening the window never freezes the game.
+        if (!IconSearch.Done)
+        {
+            IconSearch.Request();
+            return;
+        }
+        if (IconSearch.Amber != null)
+        {
+            amberIcon = IconSearch.Amber;
+            Main.logger_instance?.Msg("Memory Reflector amber icon: " + amberIcon.name);
+            return;
+        }
+        if (Time.unscaledTime < nextAmberSearch)
         {
             return;
         }

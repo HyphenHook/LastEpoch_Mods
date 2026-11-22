@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 using System.Reflection;
 using HarmonyLib;
@@ -18,6 +19,10 @@ internal static class JewelAffixes
     internal static IReadOnlyCollection<AffixList.Affix> Definitions => definitions.Values;
     internal static bool IsJewelAffix(int id) => definitions.ContainsKey(id);
     internal static int MinimumTier(int id) => JewelAffixRules.MinimumTier(id);
+
+    // Roll step per affix from Data/JewelAffixes.csv (0 or missing: continuous).
+    private static Dictionary<int, float> steps = new();
+    internal static float StepOf(int id) => steps.TryGetValue(id, out float step) ? step : 0f;
     internal static AffixList.Affix Get(int id) => definitions.TryGetValue(id, out var value) ? value : null;
     internal static AffixList.Affix FindById(int id) => Get(id);
     internal static IEnumerable<AffixList.Affix> RollableDefinitions(int maxTier = 7) =>
@@ -72,7 +77,7 @@ internal static class JewelAffixes
                 copy = target;
             }
             Configure(copy, JewelAffixRules.InheritedId(source.affixId));
-            copy.tiers = ScaledTiers(source.tiers[0]);
+            copy.tiers = CopiedTiers(source.tiers[0]);
             staged.Add(copy.affixId, copy);
         }
         foreach (var affix in ExclusiveAffixes())
@@ -80,6 +85,7 @@ internal static class JewelAffixes
             staged.Add(affix.affixId, affix);
             singles.Add(affix);
         }
+        ApplyTable(staged, singles);
         var oldIds = catalog.singleAffixes.Where(x => x != null).Select(x => x.affixId)
             .Concat(catalog.multiAffixes.Where(x => x != null).Select(x => x.affixId)).ToHashSet();
         foreach (int id in staged.Keys)
@@ -112,6 +118,160 @@ internal static class JewelAffixes
         Main.logger_instance?.Msg($"Jewels: registered {staged.Count} exclusive affixes (including {staged.Count - 35} idol copies).");
     }
 
+    // ---------------------------------------------------------------- Data/JewelAffixes.csv (embedded at compile time)
+
+    // Only used while Data/JewelAffixes.csv is missing from the source: the defaults are written here to be copied in.
+    private static string GeneratedPath => Path.Combine(Directory.GetCurrentDirectory(), "Mods", Main.mod_name, "JewelAffixes.generated.csv");
+
+    private static JewelAffixRow ToRow(AffixList.Affix affix)
+    {
+        var single = affix.TryCast<AffixList.SingleAffix>();
+        var row = new JewelAffixRow
+        {
+            Id = affix.affixId,
+            Origin = affix.affixId >= JewelAffixRules.ExclusiveIdStart ? "Exclusive" : "Inherited",
+            SourceId = affix.affixId >= JewelAffixRules.ExclusiveIdStart ? 0 : affix.affixId - JewelAffixRules.InheritedIdOffset,
+            Name = string.IsNullOrEmpty(affix.affixDisplayName) ? affix.affixName : affix.affixDisplayName,
+            Title = affix.affixTitle ?? "",
+            TitleType = affix.titleType.ToString(),
+            Side = affix.type == AffixList.AffixType.SUFFIX ? "Suffix" : "Prefix",
+            Property = single == null ? "" : single.property.ToString(),
+            ModType = single == null ? "" : single.modifierType.ToString(),
+            Tags = single == null ? "" : single.tags.ToString(),
+            Weight = (int)Math.Round(affix.weighting),
+            MinTier = MinimumTier(affix.affixId),
+            Step = StepOf(affix.affixId),
+        };
+        for (int tier = 0; tier < JewelAffixRow.TierCount && tier < affix.tiers.Count; tier++)
+        {
+            row.Min[tier] = affix.tiers[tier].minRoll;
+            row.Max[tier] = affix.tiers[tier].maxRoll;
+        }
+        return row;
+    }
+
+    /// <summary>
+    /// Applies Data/JewelAffixes.csv over the built-in defaults: weights, minimum tiers and the T1..T7 ranges, plus any
+    /// new Exclusive rows. The file is part of the source and is embedded when the mod is built.
+    /// </summary>
+    private static void ApplyTable(Dictionary<int, AffixList.Affix> staged, List<AffixList.SingleAffix> singles)
+    {
+        JewelAffixRules.SetMinimumTierOverrides(null);
+        try
+        {
+            string text = EmbeddedData.Read("JewelAffixes.csv");
+            if (text == null)
+            {
+                // No table in the source yet: use the defaults, and write them out so they can be added to Data/.
+                Directory.CreateDirectory(Path.GetDirectoryName(GeneratedPath));
+                File.WriteAllText(GeneratedPath, JewelAffixTable.Write(staged.Values.OrderBy(x => x.affixId).Select(ToRow)));
+                Main.logger_instance?.Msg("Jewel affixes: Data/JewelAffixes.csv is not in the mod. Wrote the defaults to " + GeneratedPath
+                    + ". Copy it to LastEpoch_Hud/Data/JewelAffixes.csv and rebuild.");
+                return;
+            }
+            var errors = new List<string>();
+            var rows = JewelAffixTable.Parse(text, errors);
+            var minimums = new Dictionary<int, int>();
+            var nextSteps = new Dictionary<int, float>();
+            int changed = 0, added = 0;
+            foreach (var row in rows)
+            {
+                if (!staged.TryGetValue(row.Id, out var affix))
+                {
+                    affix = CreateFromRow(row, errors);
+                    if (affix == null) continue;
+                    staged.Add(row.Id, affix);
+                    singles.Add((AffixList.SingleAffix)affix);
+                    added++;
+                }
+                else changed++;
+                affix.weighting = row.Weight;
+                if (!row.IsInherited && row.Name.Length != 0) { affix.affixName = row.Name; affix.affixDisplayName = row.Name; }
+                if (row.Title.Length != 0) affix.affixTitle = row.Title;
+                if (row.TitleType.Length != 0 && Enum.TryParse(row.TitleType, true, out AffixList.AffixTitleType titleType)) affix.titleType = titleType;
+                minimums[row.Id] = row.MinTier;
+                if (row.Step > 0) nextSteps[row.Id] = row.Step;
+                ApplyRanges(affix, row);
+            }
+            // The table is the whole list: an affix with no row is switched off (existing items keep it).
+            if (rows.Count > 0)
+            {
+                var listed = new HashSet<int>(rows.Select(r => r.Id));
+                foreach (var pair in staged)
+                    if (!listed.Contains(pair.Key)) pair.Value.weighting = 0;
+            }
+            JewelAffixRules.SetMinimumTierOverrides(minimums);
+            steps = nextSteps;
+            // Inherited rows with no Title keep the game's own. Write the current table, native titles included, so
+            // they can be copied into Data/JewelAffixes.csv and edited.
+            if (rows.Exists(r => r.IsInherited && r.Title.Length == 0))
+            {
+                string path = Path.Combine(Path.GetDirectoryName(GeneratedPath), "JewelAffixes.export.csv");
+                File.WriteAllText(path, JewelAffixTable.Write(staged.Values.OrderBy(x => x.affixId).Select(ToRow)));
+                Main.logger_instance?.Msg("Jewel affixes: wrote the current table with the game's own titles to " + path);
+            }
+            foreach (string error in errors) Main.logger_instance?.Warning("Jewel affixes (Data/JewelAffixes.csv): " + error);
+            Main.logger_instance?.Msg("Jewel affixes: loaded the table (" + changed + " changed, " + added + " added, " + errors.Count + " problems).");
+        }
+        catch (Exception ex)
+        {
+            // A broken table must never stop the Jewels registering: fall back to the built-in definitions.
+            JewelAffixRules.SetMinimumTierOverrides(null);
+            ErrorLog.Report(ex, "Jewel affix table");
+        }
+    }
+
+    private static void ApplyRanges(AffixList.Affix affix, JewelAffixRow row)
+    {
+        for (int tier = 0; tier < JewelAffixRow.TierCount && tier < affix.tiers.Count; tier++)
+        {
+            var range = affix.tiers[tier];
+            float oldMax = range.maxRoll;
+            float ratio = oldMax > 0 ? row.Max[tier] / oldMax : 1f;
+            range.minRoll = row.Min[tier];
+            range.maxRoll = row.Max[tier];
+            // Extra rolls of a multi-property affix keep their proportion to the main roll.
+            if (range.extraRolls != null && range.extraRolls.Count > 0 && ratio != 1f)
+            {
+                var scaled = new Il2CppSystem.Collections.Generic.List<AffixList.RollPair>();
+                foreach (var extra in range.extraRolls) scaled.Add(new AffixList.RollPair(extra.minRoll * ratio, extra.maxRoll * ratio));
+                range.extraRolls = scaled;
+            }
+        }
+    }
+
+    private static AffixList.Affix CreateFromRow(JewelAffixRow row, List<string> errors)
+    {
+        if (row.IsInherited)
+        {
+            errors.Add("Id " + row.Id + " is Inherited but no Idol affix " + row.SourceId + " exists, so it was skipped.");
+            return null;
+        }
+        if (row.Id < JewelAffixRules.ExclusiveIdStart || row.Id > JewelAffixRules.MaximumPackedAffixId)
+        {
+            errors.Add("Id " + row.Id + ": new Exclusive affixes need an Id from " + JewelAffixRules.ExclusiveIdStart + " to " + JewelAffixRules.MaximumPackedAffixId + ".");
+            return null;
+        }
+        AT tags = AT.None;
+        if (!Enum.TryParse(row.Property, true, out SP property) || !Enum.TryParse(row.ModType, true, out BaseStats.ModType type)
+            || (row.Tags.Length != 0 && !Enum.TryParse(row.Tags, true, out tags)))
+        {
+            errors.Add("Id " + row.Id + ": Property, ModType or Tags is not a name the game knows, so it was skipped.");
+            return null;
+        }
+        string name = row.Name.Length == 0 ? "Jewel " + row.Id : row.Name;
+        var affix = new AffixList.SingleAffix
+        {
+            affixName = name, affixDisplayName = name, affixTitle = row.Title.Length == 0 ? name : row.Title,
+            property = property, modifierType = type, tags = tags, weighting = row.Weight,
+            type = string.Equals(row.Side, "Suffix", StringComparison.OrdinalIgnoreCase) ? AffixList.AffixType.SUFFIX : AffixList.AffixType.PREFIX,
+            useGeneratedNameForDisplayName = property != SP.None, standardAffixEffectModifier = 0,
+        };
+        Configure(affix, row.Id);
+        affix.tiers = ExclusiveTiers(0, 0, 0, 0, 0, 0);
+        return affix;
+    }
+
     // Copy all writable native metadata, including name morphology and tooltip metadata. Replace mutable
     // ranges, reroll lists, equipment applicability, and multi-properties with jewel-owned objects below.
     private static void CopyProperties(object source, object target, Type type)
@@ -137,17 +297,17 @@ internal static class JewelAffixes
         affix.t6Compatibility = AffixList.T6Compatibility.Normal;
     }
 
-    private static Il2CppSystem.Collections.Generic.List<AffixList.Tier> ScaledTiers(AffixList.Tier baseline)
+    // Every tier starts as an exact copy of the Idol affix's own range. Data/JewelAffixes.csv sets the real per-tier ranges.
+    private static Il2CppSystem.Collections.Generic.List<AffixList.Tier> CopiedTiers(AffixList.Tier baseline)
     {
         var tiers = new Il2CppSystem.Collections.Generic.List<AffixList.Tier>();
         for (int tier = 1; tier <= 7; tier++)
         {
-            float multiplier = JewelAffixRules.IdolMultiplier(tier);
-            var range = new AffixList.Tier { minRoll = baseline.minRoll * multiplier, maxRoll = baseline.maxRoll * multiplier,
+            var range = new AffixList.Tier { minRoll = baseline.minRoll, maxRoll = baseline.maxRoll,
                 extraRolls = new Il2CppSystem.Collections.Generic.List<AffixList.RollPair>() };
             if (baseline.extraRolls != null)
                 foreach (var extra in baseline.extraRolls)
-                    range.extraRolls.Add(new AffixList.RollPair(extra.minRoll * multiplier, extra.maxRoll * multiplier));
+                    range.extraRolls.Add(new AffixList.RollPair(extra.minRoll, extra.maxRoll));
             tiers.Add(range);
         }
         return tiers;
@@ -187,37 +347,41 @@ internal static class JewelAffixes
         return affix;
     }
 
+    // "DamageTakenAsFire" -> "Damage Taken As Fire", "FIRE" -> "Fire".
+    private static string Nice(string name) => System.Text.RegularExpressions.Regex.Replace(name, "(?<=[a-z])(?=[A-Z])", " ");
+    private static string Capitalized(string name) => name.Length == 0 ? name : char.ToUpperInvariant(name[0]) + name.Substring(1).ToLowerInvariant();
+
     private static IEnumerable<AffixList.SingleAffix> ExclusiveAffixes()
     {
         var attributes = new[] { SP.AllAttributes, SP.Strength, SP.Dexterity, SP.Intelligence, SP.Attunement, SP.Vitality };
         for (int i = 0; i < attributes.Length; i++)
         {
-            yield return WithRanges(Exclusive(i * 2, "Jewel " + attributes[i], attributes[i], BaseStats.ModType.ADDED,
+            yield return WithRanges(Exclusive(i * 2, Nice(attributes[i].ToString()), attributes[i], BaseStats.ModType.ADDED,
                 0, 0, i == 0 ? 10 : 100), i == 0 ? 1 : 2, i == 0 ? 5 : 8,
                 i == 0 ? 6 : 8, i == 0 ? 8 : 12, i == 0 ? 10 : 12, i == 0 ? 12 : 16);
-            yield return WithRanges(Exclusive(i * 2 + 1, "Jewel Increased " + attributes[i], attributes[i], BaseStats.ModType.INCREASED,
+            yield return WithRanges(Exclusive(i * 2 + 1, "Increased " + Nice(attributes[i].ToString()), attributes[i], BaseStats.ModType.INCREASED,
                 0, 0, i == 0 ? 10 : 100), i == 0 ? .02f : .03f, i == 0 ? .07f : .08f,
                 i == 0 ? .08f : .10f, i == 0 ? .10f : .12f, i == 0 ? .10f : .12f, i == 0 ? .12f : .15f);
         }
-        var manaShield = Exclusive(12, "Jewel Mana Before Health", SP.ManaBeforeHealthPercent, BaseStats.ModType.ADDED, 0, 0, 100, suffix: true);
+        var manaShield = Exclusive(12, "Mana Before Health", SP.ManaBeforeHealthPercent, BaseStats.ModType.ADDED, 0, 0, 100, suffix: true);
         for (int i = 0; i < 7; i++) manaShield.tiers[i].minRoll = manaShield.tiers[i].maxRoll = i < 5 ? .10f : i == 5 ? .15f : .20f;
         yield return manaShield;
-        yield return WithRanges(Exclusive(13, "Jewel Melee Attack Speed", SP.AttackSpeed, BaseStats.ModType.INCREASED, 0, 0, 1000, AT.Melee), .04f, .15f, .16f, .20f, .21f, .24f);
-        yield return WithRanges(Exclusive(14, "Jewel Cast Speed", SP.CastSpeed, BaseStats.ModType.INCREASED, 0, 0, 1000), .04f, .15f, .16f, .20f, .21f, .24f);
-        yield return WithRanges(Exclusive(15, "Jewel More Movement Speed", SP.Movespeed, BaseStats.ModType.MORE, 0, 0, 100, suffix: true), .01f, .03f, .04f, .06f, .07f, .10f);
-        yield return WithRanges(Exclusive(16, "Jewel Throwing Attack Speed", SP.AttackSpeed, BaseStats.ModType.INCREASED, 0, 0, 1000, AT.Throwing), .05f, .20f, .22f, .26f, .28f, .32f);
+        yield return WithRanges(Exclusive(13, "Melee Attack Speed", SP.AttackSpeed, BaseStats.ModType.INCREASED, 0, 0, 1000, AT.Melee), .04f, .15f, .16f, .20f, .21f, .24f);
+        yield return WithRanges(Exclusive(14, "Cast Speed", SP.CastSpeed, BaseStats.ModType.INCREASED, 0, 0, 1000), .04f, .15f, .16f, .20f, .21f, .24f);
+        yield return WithRanges(Exclusive(15, "More Movement Speed", SP.Movespeed, BaseStats.ModType.MORE, 0, 0, 100, suffix: true), .01f, .03f, .04f, .06f, .07f, .10f);
+        yield return WithRanges(Exclusive(16, "Throwing Attack Speed", SP.AttackSpeed, BaseStats.ModType.INCREASED, 0, 0, 1000, AT.Throwing), .05f, .20f, .22f, .26f, .28f, .32f);
         var tags = new[] { AT.None, AT.Spell, AT.Melee, AT.Throwing };
         var leech = new[,] { { .004f, .018f, .02f, .024f, .03f, .036f }, { .005f, .02f, .023f, .031f, .032f, .043f },
             { .012f, .024f, .026f, .036f, .042f, .05f }, { .006f, .022f, .024f, .034f, .034f, .045f } };
         for (int i = 0; i < tags.Length; i++)
-            yield return WithRanges(Exclusive(20 + i, "Jewel " + (i == 0 ? "Global" : tags[i].ToString()) + " Mana Leech",
+            yield return WithRanges(Exclusive(20 + i, (i == 0 ? "Damage" : tags[i] + " Damage") + " Mana Leech",
                 SP.None, BaseStats.ModType.ADDED, 0, 0, 100, tags[i], true), leech[i, 0], leech[i, 1], leech[i, 2], leech[i, 3], leech[i, 4], leech[i, 5]);
         var taken = new[] { SP.DamageTakenAsPhysical, SP.DamageTakenAsFire, SP.DamageTakenAsCold,
             SP.DamageTakenAsLightning, SP.DamageTakenAsNecrotic, SP.DamageTakenAsVoid, SP.DamageTakenAsPoison };
         for (int i = 0; i < 7; i++)
         {
-            var extra = WithRanges(Exclusive(30 + i, "Jewel Damage As Extra " + ((DamageType)i), SP.None, BaseStats.ModType.ADDED, 0, 0, 10), 0, 0, .05f, .07f, .10f, .12f);
-            var conversion = WithRanges(Exclusive(40 + i, "Jewel " + taken[i], taken[i], BaseStats.ModType.ADDED, 0, 0, 10, suffix: true), 0, 0, .03f, .06f, .08f, .10f);
+            var extra = WithRanges(Exclusive(30 + i, "Damage As Extra " + Capitalized(((DamageType)i).ToString()) + " Damage", SP.None, BaseStats.ModType.ADDED, 0, 0, 10), 0, 0, .05f, .07f, .10f, .12f);
+            var conversion = WithRanges(Exclusive(40 + i, Nice(taken[i].ToString()), taken[i], BaseStats.ModType.ADDED, 0, 0, 10, suffix: true), 0, 0, .03f, .06f, .08f, .10f);
             // Native tier indices remain 0..6. Unavailable tiers have no effect; generation must filter
             // using MinimumTier. Never promote a crafted T1 affix into a free exalted affix.
             for (int tier = 0; tier < 5; tier++)
@@ -267,20 +431,12 @@ internal static class JewelAffixes
         }
     }
 
-    [ThreadStatic] private static bool canGenerateExalted;
+    // Never set: the native RollAffixes generator cannot be patched (a patch on it crashed the game), so Jewels
+    // generated by the game never get Exalted-tier affixes; the mod's own Jewel creation sets tiers directly.
+    private static bool canGenerateExalted;
 
     // Native Tier stores only ranges, not weights. Filter affix weights while ordinary
     // tiers are being generated, then constrain the native tier roll to indices 5/6.
-    [HarmonyPatch(typeof(GenerateItems), nameof(GenerateItems.RollAffixes))]
-    private static class NativeGenerationScope
-    {
-        private static void Prefix(ItemData __0, bool __2, out bool __state)
-        {
-            __state = canGenerateExalted;
-            canGenerateExalted = __0 != null && __0.itemType == JewelAffixRules.BaseType && __2;
-        }
-        private static void Finalizer(bool __state) => canGenerateExalted = __state;
-    }
 
     [HarmonyPatch(typeof(AffixList.Affix), nameof(AffixList.Affix.GetWeighting))]
     private static class NativeTierWeight

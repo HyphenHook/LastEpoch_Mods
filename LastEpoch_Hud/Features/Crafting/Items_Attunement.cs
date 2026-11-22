@@ -7,6 +7,7 @@ using Il2CppInterop.Runtime.InteropTypes.Arrays;
 using LastEpoch_Hud.Scripts.Core.Crafting;
 using LastEpoch_Hud.Scripts.Mods.Economy;
 
+using LastEpoch_Hud.Scripts.Core.Tuning;
 namespace LastEpoch_Hud.Scripts.Mods.Items.Crafting;
 
 internal static class Items_Attunement
@@ -80,7 +81,7 @@ internal static class Items_Attunement
         var unique = (byte[])oldUnique.Clone();
         Random.NextBytes(implicits);
         Random.NextBytes(unique);
-        double factor = AttunementState.RollMultiplier(Random.Next(601));
+        double factor = AttunementState.RollMultiplier(Random.Next(AttunementState.MaxRoll + 1));
         var next = new AttunementState
         {
             ItemType = item.itemType,

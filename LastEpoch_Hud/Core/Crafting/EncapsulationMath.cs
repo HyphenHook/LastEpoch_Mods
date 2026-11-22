@@ -1,5 +1,6 @@
 using System;
 
+using LastEpoch_Hud.Scripts.Core.Tuning;
 namespace LastEpoch_Hud.Scripts.Core.Crafting;
 
 /// <summary>
@@ -9,7 +10,7 @@ namespace LastEpoch_Hud.Scripts.Core.Crafting;
 /// </summary>
 public static class EncapsulationMath
 {
-    public const int MinAffixes = 4;
+    public static int MinAffixes => Tunables.GetInt("Encapsulation.MinAffixes", 4);
 
     /// <summary>Why the orb cannot be used on an item, or an empty string. Counts are ordinary affixes (not sealed).</summary>
     public static string WhyNot(int ordinaryAffixes, bool alreadyEncapsulated)

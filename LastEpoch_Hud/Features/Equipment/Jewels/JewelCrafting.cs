@@ -20,7 +20,11 @@ namespace LastEpoch_Hud.Scripts.Mods.Items.Jewels;
 internal static class JewelCrafting
 {
     public const byte Id = EquipmentTypeRules.JewelBaseType;
-    [ThreadStatic] private static bool generatingJewel;
+    // Only ordinary affixes count toward the Jewel limits: sealed (regular, primordial, corrupted) and special
+    // (corrupted, champion, set, ...) affixes never use an ordinary slot.
+    private static bool IsOrdinaryAffix(ItemAffix affix) => affix != null && !affix.IsSealed
+        && affix.specialAffixType == AffixList.SpecialAffixType.Standard;
+    private static int OrdinaryCount(ItemData item) => item.affixes.ToArray().Count(IsOrdinaryAffix);
     private sealed class Potential
     {
         public int SubType;
@@ -177,13 +181,11 @@ internal static class JewelCrafting
             new[] { typeof(EquipmentType), typeof(int), typeof(ItemList.ClassRequirement), typeof(bool).MakeByRefType(), typeof(bool).MakeByRefType() });
 
         [HarmonyPrefix]
-        private static bool Prefix(AffixList.Affix __instance, EquipmentType __0, int __1, ItemList.ClassRequirement __2,
-            ref bool __3, ref bool __4, ref bool __result)
+        // The two native out flags are left at their defaults: writing through by-ref native pointers crashed the game.
+        private static bool Prefix(AffixList.Affix __instance, EquipmentType __0, int __1, ItemList.ClassRequirement __2, ref bool __result)
         {
             if ((int)__0 != Id) return true;
             __result = CanRollOn(__instance, __1, __2);
-            __3 = !__result && !__instance.CanRollOnClassRequirement(__2);
-            __4 = !__result && !__3;
             return false;
         }
     }
@@ -213,8 +215,8 @@ internal static class JewelCrafting
             bool allowed = CraftProtection.Blocked(__instance).Length == 0
                 && (existing != null ? !CraftProtection.IsAttached(__instance, existing) && existing.affixTier < 6
                     : JewelAffixes.MinimumTier(__0) == 1
-                        && __instance.affixes.ToArray().Count(a => a != null) < EquipmentTypeRules.JewelTransferAffixes
-                        && __instance.affixes.ToArray().Count(a => a != null && !a.IsSealed) < EquipmentTypeRules.JewelCraftedAffixes);
+                        && OrdinaryCount(__instance) < EquipmentTypeRules.JewelTransferAffixes
+                        && OrdinaryCount(__instance) < EquipmentTypeRules.JewelCraftedAffixes);
             if (allowed) return true;
             __result = false;
             return false;
@@ -228,46 +230,24 @@ internal static class JewelCrafting
         private static bool Prefix(int __0, ref int __result)
         {
             if (__0 != Id) return true;
-            __result = generatingJewel ? EquipmentTypeRules.JewelCraftedAffixes : EquipmentTypeRules.JewelTransferAffixes;
+            __result = EquipmentTypeRules.JewelTransferAffixes;
             return false;
         }
     }
 
-    [HarmonyPatch(typeof(GenerateItems), nameof(GenerateItems.RollAffixes))]
-    private static class NativeGenerationLimit
+    // Natural generation (drops, rewards, shops) stops at four ordinary affixes. The six-affix limit is only reachable
+    // by the player. GenerateItems.RollAffixes itself cannot be patched (its Nullable/by-ref arguments crashed the game),
+    // so the generator's own per-candidate validity check is used instead: it has no such arguments.
+    [HarmonyPatch(typeof(GenerateItems), nameof(GenerateItems.IsValidAffix))]
+    private static class NaturalGenerationLimit
     {
-        private sealed class GenerationState
+        [HarmonyPostfix]
+        private static void Postfix(ItemData __1, int __5, int __6, ref bool __result)
         {
-            public bool PreviousScope;
-            public ItemList.BaseEquipmentItem Category;
-            public int PreviousMaximum;
-        }
-
-        [HarmonyPrefix, HarmonyPriority(Priority.First)]
-        private static void Prefix(ItemData __0, ref int __9, ref int __10, out GenerationState __state)
-        {
-            __state = null;
-            if (!IsJewel(__0)) return;
-            var category = ItemList.get()?.GetEquipmentBaseItem(Id);
-            __state = new GenerationState { PreviousScope = generatingJewel, Category = category,
-                PreviousMaximum = category.IsNullOrDestroyed() ? EquipmentTypeRules.JewelTransferAffixes : category.maximumAffixes };
-            generatingJewel = true;
-            if (__9 > 0) __9 = Math.Min(__9, EquipmentTypeRules.JewelCraftedAffixes);
-            if (__10 > 0) __10 = Math.Min(__10, Math.Max(0, EquipmentTypeRules.JewelCraftedAffixes - Math.Max(0, __9)));
-            // Native generation can read either the catalog field or the lookup.
-            // Limit both for this synchronous call, then restore even on failure.
-            if (!category.IsNullOrDestroyed())
-                category.maximumAffixes = Math.Min(category.maximumAffixes, EquipmentTypeRules.JewelCraftedAffixes);
-        }
-
-        [HarmonyFinalizer]
-        private static void Finalizer(GenerationState __state)
-        {
-            if (__state == null) return;
-            generatingJewel = __state.PreviousScope;
-            if (!__state.Category.IsNullOrDestroyed()) __state.Category.maximumAffixes = __state.PreviousMaximum;
+            if (__result && IsJewel(__1) && __5 + __6 >= EquipmentTypeRules.JewelCraftedAffixes) __result = false;
         }
     }
+
 
     // Evaluate native corruption rarity/state rules on jewellery without changing
     // the real Jewel's type, identity, affixes or packed bytes.
@@ -313,12 +293,11 @@ internal static class JewelCrafting
         }
     }
 
-    private static bool AddsAffix(CorruptionOutcome outcome) => outcome is
-        CorruptionOutcome.AddsLowTierCorruptedAffix or CorruptionOutcome.AddsCorruptedAffix
-        or CorruptionOutcome.AddChampionAffix or CorruptionOutcome.AddExperimentalAffix
-        or CorruptionOutcome.AddSetAffix or CorruptionOutcome.AddStandardAffix
-        or CorruptionOutcome.AddLowTierStandardAffix or CorruptionOutcome.CorruptSubTypeAddStandard
-        or CorruptionOutcome.CorruptSubTypeAddCorrupted or CorruptionOutcome.UpgradeItemAndAddCorruptedAffix;
+    // Only outcomes that add an ordinary affix are limited. Corrupted, champion, experimental and set affixes
+    // sit outside the ordinary affix limit, so a Jewel can always be corrupted for a corrupted affix.
+    private static bool AddsOrdinaryAffix(CorruptionOutcome outcome) => outcome is
+        CorruptionOutcome.AddStandardAffix or CorruptionOutcome.AddLowTierStandardAffix
+        or CorruptionOutcome.CorruptSubTypeAddStandard;
 
     [HarmonyPatch(typeof(ItemData), nameof(ItemData.CorruptionOutcomeCanApplyToItem))]
     private static class CorruptionCapacity
@@ -326,26 +305,12 @@ internal static class JewelCrafting
         [HarmonyPostfix]
         private static void Postfix(ItemData __instance, WeightedCorruptionOutcome __0, ref bool __result)
         {
-            if (IsJewel(__instance) && !__0.IsNullOrDestroyed() && AddsAffix(__0.corruptionOutcome)
-                && !__0.replacesAffix && __instance.affixes.ToArray().Count(a => a != null) >= EquipmentTypeRules.JewelTransferAffixes)
+            if (IsJewel(__instance) && !__0.IsNullOrDestroyed() && AddsOrdinaryAffix(__0.corruptionOutcome)
+                && !__0.replacesAffix && OrdinaryCount(__instance) >= EquipmentTypeRules.JewelTransferAffixes)
                 __result = false;
         }
     }
 
-    [HarmonyPatch(typeof(ItemData), nameof(ItemData.AddRandomSpecialAffix))]
-    private static class CorruptionExecutionCapacity
-    {
-        [HarmonyPrefix]
-        private static bool Prefix(ItemData __instance, WeightedCorruptionOutcome __0, ref int __4, ref bool __5, ref bool __result)
-        {
-            if (!IsJewel(__instance) || __0.IsNullOrDestroyed() || __0.replacesAffix
-                || __instance.affixes.ToArray().Count(a => a != null) < EquipmentTypeRules.JewelTransferAffixes) return true;
-            __4 = -1;
-            __5 = false;
-            __result = false;
-            return false;
-        }
-    }
 
     [HarmonyPatch(typeof(OneSlotItemContainer), nameof(OneSlotItemContainer.CanAddItemType))]
     private static class ForgeSlot

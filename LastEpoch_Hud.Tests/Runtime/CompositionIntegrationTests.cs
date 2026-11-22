@@ -18,10 +18,10 @@ public sealed class CompositionIntegrationTests
         var names = create.Body.Instructions.Where(i => i.OpCode == OpCodes.Ldstr)
             .Select(i => (string)i.Operand).Where(s => s != "harmony").ToArray();
         Assert.Equal(new[] {
-            "Inspector.Start", "TestActions", "Base", "Inspector.Tick",
+            "Data.Tunables", "Inspector.Start", "TestActions", "Base", "Inspector.Tick",
             "Catalog.Poc", "Catalog.Charms", "Catalog.Jewels", "Catalog.JewelAffixes",
             "Heorot.Buffs", "Heorot.Combat", "Bazaar.Market", "Bazaar.Refresh",
-            "Crafting.Recombinator", "Crafting.MemoryReflector", "Crafting.AdvancedForge",
+            "Crafting.Recombinator", "Crafting.MemoryReflector", "Crafting.AdvancedForge", "Crafting.IconSearch",
             "Drops.OrbVisuals", "Equipment.Accessories", "Equipment.BaseTypePoc",
             "Login.OfflineOnly", "Login.CharacterSelect", "Bazaar.WarmUp",
             "Scenes.Loaded", "Cosmetics.SceneLoaded", "Scenes.Unloaded",

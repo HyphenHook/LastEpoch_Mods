@@ -1,24 +1,20 @@
 using System;
 
+using LastEpoch_Hud.Scripts.Core.Tuning;
 namespace LastEpoch_Hud.Scripts.Core.Crafting;
 
 /// <summary>
-/// Rules of the chaos reroll: a number of Glyphs of Chaos buys a reroll of an item's ordinary affixes. Sealed
+/// Rules of the chaos reroll: the orb rerolls an item's ordinary affixes. It costs no Glyphs. Sealed
 /// affixes and the found-only top tiers (T6 and above, which cannot be crafted back) are kept, and the new
 /// affixes are craftable tiers only.
 /// </summary>
 public static class ChaosRerollMath
 {
-    /// <summary>Glyphs of Chaos spent on one reroll.</summary>
-    public const int GlyphCost = 4;
-
     /// <summary>Highest displayed tier a reroll can produce; T6 and T7 can only be found.</summary>
-    public const int MaxRerolledTier = 5;
+    public static int MaxRerolledTier => Tunables.GetInt("Chaos.MaxRerolledTier", 5);
 
     /// <summary>Odds of displayed tiers 1 to 7 for a rerolled affix: T6 and T7 are never given.</summary>
-    public static readonly double[] TierWeights = { 6, 10, 16, 22, 22, 0, 0 };
-
-    public static bool CanAfford(int glyphs) => glyphs >= GlyphCost;
+    public static double[] TierWeights => Tunables.Series("Chaos.TierWeight", new double[] { 6, 10, 16, 22, 22, 0, 0 });
 
     public static bool CanRollDefinition(int minimumDisplayTier) =>
         minimumDisplayTier >= 1 && minimumDisplayTier <= MaxRerolledTier;

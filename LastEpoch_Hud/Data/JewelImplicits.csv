@@ -1,0 +1,12 @@
+# Jewel implicits. Edit the numbers here in the source, then rebuild: this file is embedded in the mod at compile time.
+# Subtype: 0 Cobalt, 1 Ruby, 2 Emerald, 3 Prismatic. The order of a subtype's rows is the order of its implicits.
+# ModType ADDED is a flat amount, INCREASED is a fraction (0.12 = 12%). Min and Max are the roll range.
+# Keep the number of rows per subtype if you already hold Jewels: their saved rolls follow the rows.
+Subtype,SubtypeName,Property,ModType,Tags,SpecialTag,Min,Max
+0,Cobalt Jewel,Mana,ADDED,None,0,44,60
+0,Cobalt Jewel,Mana,INCREASED,None,0,0.12,0.24
+1,Ruby Jewel,Health,ADDED,None,0,60,100
+1,Ruby Jewel,Health,INCREASED,None,0,0.14,0.26
+2,Emerald Jewel,Damage,INCREASED,None,0,0.12,0.16
+3,Prismatic Jewel,AllAttributes,ADDED,None,0,6,20
+3,Prismatic Jewel,AllAttributes,INCREASED,None,0,0.06,0.1

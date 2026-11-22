@@ -5,6 +5,7 @@ using Il2Cpp;
 using LastEpoch_Hud.Scripts.Core.Economy;
 using LastEpoch_Hud.Scripts.Mods.Items.Crafting;
 
+using LastEpoch_Hud.Scripts.Core.Tuning;
 namespace LastEpoch_Hud.Scripts.Mods.Economy;
 
 /// <summary>Listing-owned crafting metadata, with permanent markers applied when an item is delivered.</summary>
@@ -55,13 +56,13 @@ internal static class BazaarCraftedItems
         var state = new BazaarCraftingState();
         // Some sellers finished a memory craft, while others sell the item before unveiling it.
         double memoryRoll = random.NextDouble();
-        if (memoryRoll < 0.28)
+        if (memoryRoll < Tunables.Get("Bazaar.MemoryChance", 0.28))
         {
             var memory = Items_Reminiscence.PlanMemory(item, random, out var original);
             if (memory != null)
             {
                 int index = item.affixes.IndexOf(original);
-                if (memoryRoll < 0.10)
+                if (memoryRoll < Tunables.Get("Bazaar.UnrevealedMemoryChance", 0.10))
                 {
                     item.affixes.RemoveAt(index);
                     state.Memory = memory;
@@ -77,7 +78,8 @@ internal static class BazaarCraftedItems
         }
 
         var ordinary = item.affixes.ToArray().Where(a => a != null && !CraftProtection.IsAttached(item, a)).ToList();
-        if (state.Memory == null && ordinary.Count >= 4 && random.NextDouble() < 0.16)
+        if (state.Memory == null && ordinary.Count >= Tunables.GetInt("Encapsulation.MinAffixes", 4)
+            && random.NextDouble() < Tunables.Get("Bazaar.EncapsulatedChance", 0.16))
             state.EncapsulatedAffixId = ordinary[random.Next(ordinary.Count)].affixId;
         if (state.Memory == null && !state.RemindedAffixId.HasValue && !state.EncapsulatedAffixId.HasValue) return null;
 

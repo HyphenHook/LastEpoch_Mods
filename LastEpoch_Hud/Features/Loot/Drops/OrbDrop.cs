@@ -6,6 +6,7 @@ using LastEpoch_Hud.Scripts.Mods.Items.AutoLoot;
 using LastEpoch_Hud.Scripts.Mods.Items.Crafting;
 using UnityEngine;
 
+using LastEpoch_Hud.Scripts.Core.Tuning;
 namespace LastEpoch_Hud.Scripts.Mods.Items.Drop;
 
 /// <summary>
@@ -26,7 +27,7 @@ internal static class OrbDrop
     private static (byte Type, ushort Subtype)? eyeType;
     private static readonly System.Random Rng = new();
 
-    private const double ReminiscenceDropChance = 0.5;
+    private static double ReminiscenceDropChance => LastEpoch_Hud.Scripts.Core.Tuning.Tunables.Get("OrbDrop.ReminiscenceChance", 0.5);
 
     internal static bool IsPhysical(ItemData item) => !item.IsNullOrDestroyed() && Item.isKey(item.itemType)
         && item.individualID >= Marker + PhysicalMarkerOffset && item.individualID <= AttunementMarker + PhysicalMarkerOffset;

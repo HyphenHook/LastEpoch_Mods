@@ -1,4 +1,4 @@
-﻿using HarmonyLib;
+using HarmonyLib;
 using MelonLoader;
 using UnityEngine;
 
@@ -167,18 +167,21 @@ public class Character_TwoHandedShield : MonoBehaviour
         {
             // This wrapper is absent in some generated assembly sets.
             // Resolve its native compatibility method without a compile-time dependency.
-            foreach (var type in typeof(Il2Cpp.ItemContainersManager).Assembly.GetTypes())
-            {
-                if (type.Name != "PaperDollContainer")
-                    continue;
-                var method = AccessTools.DeclaredMethod(
-                    type,
-                    "checkWeaponSlotCompatibility",
-                    new[] { typeof(Il2Cpp.ItemData), typeof(int) }
-                );
-                if (method != null)
-                    yield return method;
-            }
+            // It is a nested type of ItemContainersManager. Never enumerate the whole game assembly's
+            // types here: loading all of them crashed coreclr while Harmony collected the patch targets.
+            var type = typeof(Il2Cpp.ItemContainersManager).GetNestedType(
+                "PaperDollContainer",
+                System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.NonPublic
+            );
+            if (type == null)
+                yield break;
+            var method = AccessTools.DeclaredMethod(
+                type,
+                "checkWeaponSlotCompatibility",
+                new[] { typeof(Il2Cpp.ItemData), typeof(int) }
+            );
+            if (method != null)
+                yield return method;
         }
 
         [HarmonyPrefix]

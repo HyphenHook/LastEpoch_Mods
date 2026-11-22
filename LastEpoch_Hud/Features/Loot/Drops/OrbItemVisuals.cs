@@ -268,7 +268,9 @@ internal static class OrbItemVisuals
         [HarmonyPostfix]
         private static void Postfix(UITooltipItem __instance, ItemDataUnpacked __0, bool __2)
         {
-            if (!__2) BindLegacyIcons(__instance, __0);
+            if (__2) return;
+            BindLegacyIcons(__instance, __0);
+            Jewels.JewelVisuals.ApplyLegacyIcons(__instance, __0);
         }
     }
 

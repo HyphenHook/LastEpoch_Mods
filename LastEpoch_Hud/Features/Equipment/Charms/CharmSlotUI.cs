@@ -134,6 +134,9 @@ internal static class CharmSlotUI
             float helmetTop = helmetRect.localPosition.y + helmetRect.rect.yMax;
             centerY = helmetTop - boxHeight * 0.5f;
         }
+        // The Charm slot is vertically centred on the box. Lifting the Jewel column by one slot plus a gap puts
+        // the bottom Jewel slot level with the Charm slot.
+        float jewelRise = side + slotGap;
 
         column = R.MakeImage(parent, "Charm and Jewel Equipment", Color.clear);
         column.gameObject.layer = parent.gameObject.layer;
@@ -154,7 +157,7 @@ internal static class CharmSlotUI
             slotRect.sizeDelta = new Vector2(side, side);
             slotRect.anchoredPosition = i == 0
                 ? new Vector2(0f, -(boxHeight - side) * 0.5f)
-                : new Vector2(side + slotGap, -(i - 1) * (side + slotGap));
+                : new Vector2(side + slotGap, jewelRise - (i - 1) * (side + slotGap));
             slots[i].sprite = OrbArt.Named("charm_equipment_slot");
             icons[i] = R.MakeImage(slotRect, i == 0 ? "Charm Item Icon" : "Jewel Item Icon", Color.white);
             icons[i].gameObject.layer = parent.gameObject.layer;
@@ -170,7 +173,11 @@ internal static class CharmSlotUI
             {
                 var pointer = data.TryCast<PointerEventData>();
                 if (pointer?.button == PointerEventData.InputButton.Left) CharmEquipment.Move(index);
-                else if (pointer?.button == PointerEventData.InputButton.Right) CharmEquipment.UnequipToInventory(index);
+                else if (pointer?.button == PointerEventData.InputButton.Right)
+                {
+                    if (CharmEquipment.ShiftHeld) CharmEquipment.DropEquipped(index);
+                    else CharmEquipment.UnequipToInventory(index);
+                }
             });
             Add(trigger, EventTriggerType.BeginDrag, data =>
             {

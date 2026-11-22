@@ -19,6 +19,12 @@ internal static class JewelStatEffects
     private static readonly float[] manaLeech = new float[4];
     private static readonly float[] extraDamage = new float[7];
     private static readonly List<LeechInstance> pendingLeech = new();
+    private static int extraLogged;
+
+    /// <summary>What the Jewels currently give to damage and leech, for the inspector.</summary>
+    internal static string Inspect() => "Jewel damage as extra (" + (hasExtraDamage ? "on" : "off") + "): "
+        + string.Join("/", extraDamage.Select(x => x.ToString("0.###"))) + "; mana leech global/spell/melee/throwing: "
+        + string.Join("/", manaLeech.Select(x => x.ToString("0.####"))) + "; pending leech instances: " + pendingLeech.Count;
     private static readonly AT[] leechTags = { AT.None, AT.Spell, AT.Melee, AT.Throwing };
     private static readonly SP[] attributes = { SP.Strength, SP.Dexterity, SP.Intelligence, SP.Attunement, SP.Vitality };
     private struct LeechInstance { internal float Remaining, BaseSeconds; }
@@ -65,9 +71,9 @@ internal static class JewelStatEffects
         var definition = JewelAffixes.Get(affix.affixId);
         if (definition?.tiers == null || affix.affixTier >= definition.tiers.Count) return 0;
         var range = definition.tiers[affix.affixTier];
-        float value = JewelAffixRules.Roll(range.minRoll, range.maxRoll, affix.affixRoll);
-        float effect = ItemList.get().getAffixEffectModifier(item);
-        value *= effect;
+        float value = JewelAffixRules.RollStepped(range.minRoll, range.maxRoll, affix.affixRoll, JewelAffixes.StepOf(affix.affixId));
+        float effectBonus = ItemList.get().getAffixEffectModifier(item); // the bonus above one, 0 for a Jewel
+        value *= 1f + effectBonus;
         var attunement = Items_Attunement.StateOf(item);
         if (attunement != null) value *= (float)attunement.AffixMultiplier(affix.affixId, affix.affixTier, affix.affixRoll);
         return value;
@@ -79,32 +85,51 @@ internal static class JewelStatEffects
         private static bool Prefix(ItemAffix __0) => __0 == null || !JewelAffixRules.IsCustomEffect(__0.affixId);
         private static void Postfix(ItemData __instance, Il2CppSystem.Collections.Generic.List<Stats.Stat> __2)
         {
-            if (__instance.itemType == JewelAffixRules.BaseType) ExpandIncreasedAttributes(__2);
+            if (__instance.itemType == JewelAffixRules.BaseType) ExpandAllAttributes(__2);
         }
     }
 
-    [HarmonyPatch(typeof(ItemData), nameof(ItemData.AddImplicitValuesToStatList))]
-    private static class ImplicitAttributes
+    /// <summary>
+    /// A Jewel's implicit stats. The game's own implicit code does not handle base type 44, so they are worked out here
+    /// from the subtype's implicit definitions and the item's rolls, then All Attributes is spread over the attributes.
+    /// </summary>
+    internal static void AddImplicitStats(ItemDataUnpacked item, Il2CppSystem.Collections.Generic.List<Stats.Stat> stats)
     {
-        private static void Postfix(ItemData __instance, Il2CppSystem.Collections.Generic.List<Stats.Stat> __1)
+        if (item.IsNullOrDestroyed() || stats == null || item.itemType != JewelAffixRules.BaseType) return;
+        var definitions = item.Implicits;
+        var rolls = item.implicitRolls;
+        if (definitions == null) return;
+        var attunement = Items_Attunement.StateOf(item);
+        double scale = attunement == null || rolls == null ? 1 : attunement.ImplicitMultiplier(item.itemType, item.subType, rolls);
+        for (int i = 0; i < definitions.Count; i++)
         {
-            if (__instance.itemType == JewelAffixRules.BaseType) ExpandIncreasedAttributes(__1);
+            var definition = definitions[i];
+            if (definition == null) continue;
+            byte roll = rolls != null && i < rolls.Length ? rolls[i] : (byte)0;
+            float value = (float)(JewelAffixRules.Roll(definition.implicitValue, definition.implicitMaxValue, roll) * scale);
+            bool increased = definition.type == BaseStats.ModType.INCREASED;
+            stats.Add(new Stats.Stat(definition.property, definition.tags, increased ? 0f : value, increased ? value : 0f, 0f,
+                definition.specialTag, definition.extraTag));
         }
+        ExpandAllAttributes(stats);
     }
 
-    private static void ExpandIncreasedAttributes(Il2CppSystem.Collections.Generic.List<Stats.Stat> stats)
+    // The game does not spread an All Attributes stat over the five attributes for these items, so do it here: each
+    // attribute gets the whole added amount and the whole increase, and the original stat is zeroed so nothing counts twice.
+    internal static void ExpandAllAttributes(Il2CppSystem.Collections.Generic.List<Stats.Stat> stats)
     {
         if (stats == null) return;
         int count = stats.Count;
         for (int i = 0; i < count; i++)
         {
             var stat = stats[i];
-            if (stat == null || stat.property != SP.AllAttributes || stat.increasedValue == 0) continue;
-            float increased = stat.increasedValue;
-            // Leave added all attributes native, but explicitly scale each entire core attribute.
+            if (stat == null || stat.property != SP.AllAttributes) continue;
+            float added = stat.addedValue, increased = stat.increasedValue;
+            if (added == 0 && increased == 0) continue;
+            stat.addedValue = 0;
             stat.increasedValue = 0;
             foreach (var attribute in attributes)
-                stats.Add(new Stats.Stat(attribute, stat.tags, 0f, increased, 0f, stat.specialTag, stat.extraTag));
+                stats.Add(new Stats.Stat(attribute, stat.tags, added, increased, 0f, stat.specialTag, stat.extraTag));
         }
     }
 
@@ -137,7 +162,14 @@ internal static class JewelStatEffects
             {
                 var copy = __0.Copy();
                 var values = __0.damage.ToArray();
+                float before = values.Sum();
                 JewelAffixRules.ApplyExtraDamage(values, extraDamage);
+                if (extraLogged < 5)
+                {
+                    extraLogged++;
+                    Main.logger_instance?.Msg("Jewel damage as extra: a hit of " + before + " became " + values.Sum()
+                        + " (extra fractions " + string.Join("/", extraDamage.Select(x => x.ToString("0.###"))) + ")");
+                }
                 copy.damage = new Il2CppInterop.Runtime.InteropTypes.Arrays.Il2CppStructArray<float>(values);
                 __0 = copy;
             }
@@ -225,7 +257,7 @@ internal static class JewelStatEffects
             if (definition == null) return true;
             var range = definition.tiers[Math.Min(__1.affixTier, (byte)6)];
             float value = CustomValue(__0, __1);
-            float rolled = JewelAffixRules.Roll(range.minRoll, range.maxRoll, __1.affixRoll);
+            float rolled = JewelAffixRules.RollStepped(range.minRoll, range.maxRoll, __1.affixRoll, JewelAffixes.StepOf(__1.affixId));
             float factor = rolled == 0 ? 1 : value / rolled;
             var info = new ItemTooltipPropertyModifierInfo(Describe(__1.affixId, value),
                 new BasePropertyInfo { hideModifierValue = true, displayAddedAsPercentage = true },

@@ -47,6 +47,42 @@ internal static class CharmEquipment
     private static int appliedCount;
     private static string appliedSignature;
     private static readonly List<Stats.Stat> appliedJewelStats = new();
+
+    // The game applies "increased" to most stats but not to a core attribute, so Jewel increases to Strength, Dexterity,
+    // Intelligence, Attunement and Vitality are worked out here and added as a flat amount of that attribute.
+    private static readonly SP[] AttributeProperties = { SP.Strength, SP.Dexterity, SP.Intelligence, SP.Attunement, SP.Vitality };
+    private static readonly CoreAttribute.Attribute[] AttributeIds =
+    {
+        CoreAttribute.Attribute.Strength, CoreAttribute.Attribute.Dexterity, CoreAttribute.Attribute.Intelligence,
+        CoreAttribute.Attribute.Attunement, CoreAttribute.Attribute.Vitality,
+    };
+    private static readonly float[] attributeIncrease = new float[5];
+    private static readonly int[] attributeBonus = new int[5];
+
+    /// <summary>Keeps each attribute's bonus equal to its increase times the attribute without that bonus.</summary>
+    internal static void MaintainAttributeBonuses()
+    {
+        var target = appliedTo;
+        if (target.IsNullOrDestroyed()) return;
+        bool changed = false;
+        for (int i = 0; i < AttributeProperties.Length; i++)
+        {
+            int desired = 0;
+            if (attributeIncrease[i] > 0)
+            {
+                float own = target.GetAttributeValue(AttributeIds[i]) - attributeBonus[i];
+                desired = (int)Math.Floor(Math.Max(0f, own) * attributeIncrease[i]);
+            }
+            if (desired == attributeBonus[i]) continue;
+            if (attributeBonus[i] != 0)
+                target.RemoveStatModifier(AttributeProperties[i], attributeBonus[i], BaseStats.ModType.ADDED, (AT)0, 0, 0);
+            if (desired != 0)
+                target.AddStatModifier(AttributeProperties[i], desired, BaseStats.ModType.ADDED, (AT)0, 0, 0);
+            attributeBonus[i] = desired;
+            changed = true;
+        }
+        if (changed) target.UpdateStatsNextFrame();
+    }
     private const byte JewelType = 44;
     private static readonly HashSet<string> deliveredReturns = new();
     private static Il2CppCysharp.Threading.Tasks.UniTask returnSave;
@@ -88,7 +124,32 @@ internal static class CharmEquipment
             + $"Charm base type: {CarrierType}; subtype: {registrar.BaseId}\n"
             + $"Charm modifier: +{(appliedTo.IsNullOrDestroyed() ? 0 : appliedCount * TestIntelligence)} Intelligence\n"
             + $"Native Jewel modifiers: {appliedJewelStats.Count}; pending returns: {saved?.Keys.Count(x => x.StartsWith(characterKey + "|PendingReturn|", StringComparison.Ordinal)) ?? 0}\n"
-            + $"Character Intelligence: {actor.stats.GetAttributeValue(CoreAttribute.Attribute.Intelligence)}";
+            + $"Character Intelligence: {actor.stats.GetAttributeValue(CoreAttribute.Attribute.Intelligence)}"
+            + "\n" + InspectJewelStats(actor);
+    }
+
+    // What the Jewels hand to the game, and what the character ends up with. For checking implicit and attribute maths.
+    private static string InspectJewelStats(Actor actor)
+    {
+        var text = new System.Text.StringBuilder();
+        text.Append("Applied Jewel stats (" + appliedJewelStats.Count + "):");
+        foreach (var stat in appliedJewelStats)
+            text.Append("\n  " + stat.property + " tags=" + stat.tags + " added=" + stat.addedValue + " increased=" + stat.increasedValue
+                + " more=" + (stat.moreValues == null ? "none" : string.Join("/", stat.moreValues.ToArray())));
+        text.Append("\n" + JewelStatEffects.Inspect());
+        var stats = actor.stats;
+        text.Append("\nAttribute increases from Jewels: Str " + attributeIncrease[0] + ", Dex " + attributeIncrease[1] + ", Int " + attributeIncrease[2]
+            + ", Att " + attributeIncrease[3] + ", Vit " + attributeIncrease[4] + "; bonus added: " + string.Join("/", attributeBonus));
+        text.Append("\nAttributes: Str " + stats.GetAttributeValue(CoreAttribute.Attribute.Strength)
+            + ", Dex " + stats.GetAttributeValue(CoreAttribute.Attribute.Dexterity)
+            + ", Int " + stats.GetAttributeValue(CoreAttribute.Attribute.Intelligence)
+            + ", Att " + stats.GetAttributeValue(CoreAttribute.Attribute.Attunement)
+            + ", Vit " + stats.GetAttributeValue(CoreAttribute.Attribute.Vitality));
+        text.Append("\nTotals: added All Attributes " + stats.GetTotalAdded(SP.AllAttributes, AT.None, 0, 0, false)
+            + ", added Mana " + stats.GetTotalAdded(SP.Mana, AT.None, 0, 0, false) + ", increased Mana " + stats.GetTotalIncreased(SP.Mana, AT.None, 0, 0)
+            + ", added Health " + stats.GetTotalAdded(SP.Health, AT.None, 0, 0, false) + ", increased Health " + stats.GetTotalIncreased(SP.Health, AT.None, 0, 0)
+            + ", increased Damage " + stats.GetTotalIncreased(SP.Damage, AT.None, 0, 0));
+        return text.ToString();
     }
 
     internal static void Tick()
@@ -192,6 +253,7 @@ internal static class CharmEquipment
             {
                 statsCheckAt = UnityEngine.Time.unscaledTime + 0.25f;
                 SetStatsTarget(stats);
+                MaintainAttributeBonuses();
             }
             CharmSlotUI.Tick(ready);
         }
@@ -210,17 +272,29 @@ internal static class CharmEquipment
         // Resolve all native rolls before touching the active modifiers. Keep independent
         // snapshots: addStat may collapse/mutate the Stat passed to it.
         var modifiers = new List<Stats.Stat>();
+        var nextIncrease = new float[AttributeProperties.Length];
         if (!target.IsNullOrDestroyed())
             for (int i = 1; i < SlotCount; i++)
             {
                 var item = equipped[i];
                 if (item == null || !Accepts(i, item)) continue;
                 var native = new Il2CppSystem.Collections.Generic.List<Stats.Stat>();
-                item.AddImplicitValuesToStatList(false, ref native);
+                JewelStatEffects.AddImplicitStats(item, native);
                 if (item.affixes != null)
                     foreach (var affix in item.affixes)
                         item.AddAffixValueToStatList(affix, false, ref native);
-                foreach (var stat in native) modifiers.Add(new Stats.Stat(stat));
+                foreach (var stat in native)
+                {
+                    var copy = new Stats.Stat(stat);
+                    int attribute = Array.IndexOf(AttributeProperties, copy.property);
+                    if (attribute >= 0 && copy.increasedValue != 0)
+                    {
+                        nextIncrease[attribute] += copy.increasedValue;
+                        copy.increasedValue = 0;
+                        if (copy.addedValue == 0) continue;
+                    }
+                    modifiers.Add(copy);
+                }
             }
         appliedSignature = null;
         if (!appliedTo.IsNullOrDestroyed())
@@ -237,10 +311,17 @@ internal static class CharmEquipment
                 appliedTo.RemoveStatModifier(SP.Intelligence, appliedCount * TestIntelligence, BaseStats.ModType.ADDED, (AT)0, 0, 0);
                 appliedCount = 0;
             }
+            for (int i = 0; i < attributeBonus.Length; i++)
+            {
+                if (attributeBonus[i] != 0)
+                    appliedTo.RemoveStatModifier(AttributeProperties[i], attributeBonus[i], BaseStats.ModType.ADDED, (AT)0, 0, 0);
+                attributeBonus[i] = 0;
+            }
             appliedTo.UpdateStatsNextFrame();
         }
         appliedTo = null;
         appliedCount = 0;
+        Array.Clear(attributeIncrease, 0, attributeIncrease.Length);
         appliedJewelStats.Clear();
         appliedSignature = null;
         if (target.IsNullOrDestroyed())
@@ -260,8 +341,15 @@ internal static class CharmEquipment
             target.addStat(new Stats.Stat(stat));
             appliedJewelStats.Add(stat);
         }
+        Array.Copy(nextIncrease, attributeIncrease, attributeIncrease.Length);
         JewelStatEffects.Refresh(ItemContainersManager.Instance.actor, equipped.Skip(1));
         appliedSignature = signature;
+        if (attributeIncrease.Any(x => x > 0))
+        {
+            // Read the attributes as they are now, not as they were a moment ago, so the increase is right straight away.
+            target.UpdateStats();
+            MaintainAttributeBonuses();
+        }
         target.UpdateStatsNextFrame();
     }
 
@@ -391,14 +479,8 @@ internal static class CharmEquipment
             else
             {
                 if (takeOnly) return;
-                if (equipped[index] == null || !Accepts(index, held[0].data))
-                {
-                    // A cursor click/drop may target either column; route to the
-                    // first free slot of the item's own type, never to a swap.
-                    int valid = FirstEmpty(held[0].data);
-                    if (valid < 0) { Status = index == 0 ? "Only Charms fit here." : "Only Jewels fit here."; return; }
-                    index = valid;
-                }
+                // The item goes exactly where it was dropped. A slot of the wrong type refuses it.
+                if (!Accepts(index, held[0].data)) { Status = index == 0 ? "Only Charms fit here." : "Only Jewels fit here."; return; }
                 var item = new ItemDataUnpacked(held[0].data.GetID());
                 if (!Accepts(index, item) || !cursor.TryRemoveItem(held[0], 1, Context.DEFAULT)) return;
                 bool swapped = equipped[index] != null;
@@ -424,6 +506,38 @@ internal static class CharmEquipment
             Status = "Could not update the accessory slot.";
             ErrorLog.Report(ex, "Move accessory");
         }
+    }
+
+    internal static bool ShiftHeld => UnityEngine.Input.GetKey(UnityEngine.KeyCode.LeftShift)
+        || UnityEngine.Input.GetKey(UnityEngine.KeyCode.RightShift);
+
+    /// <summary>Shift + right click: the equipped item drops on the ground, like regular equipment.</summary>
+    internal static void DropEquipped(int index)
+    {
+        if (characterKey == null || index < 0 || index >= SlotCount || equipped[index] == null) return;
+        var ground = Refs_Manager.ground_item_manager;
+        var player = Refs_Manager.player_actor;
+        if (ground.IsNullOrDestroyed() || player.IsNullOrDestroyed()) return;
+        var item = equipped[index];
+        try { Save(index, null); }
+        catch (Exception ex)
+        {
+            ErrorLog.Report(ex, "Drop accessory");
+            return;
+        }
+        equipped[index] = null;
+        try
+        {
+            ModItemDrop.Drop(ground, player, item, player.position());
+        }
+        catch (Exception ex)
+        {
+            ErrorLog.Report(ex, "Drop accessory");
+            try { Save(index, item); equipped[index] = item; }
+            catch (Exception restore) { ErrorLog.Report(restore, "Restore dropped accessory"); }
+        }
+        SetStatsTarget(ItemContainersManager.Instance?.actor?.stats);
+        Status = "";
     }
 
     internal static void UnequipToInventory(int index)
@@ -462,7 +576,7 @@ internal static class CharmEquipment
         private static bool Prefix(ItemContainerUI __instance, PointerEventData __0)
         {
             if (characterKey == null || __instance.identifier != ContainerID.INVENTORY
-                || __0.button != PointerEventData.InputButton.Right) return true;
+                || __0.button != PointerEventData.InputButton.Right || ShiftHeld) return true;
             var manager = ItemContainersManager.Instance;
             if (manager.IsNullOrDestroyed() || manager.inventory.IsNullOrDestroyed()
                 || manager.cursor.IsNullOrDestroyed() || manager.cursor.HasContent()) return true;

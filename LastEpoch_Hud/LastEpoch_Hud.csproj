@@ -197,6 +197,7 @@
   <ItemGroup>
     <Compile Remove="Assets\Source\**" />
     <EmbeddedResource Include="Assets\Generated\*.png" LogicalName="Generated.%(Filename)%(Extension)" />
+    <EmbeddedResource Include="Data\*.csv" LogicalName="Data.%(Filename)%(Extension)" />
     <EmbeddedResource Include="Assets\Generated\Recombinator\**\*.png" LogicalName="Recombinator/%(RecursiveDir)%(Filename)%(Extension)" />
   </ItemGroup>
   <ItemGroup>

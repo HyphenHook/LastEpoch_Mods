@@ -102,8 +102,11 @@ internal static partial class OfflineBazaarMarket
     private const long MaxCatchUpSeconds = 24 * 3600;
     private const int ItemLevel = 80;
     private const int FillBudgetMs = 150;
-    private const int FirstVisitListings = 100; // shown at once on a first visit; the rest arrive in the background
-    private const double BackgroundFillInterval = 0.2; // seconds between background batches: relaxed so play stays smooth
+    // Clicking a stall waits on this fill, so it only has to cover what the first page needs: the rest arrives in
+    // the background. One listing takes roughly 12-20 ms to build, so this is a few listings, not a shelf.
+    private const int OpenFillBudgetMs = 40;
+    private const int FirstVisitListings = 24; // shown at once on a first visit; the rest arrive in the background
+    private const double BackgroundFillInterval = 0.6; // seconds between background batches: relaxed so play stays smooth
     private const int BackgroundBatch = 1; // listings tried per batch
     private const int BackgroundBudgetMs = 4; // time a batch may take
     private static double _nextBackgroundFillAt;
@@ -428,7 +431,7 @@ internal static partial class OfflineBazaarMarket
         {
             // First visit: stock what fits in this frame's budget, and let the background filler complete
             // the rest of the shelf over the next few seconds.
-            Fill(stall, Math.Min(FirstVisitListings, StockPerStall - Npc(stall).Count), budgetMs: 1500);
+            Fill(stall, Math.Min(FirstVisitListings, StockPerStall - Npc(stall).Count), budgetMs: OpenFillBudgetMs);
             _stallSimUnix[stall] = nowUnix;
             _pendingArrivals[stall] = Math.Max(0, StockPerStall - Npc(stall).Count);
             MarkDirty();
@@ -440,7 +443,8 @@ internal static partial class OfflineBazaarMarket
         {
             if (withArrivals)
             {
-                Fill(stall, (int)Math.Min(PendingArrivals(stall), StockPerStall - Npc(stall).Count));
+                int filled = Fill(stall, (int)Math.Min(PendingArrivals(stall), StockPerStall - Npc(stall).Count), budgetMs: OpenFillBudgetMs);
+                _pendingArrivals[stall] = Math.Max(0, PendingArrivals(stall) - filled);
             }
             return;
         }
@@ -478,7 +482,7 @@ internal static partial class OfflineBazaarMarket
             if (!deferFill)
             {
                 int want = (int)Math.Min(PendingArrivals(stall), room);
-                added = Fill(stall, want);
+                added = Fill(stall, want, budgetMs: OpenFillBudgetMs);
                 _pendingArrivals[stall] = Math.Max(0, PendingArrivals(stall) - added);
             }
             Crumb("stall " + stall + ": " + (int)minutes + " min passed, " + bought + " bought, " + takenDown + " taken down, " + added + " new now, " + (int)PendingArrivals(stall) + " more arriving, " + Npc(stall).Count + " on shelf");

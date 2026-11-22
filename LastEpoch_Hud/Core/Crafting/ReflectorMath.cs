@@ -1,6 +1,7 @@
 using System;
 using LastEpoch_Hud.Scripts.Core.Items;
 
+using LastEpoch_Hud.Scripts.Core.Tuning;
 namespace LastEpoch_Hud.Scripts.Core.Crafting;
 
 /// <summary>
@@ -15,11 +16,11 @@ public static class ReflectorMath
     public const int FullItem = 4;
 
     /// <summary>Chance of a fifth affix on an item holding four, and of a sixth on an item holding five.</summary>
-    public const double FifthAffixChance = 0.20;
-    public const double SixthAffixChance = 0.10;
+    public static double FifthAffixChance => Tunables.Get("Reflector.FifthAffixChance", 0.20);
+    public static double SixthAffixChance => Tunables.Get("Reflector.SixthAffixChance", 0.10);
 
     // How much the tier of the reflected affix changes the odds (T1..T7): the higher the tier, the harder it is to reflect.
-    private static readonly double[] TierFactor = { 0, 1.25, 1.20, 1.10, 1.00, 0.80, 0.55, 0.35 };
+    private static double[] TierFactor => Tunables.Tiers("Reflector.TierFactor", new double[] { 0, 1.25, 1.20, 1.10, 1.00, 0.80, 0.55, 0.35 });
 
     /// <summary>Why this pair cannot be reflected, going by how many ordinary affixes each holds. Empty when it can.</summary>
     public static string WhyNot(int itemAAffixes, int itemBAffixes)
@@ -63,7 +64,7 @@ public static class ReflectorMath
     }
 
     // The chance of gaining one more affix by how many item A holds (1 to 5), when item B holds one.
-    private static readonly double[] LegendaryByA = { 0, 0.20, 0.15, 0.10, 0.06, 0.03 };
+    private static double[] LegendaryByA => Tunables.Tiers("Reflector.LegendaryByA", new double[] { 0, 0.20, 0.15, 0.10, 0.06, 0.03 });
 
     /// <summary>
     /// Chance that one of B's affixes lands on A. It falls as A fills up (2 to 3 affixes is 15%, 3 to 4 is 10%, 4 to 5 is
@@ -73,7 +74,7 @@ public static class ReflectorMath
     public static double LegendaryChance(int itemAAffixes, int itemBAffixes)
     {
         double byA = LegendaryByA[Math.Clamp(itemAAffixes, 1, 5)];
-        double byB = 1.0 + 0.20 * (Math.Clamp(itemBAffixes, 1, 6) - 1);
+        double byB = 1.0 + Tunables.Get("Reflector.LegendaryPerExtraAffixOnB", 0.20) * (Math.Clamp(itemBAffixes, 1, 6) - 1);
         return Math.Clamp(byA * byB, 0, 1);
     }
 
@@ -81,14 +82,16 @@ public static class ReflectorMath
 
     // The Memory Amber a full item costs, before the tier of the affix and how full A is are added in. This is an
     // end-game price: it is meant to sit well above the Weaver's own shop.
-    public const int AmberBase = 1500;
-    public const long GoldBase = 150_000;
-    public const int BonesBase = 5_000;
+    public static int AmberBase => Tunables.GetInt("Reflector.AmberBase", 1500);
+    public static long GoldBase => Tunables.GetLong("Reflector.GoldBase", 150_000);
+    public static int BonesBase => Tunables.GetInt("Reflector.BonesBase", 5_000);
 
     // Extra cost by the tier of the reflected affix (T1..T7), as a share of the base.
-    private static readonly double[] TierCost = { 0, 0, 0.05, 0.1, 0.25, 0.5, 0.9, 1.4 };
+    private static double[] TierCost => Tunables.Tiers("Reflector.TierCost", new double[] { 0, 0, 0.05, 0.1, 0.25, 0.5, 0.9, 1.4 });
 
-    private static double FullnessCost(int itemAAffixes) => itemAAffixes >= FullItem + 1 ? 1.4 : 1.0;
+    private static double FullnessCost(int itemAAffixes) => itemAAffixes >= FullItem + 1 ? Tunables.Get("Reflector.FullnessCostFactor", 1.4) : 1.0;
+
+    private static double LegendaryFullFactor(int itemAAffixes) => itemAAffixes >= 4 ? Tunables.Get("Reflector.LegendaryFullFactor", 1.6) : 1.0;
 
     public static int MemoryAmber(int itemAAffixes, int displayedTier) =>
         (int)Math.Ceiling(AmberBase * FullnessCost(itemAAffixes) * (1 + TierCost[Math.Clamp(displayedTier, 1, 7)]));
@@ -101,11 +104,11 @@ public static class ReflectorMath
 
     // Legendary items have no chosen affix, so cost follows how many affixes are involved instead.
     public static int LegendaryMemoryAmber(int itemAAffixes, int itemBAffixes) =>
-        (int)Math.Ceiling((1200 + 500.0 * itemBAffixes) * (itemAAffixes >= 4 ? 1.6 : 1.0));
+        (int)Math.Ceiling((Tunables.Get("Reflector.LegendaryAmberBase", 1200) + Tunables.Get("Reflector.LegendaryAmberPerAffix", 500) * itemBAffixes) * LegendaryFullFactor(itemAAffixes));
 
     public static long LegendaryGold(int itemAAffixes, int itemBAffixes) =>
-        (long)Math.Ceiling((100_000 + 50_000.0 * itemBAffixes) * (itemAAffixes >= 4 ? 1.6 : 1.0));
+        (long)Math.Ceiling((Tunables.Get("Reflector.LegendaryGoldBase", 100_000) + Tunables.Get("Reflector.LegendaryGoldPerAffix", 50_000) * itemBAffixes) * LegendaryFullFactor(itemAAffixes));
 
     public static int LegendaryBones(int itemAAffixes, int itemBAffixes) =>
-        (int)Math.Ceiling((3_000 + 1_000.0 * itemBAffixes) * (itemAAffixes >= 4 ? 1.6 : 1.0));
+        (int)Math.Ceiling((Tunables.Get("Reflector.LegendaryBonesBase", 3_000) + Tunables.Get("Reflector.LegendaryBonesPerAffix", 1_000) * itemBAffixes) * LegendaryFullFactor(itemAAffixes));
 }

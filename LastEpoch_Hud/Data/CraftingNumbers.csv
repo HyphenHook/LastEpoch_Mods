@@ -1,0 +1,99 @@
+# Adjustable numbers of the crafting features. Embedded in the mod at compile time: edit here, then rebuild.
+# Name,Value,Note. A name missing from this file keeps its built-in default. Chances are fractions (0.15 = 15%).
+# Tier lists are one row per tier: ".1" is T1, ".2" is T2, and so on.
+Name,Value,Note
+# ---------------------------------------------------------------- Orb of Attunement
+Attunement.MinMultiplier,0.7,Lowest multiplier the orb can roll
+Attunement.MaxMultiplier,1.3,Highest multiplier the orb can roll (rolls are in steps of 0.001 between min and max)
+# ---------------------------------------------------------------- Orb of Chaos (chaos reroll)
+Chaos.MaxRerolledTier,5,Highest tier a reroll can produce; affixes above it are kept
+Chaos.TierWeight.1,6,Odds weight of T1 for a rerolled affix
+Chaos.TierWeight.2,10,Odds weight of T2
+Chaos.TierWeight.3,16,Odds weight of T3
+Chaos.TierWeight.4,22,Odds weight of T4
+Chaos.TierWeight.5,22,Odds weight of T5
+Chaos.TierWeight.6,0,Odds weight of T6 (never given by default)
+Chaos.TierWeight.7,0,Odds weight of T7 (never given by default)
+# ---------------------------------------------------------------- Orb of Encapsulation
+Encapsulation.MinAffixes,4,Ordinary affixes an item needs before it can be encapsulated
+# ---------------------------------------------------------------- Orb drops
+OrbDrop.Normal,0.0003,Chance a normal enemy drops an Orb of Encapsulation
+OrbDrop.Magic,0.002,Chance a magic enemy drops an Orb of Encapsulation
+OrbDrop.Rare,0.015,Chance a rare enemy drops an Orb of Encapsulation
+OrbDrop.Boss,0.1,Chance a boss drops an Orb of Encapsulation
+OrbDrop.ReminiscenceChance,0.5,Chance an Orb of Reminiscence drops in the places it can
+# ---------------------------------------------------------------- Recombinator: chance
+Recombinator.TierSurvival.1,0.95,Chance one chosen T1 affix survives the merge
+Recombinator.TierSurvival.2,0.95,Chance one chosen T2 affix survives the merge
+Recombinator.TierSurvival.3,0.95,Chance one chosen T3 affix survives the merge
+Recombinator.TierSurvival.4,0.9,Chance one chosen T4 affix survives the merge
+Recombinator.TierSurvival.5,0.8,Chance one chosen T5 affix survives the merge
+Recombinator.TierSurvival.6,0.55,Chance one chosen T6 affix survives the merge
+Recombinator.TierSurvival.7,0.4,Chance one chosen T7 affix survives the merge
+Recombinator.CountFactor.1,1,Multiplier when 1 affix is chosen
+Recombinator.CountFactor.2,0.94,Multiplier when 2 affixes are chosen
+Recombinator.CountFactor.3,0.86,Multiplier when 3 affixes are chosen
+Recombinator.CountFactor.4,0.77,Multiplier when 4 affixes are chosen
+Recombinator.CountFactor.5,0.68,Multiplier when 5 affixes are chosen
+Recombinator.CountFactor.6,0.6,Multiplier when 6 affixes are chosen
+Recombinator.PrimordialBoost,1.5,Primordial recombination: how many times as likely a deterministic merge is
+Recombinator.ExcessPenalty,0.5,Chance factor for each chosen affix above the average of the two items
+Recombinator.CeilingFour,0.15,Highest chance when 4 affixes are chosen above the items' average
+Recombinator.CeilingFiveOrMore,0.02,Highest chance when 5 or more affixes are chosen above the items' average
+Recombinator.VariedFewerChance,0.15,Indeterministic mode: chance the result holds one affix fewer
+Recombinator.VariedMoreChance,0.15,Indeterministic mode: chance the result holds one affix more
+# ---------------------------------------------------------------- Recombinator: cost
+Recombinator.TierUnit.1,1,Cost units of a T1 affix
+Recombinator.TierUnit.2,1.5,Cost units of a T2 affix
+Recombinator.TierUnit.3,2.5,Cost units of a T3 affix
+Recombinator.TierUnit.4,4,Cost units of a T4 affix
+Recombinator.TierUnit.5,7,Cost units of a T5 affix
+Recombinator.TierUnit.6,20,Cost units of a T6 affix
+Recombinator.TierUnit.7,50,Cost units of a T7 affix
+Recombinator.GoldPerUnit,500,Gold per cost unit
+Recombinator.BaseEmbers,40,Soul Embers base fee
+Recombinator.EmbersPerUnit,1.5,Soul Embers per cost unit
+Recombinator.ExaltedItemFactor,1.5,Cost factor when either item is exalted
+Recombinator.PrimordialBaseBones,2500,Ancient Bones base amount for a primordial recombination
+Recombinator.BonesPerUnit,100,Ancient Bones per cost unit for a primordial recombination
+Recombinator.FlatGold,5000,Gold for the indeterministic mode
+Recombinator.FlatEmbers,60,Soul Embers for the indeterministic mode
+# ---------------------------------------------------------------- Memory Reflector: chance
+Reflector.FifthAffixChance,0.2,Chance of a fifth affix on an item holding four
+Reflector.SixthAffixChance,0.1,Chance of a sixth affix on an item holding five
+Reflector.TierFactor.1,1.25,Chance multiplier when reflecting a T1 affix
+Reflector.TierFactor.2,1.2,Chance multiplier when reflecting a T2 affix
+Reflector.TierFactor.3,1.1,Chance multiplier when reflecting a T3 affix
+Reflector.TierFactor.4,1,Chance multiplier when reflecting a T4 affix
+Reflector.TierFactor.5,0.8,Chance multiplier when reflecting a T5 affix
+Reflector.TierFactor.6,0.55,Chance multiplier when reflecting a T6 affix
+Reflector.TierFactor.7,0.35,Chance multiplier when reflecting a T7 affix
+Reflector.LegendaryByA.1,0.2,Legendary: chance when item A holds 1 affix
+Reflector.LegendaryByA.2,0.15,Legendary: chance when item A holds 2 affixes
+Reflector.LegendaryByA.3,0.1,Legendary: chance when item A holds 3 affixes
+Reflector.LegendaryByA.4,0.06,Legendary: chance when item A holds 4 affixes
+Reflector.LegendaryByA.5,0.03,Legendary: chance when item A holds 5 affixes
+Reflector.LegendaryPerExtraAffixOnB,0.2,Legendary: chance boost for each affix on item B beyond the first
+# ---------------------------------------------------------------- Memory Reflector: cost
+Reflector.AmberBase,1500,Memory Amber for a full item before tier and fullness
+Reflector.GoldBase,150000,Gold for a full item before tier and fullness
+Reflector.BonesBase,5000,Ancient Bones for a full item before tier and fullness
+Reflector.TierCost.1,0,Extra cost share for a T1 affix
+Reflector.TierCost.2,0.05,Extra cost share for a T2 affix
+Reflector.TierCost.3,0.1,Extra cost share for a T3 affix
+Reflector.TierCost.4,0.25,Extra cost share for a T4 affix
+Reflector.TierCost.5,0.5,Extra cost share for a T5 affix
+Reflector.TierCost.6,0.9,Extra cost share for a T6 affix
+Reflector.TierCost.7,1.4,Extra cost share for a T7 affix
+Reflector.FullnessCostFactor,1.4,Cost factor when item A already holds five affixes
+Reflector.LegendaryAmberBase,1200,Legendary: Memory Amber base
+Reflector.LegendaryAmberPerAffix,500,Legendary: Memory Amber per affix on item B
+Reflector.LegendaryGoldBase,100000,Legendary: gold base
+Reflector.LegendaryGoldPerAffix,50000,Legendary: gold per affix on item B
+Reflector.LegendaryBonesBase,3000,Legendary: Ancient Bones base
+Reflector.LegendaryBonesPerAffix,1000,Legendary: Ancient Bones per affix on item B
+Reflector.LegendaryFullFactor,1.6,Legendary: cost factor when item A holds 4 or more affixes
+# ---------------------------------------------------------------- Bazaar sellers
+Bazaar.MemoryChance,0.28,Chance a crafter listing carries a Memory
+Bazaar.UnrevealedMemoryChance,0.1,Share of all crafter listings whose Memory is still unrevealed
+Bazaar.EncapsulatedChance,0.16,Chance a crafter listing has an Encapsulated affix

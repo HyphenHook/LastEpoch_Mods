@@ -24,6 +24,8 @@ internal static class Items_AttunementStats
     }
 
     [ThreadStatic] private static Calculation current;
+    // While true every attunement factor is 1: used to ask the game for the item's original (unscaled) range text.
+    [ThreadStatic] private static bool suppress;
 
     private static Calculation Enter(ItemData item, bool modern = false)
     {
@@ -44,6 +46,7 @@ internal static class Items_AttunementStats
 
     internal static double ImplicitFactor(ItemData item)
     {
+        if (suppress) return 1;
         var state = Items_Attunement.StateOf(item);
         return state != null && state.ItemType == item.itemType && state.SubType == item.subType
             && Matches(state.Implicits, item.implicitRolls) ? state.Multiplier : 1;
@@ -51,6 +54,7 @@ internal static class Items_AttunementStats
 
     private static double UniqueFactor(UniqueItemMod modifier = null)
     {
+        if (suppress) return 1;
         var state = current?.State;
         if (state == null || state.UniqueId != current.Item.uniqueID || !Matches(state.Unique, current.Item.uniqueRolls)) return 1;
         if (modifier != null)
@@ -71,6 +75,7 @@ internal static class Items_AttunementStats
 
     private static double AffixFactor(int affixId)
     {
+        if (suppress) return 1;
         if (current?.State == null || current.Item.affixes == null) return 1;
         foreach (ItemAffix affix in current.Item.affixes)
         {
@@ -94,13 +99,30 @@ internal static class Items_AttunementStats
         implicitMaxValue = Scale(source.implicitMaxValue, factor, source.property, source.tags, source.specialTag, source.type),
     };
 
-    private static void ScaleRange(ItemTooltipModifierInfo info, double factor)
+    private static readonly System.Text.RegularExpressions.Regex RangeText = new(@"Range:[^<]*");
+
+    // The attuned value stays scaled, but the "Range: a to b" lines show the item's original range. The same text is
+    // asked for again with attunement switched off, and its range lines replace the scaled ones.
+    private static string WithOriginalRanges(string scaled, Func<string> original)
     {
-        if (info == null || Math.Abs(factor - 1) < 0.000001) return;
-        var property = info.TryCast<ItemTooltipPropertyModifierInfo>();
-        if (property == null) return;
-        property.MinValue = Scale(property.MinValue, factor, property._property, property._tags, property._specialTag, property._modType);
-        property.MaxValue = Scale(property.MaxValue, factor, property._property, property._tags, property._specialTag, property._modType);
+        if (suppress || scaled == null || scaled.IndexOf("Range:", StringComparison.Ordinal) < 0) return scaled;
+        string plain;
+        suppress = true;
+        try { plain = original(); }
+        catch (Exception) { return scaled; }
+        finally { suppress = false; }
+        if (plain == null) return scaled;
+        var a = RangeText.Matches(scaled);
+        var b = RangeText.Matches(plain);
+        if (a.Count == 0 || a.Count != b.Count) return scaled;
+        var text = new System.Text.StringBuilder();
+        int last = 0;
+        for (int i = 0; i < a.Count; i++)
+        {
+            text.Append(scaled, last, a[i].Index - last).Append(b[i].Value);
+            last = a[i].Index + a[i].Length;
+        }
+        return text.Append(scaled, last, scaled.Length - last).ToString();
     }
 
     [HarmonyPatch]
@@ -272,31 +294,33 @@ internal static class Items_AttunementStats
         }
     }
 
-    [HarmonyPatch(typeof(ItemTooltipContentBuilder), nameof(ItemTooltipContentBuilder.GetItemImplicitInfo))]
-    private static class ModernImplicitRange
-    {
-        [HarmonyPostfix]
-        private static void Postfix(ItemDataUnpacked __0, ItemTooltipModifierInfo __result) =>
-            ScaleRange(__result, ImplicitFactor(__0));
-    }
+    // The modern tooltip's ranges are left as the game computes them (the original range); only the value is attuned.
 
-    [HarmonyPatch(typeof(ItemTooltipContentBuilder), nameof(ItemTooltipContentBuilder.GetItemAffixInfo))]
-    private static class ModernAffixRange
+    [HarmonyPatch]
+    private static class OriginalAffixRange
     {
-        [HarmonyPostfix]
-        private static void Postfix(ItemAffix __1, ItemTooltipAffixInfo __result)
+        private static MethodBase TargetMethod() => AccessTools.GetDeclaredMethods(typeof(TooltipItemManager))
+            .Single(m => m.Name == nameof(TooltipItemManager.FormatAffix) && m.GetParameters()[1].ParameterType == typeof(ItemAffix));
+
+        [HarmonyPostfix, HarmonyPriority(Priority.Last)]
+        private static void Postfix(TooltipItemManager __instance, ItemDataUnpacked __0, ItemAffix __1, TooltipMode __2,
+            TooltipItemManager.SlotType __3, bool __4, int __5, int __6, bool __7, bool __8, ValueRangeFormat __9,
+            bool __10, bool __11, ref string __result)
         {
-            if (__1 == null || __result == null) return;
-            double factor = AffixFactor(__1.affixId);
-            ScaleRange(__result.Modifier1, factor);
-            ScaleRange(__result.Modifier2, factor);
+            if (suppress || __result == null || Items_Attunement.StateOf(__0) == null) return;
+            __result = WithOriginalRanges(__result, () => TooltipItemManager.FormatAffix(__0, __1, __2, __3, __4, __5, __6, __7, __8, __9, __10, __11));
         }
     }
 
-    [HarmonyPatch(typeof(ItemTooltipContentBuilder), nameof(ItemTooltipContentBuilder.GetUniqueModifierInfo))]
-    private static class ModernUniqueRange
+    [HarmonyPatch(typeof(TooltipItemManager), nameof(TooltipItemManager.ImplicitFormatter))]
+    private static class OriginalImplicitRange
     {
-        [HarmonyPostfix]
-        private static void Postfix(ItemTooltipModifierInfo __result) => ScaleRange(__result, UniqueFactor());
+        [HarmonyPostfix, HarmonyPriority(Priority.Last)]
+        private static void Postfix(ItemDataUnpacked __0, SP __1, BaseStats.ModType __2, float __3, AT __4, byte __5, int __6,
+            TooltipMode __7, TooltipItemManager.SlotType __8, int __9, bool __10, ValueRangeFormat __11, ref string __result)
+        {
+            if (suppress || __result == null || Items_Attunement.StateOf(__0) == null) return;
+            __result = WithOriginalRanges(__result, () => TooltipItemManager.ImplicitFormatter(__0, __1, __2, __3, __4, __5, __6, __7, __8, __9, __10, __11));
+        }
     }
 }

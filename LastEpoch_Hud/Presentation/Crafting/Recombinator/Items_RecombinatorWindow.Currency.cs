@@ -22,6 +22,19 @@ internal static partial class Items_RecombinatorWindow
     /// <summary>Finds the game's own currency icons (the inventory footer's gold and bones, the ember counter).</summary>
     private static void FindCurrencyIcons()
     {
+        if (goldIcon != null && bonesIcon != null && emberIcon != null)
+        {
+            return;
+        }
+        // The icon search spreads its work over many frames, so placing the first item never freezes the game.
+        if (!IconSearch.Done)
+        {
+            IconSearch.Request();
+            return;
+        }
+        goldIcon ??= IconSearch.Gold;
+        bonesIcon ??= IconSearch.Bones;
+        emberIcon ??= IconSearch.Ember ?? IconSearch.EmberBuff;
         if ((goldIcon != null && bonesIcon != null && emberIcon != null) || Time.unscaledTime < nextIconSearch)
         {
             return;

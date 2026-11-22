@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using LastEpoch_Hud.Scripts.Core.Items;
 
+using LastEpoch_Hud.Scripts.Core.Tuning;
 namespace LastEpoch_Hud.Scripts.Core.Crafting;
 
 /// <summary>One ordinary affix offered to the recombinator, from item A or item B.</summary>
@@ -42,29 +43,29 @@ public static class RecombinatorMath
     public static int Capacity(bool baseHasRegularSeal) => MaxAffixes;
 
     // Chance that one chosen affix of this tier survives the merge (T1..T7).
-    private static readonly double[] TierSurvival = { 0, 0.95, 0.95, 0.95, 0.90, 0.80, 0.55, 0.40 };
+    private static double[] TierSurvival => Tunables.Tiers("Recombinator.TierSurvival", new double[] { 0, 0.95, 0.95, 0.95, 0.90, 0.80, 0.55, 0.40 });
 
     // Keeping more affixes at once is harder (1..6 chosen). The steps are gentler than the per-affix chances, since
     // those already multiply: six affixes cost the same tier chance six times over.
-    private static readonly double[] CountFactor = { 0, 1.0, 0.94, 0.86, 0.77, 0.68, 0.60 };
+    private static double[] CountFactor => Tunables.Tiers("Recombinator.CountFactor", new double[] { 0, 1.0, 0.94, 0.86, 0.77, 0.68, 0.60 });
 
     // Cost units per affix by tier: higher tiers are worth much more.
-    private static readonly double[] TierUnit = { 0, 1, 1.5, 2.5, 4, 7, 20, 50 };
+    private static double[] TierUnit => Tunables.Tiers("Recombinator.TierUnit", new double[] { 0, 1, 1.5, 2.5, 4, 7, 20, 50 });
 
     /// <summary>Primordial recombination: costs ancient bones and makes a deterministic merge 1.5 times as likely.</summary>
-    public const double PrimordialBoost = 1.5;
-    public const int PrimordialBaseBones = 2500;
-    public const double BonesPerUnit = 100; // on top of the base, by the same units that price gold and embers
+    public static double PrimordialBoost => Tunables.Get("Recombinator.PrimordialBoost", 1.5);
+    public static int PrimordialBaseBones => Tunables.GetInt("Recombinator.PrimordialBaseBones", 2500);
+    public static double BonesPerUnit => Tunables.Get("Recombinator.BonesPerUnit", 100); // on top of the base, by the same units that price gold and embers
 
-    public const double GoldPerUnit = 500;
+    public static double GoldPerUnit => Tunables.Get("Recombinator.GoldPerUnit", 500);
     /// <summary>Soul Embers: a base fee plus a share of the cost units, so it always costs more than the Soul Ember shop (15 to 70+).</summary>
-    public const int BaseEmbers = 40;
-    public const double EmbersPerUnit = 1.5;
-    public const double ExaltedItemFactor = 1.5;
+    public static int BaseEmbers => Tunables.GetInt("Recombinator.BaseEmbers", 40);
+    public static double EmbersPerUnit => Tunables.Get("Recombinator.EmbersPerUnit", 1.5);
+    public static double ExaltedItemFactor => Tunables.Get("Recombinator.ExaltedItemFactor", 1.5);
 
     /// <summary>Gold and Soul Embers for the indeterministic mode: a flat fee that ignores what the items hold.</summary>
-    public const long FlatGold = 5_000;
-    public const int FlatEmbers = 60;
+    public static long FlatGold => Tunables.GetLong("Recombinator.FlatGold", 5_000);
+    public static int FlatEmbers => Tunables.GetInt("Recombinator.FlatEmbers", 60);
 
     private static int Clamp(int tier) => Math.Clamp(tier, 1, 7);
 
@@ -150,8 +151,9 @@ public static class RecombinatorMath
             return chance;
         }
 
-        double ceiling = selected.Count >= 5 ? 0.02 : selected.Count == 4 ? 0.15 : 1.0;
-        return Math.Min(ceiling, chance * Math.Pow(0.5, excess));
+        double ceiling = selected.Count >= 5 ? Tunables.Get("Recombinator.CeilingFiveOrMore", 0.02)
+            : selected.Count == 4 ? Tunables.Get("Recombinator.CeilingFour", 0.15) : 1.0;
+        return Math.Min(ceiling, chance * Math.Pow(Tunables.Get("Recombinator.ExcessPenalty", 0.5), excess));
 
     }
 
@@ -169,11 +171,13 @@ public static class RecombinatorMath
         if (varied)
         {
             double r = rng();
-            if (r < 0.15)
+            double fewer = Tunables.Get("Recombinator.VariedFewerChance", 0.15);
+            double more = Tunables.Get("Recombinator.VariedMoreChance", 0.15);
+            if (r < fewer)
             {
                 count--;
             }
-            else if (r > 0.85)
+            else if (r > 1.0 - more)
             {
                 count++;
             }

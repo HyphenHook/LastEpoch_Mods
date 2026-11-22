@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 
 namespace LastEpoch_Hud.Scripts.Core.Jewels;
 
@@ -38,9 +39,30 @@ public static class JewelAffixRules
     public static bool IsManaLeech(int id) => id >= ManaLeechIdStart && id < ManaLeechIdStart + 4;
     public static bool IsExtraDamage(int id) => id >= ExtraDamageIdStart && id < ExtraDamageIdStart + 7;
     public static bool IsTakenAs(int id) => id >= TakenAsIdStart && id < TakenAsIdStart + 7;
-    public static int MinimumTier(int id) => IsExtraDamage(id) || IsTakenAs(id) ? 6 : 1;
+    private static IReadOnlyDictionary<int, int> minimumTierOverrides;
+
+    /// <summary>Replaces the built-in minimum tiers with the ones from JewelAffixes.csv. Null restores the defaults.</summary>
+    public static void SetMinimumTierOverrides(IReadOnlyDictionary<int, int> overrides) => minimumTierOverrides = overrides;
+
+    public static int DefaultMinimumTier(int id) => IsExtraDamage(id) || IsTakenAs(id) ? 6 : 1;
+
+    public static int MinimumTier(int id) =>
+        minimumTierOverrides != null && minimumTierOverrides.TryGetValue(id, out int tier) ? tier : DefaultMinimumTier(id);
     public static bool IsTierAllowed(int id, int tier) => tier >= MinimumTier(id) && tier <= 7;
     public static float Roll(float minimum, float maximum, byte roll) => minimum + (maximum - minimum) * (roll / 255f);
+
+    /// <summary>
+    /// A roll that can only land on whole steps of <paramref name="step" /> from the minimum (0.01 gives 10%, 11%, 12% for a
+    /// 10-12% range), each step equally likely. A step of 0 or less keeps the continuous roll.
+    /// </summary>
+    public static float RollStepped(float minimum, float maximum, byte roll, float step)
+    {
+        if (!(step > 0) || maximum <= minimum) return Roll(minimum, maximum, roll);
+        int steps = (int)Math.Round((maximum - minimum) / step);
+        if (steps <= 0) return minimum;
+        int index = Math.Min(steps, roll * (steps + 1) / 256);
+        return minimum + index * step;
+    }
 
     /// <summary>Leech instances recover evenly over three seconds; rate changes shorten that duration.</summary>
     public static float LeechDuration(float increasedLeechRate) => 3f / Math.Max(0.01f, 1f + increasedLeechRate);

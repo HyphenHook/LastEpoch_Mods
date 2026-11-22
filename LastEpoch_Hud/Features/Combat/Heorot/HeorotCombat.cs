@@ -145,7 +145,8 @@ internal static class HeorotCombat
                 || __instance.actor.IsNullOrDestroyed()
                 || __instance.actor.ailmentReceiver.IsNullOrDestroyed()) return;
             float increased = HeorotRules.PowerIncreasedCold(true,
-                __instance.actor.ailmentReceiver.getStacks((AilmentID)HeorotRules.ChillId));
+                __instance.actor.ailmentReceiver.getStacks((AilmentID)HeorotRules.ChillId),
+                HeorotBuffs.EffectOf(__3, HeorotBuffKind.Power));
             if (increased <= 0) return;
             var recipe = Find(__0);
             if (recipe == null || recipe.Stats.IsNullOrDestroyed() || recipe.Owner != __3) return;

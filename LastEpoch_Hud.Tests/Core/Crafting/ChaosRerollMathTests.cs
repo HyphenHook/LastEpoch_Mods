@@ -5,14 +5,6 @@ namespace LastEpoch_Hud.Tests.Core.Crafting;
 public class ChaosRerollMathTests
 {
     [Fact]
-    public void FourGlyphsAreNeeded()
-    {
-        Assert.False(ChaosRerollMath.CanAfford(3));
-        Assert.True(ChaosRerollMath.CanAfford(4));
-        Assert.True(ChaosRerollMath.CanAfford(40));
-    }
-
-    [Fact]
     public void SealedAndFoundOnlyTiersAreKept()
     {
         Assert.True(ChaosRerollMath.IsKept(3, isSealed: true));

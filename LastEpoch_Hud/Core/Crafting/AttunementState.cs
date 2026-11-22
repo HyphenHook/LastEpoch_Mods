@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using Newtonsoft.Json;
 
+using LastEpoch_Hud.Scripts.Core.Tuning;
 namespace LastEpoch_Hud.Scripts.Core.Crafting;
 
 public sealed class AttunedAffix
@@ -18,8 +19,19 @@ public sealed class AttunedAffix
 /// <summary>The presence of this record marks a base item as attuned and stores its scaling.</summary>
 public sealed class AttunementState
 {
-    public const double MinMultiplier = 0.70;
-    public const double MaxMultiplier = 1.30;
+    public const double DefaultMinMultiplier = 0.70;
+    public const double DefaultMaxMultiplier = 1.30;
+
+    /// <summary>The attunement multiplier range, from Data/CraftingNumbers.csv.</summary>
+    public static double MinMultiplier => Tunables.Get("Attunement.MinMultiplier", DefaultMinMultiplier);
+    public static double MaxMultiplier => Math.Max(MinMultiplier, Tunables.Get("Attunement.MaxMultiplier", DefaultMaxMultiplier));
+
+    /// <summary>What a saved multiplier may be: wide enough for the defaults too, so narrowing the range never discards an item.</summary>
+    public static double LowestValidMultiplier => Math.Min(MinMultiplier, DefaultMinMultiplier);
+    public static double HighestValidMultiplier => Math.Max(MaxMultiplier, DefaultMaxMultiplier);
+
+    /// <summary>The highest roll Attunement draws: thousandths above the minimum multiplier.</summary>
+    public static int MaxRoll => (int)Math.Round((MaxMultiplier - MinMultiplier) * 1000.0);
 
     public int ItemType;
     public int SubType;
@@ -30,7 +42,7 @@ public sealed class AttunementState
     public byte[] Unique = Array.Empty<byte>();
     public List<AttunedAffix> Affixes = new();
 
-    public static double RollMultiplier(int roll) => MinMultiplier + Math.Clamp(roll, 0, 600) / 1000.0;
+    public static double RollMultiplier(int roll) => MinMultiplier + Math.Clamp(roll, 0, MaxRoll) / 1000.0;
 
     /// <summary>Native effect modifiers store the bonus above one, including the post-rounding bonus.</summary>
     public static float ScaleEffectBonus(float bonus, double multiplier) =>

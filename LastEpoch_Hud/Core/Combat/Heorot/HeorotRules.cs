@@ -6,12 +6,18 @@ public static class HeorotRules
 {
     // AilmentID is a byte in the native game. Do not allocate another Chill ID.
     public const byte ChillId = 3;
-    public const float IncreasedColdPerChill = .25f;
-    public const int AdditionalChillStacks = 2;
+    // The numbers below come from HeorotValues.csv (embedded at compile time); these are the defaults.
+    public const float DefaultIncreasedColdPerChill = .25f;
+    public const int DefaultAdditionalChillStacks = 2;
+    public static float IncreasedColdPerChill =>
+        Math.Max(0f, HeorotValues.Get(HeorotValues.IncreasedColdPerChillName, DefaultIncreasedColdPerChill));
+    public static int AdditionalChillStacks =>
+        Math.Max(0, (int)Math.Round(HeorotValues.Get(HeorotValues.AdditionalChillStacksName, DefaultAdditionalChillStacks)));
 
-    public static float PowerIncreasedCold(bool powerActive, float targetChillStacks) =>
+    /// <summary>Power's increased Cold per Chill stack. <paramref name="increasedEffect" /> is the wearer's increased effect of buffs (0.2 = 20%).</summary>
+    public static float PowerIncreasedCold(bool powerActive, float targetChillStacks, float increasedEffect = 0f) =>
         powerActive && float.IsFinite(targetChillStacks) && targetChillStacks > 0
-            ? IncreasedColdPerChill * targetChillStacks : 0f;
+            ? IncreasedColdPerChill * targetChillStacks * (1f + Math.Max(0f, increasedEffect)) : 0f;
 
     // Nonpositive native limits mean unlimited; preserve that convention.
     public static int ChillLimit(int nativeLimit, bool sourceHasDefence) =>

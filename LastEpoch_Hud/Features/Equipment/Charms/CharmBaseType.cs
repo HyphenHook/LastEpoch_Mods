@@ -1,3 +1,4 @@
+using LastEpoch_Hud.Scripts.Mods.Items.Jewels;
 using System;
 using System.Collections.Generic;
 using System.Reflection;
@@ -107,7 +108,8 @@ internal static class CharmBaseType
         [HarmonyPrefix]
         private static bool Prefix(int __0, ref bool __result)
         {
-            if (!Registered || __0 != Id) return true;
+            // One patch covers both accessory base types; a second class on the same native methods crashed the game.
+            if (!(Registered && __0 == Id) && !(JewelBaseType.Registered && __0 == JewelBaseType.Id)) return true;
             __result = true;
             return false;
         }
@@ -119,6 +121,11 @@ internal static class CharmBaseType
         [HarmonyPrefix]
         private static bool Prefix(int __0, ref bool __result)
         {
+            if (JewelBaseType.Registered && __0 == JewelBaseType.Id)
+            {
+                __result = true;
+                return false;
+            }
             if (__0 != Id) return true;
             __result = false;
             return false;
@@ -230,8 +237,9 @@ internal static class CharmBaseType
         [HarmonyPrefix]
         private static bool Prefix(int __0, ref string __result)
         {
-            if (!Registered || __0 != Id) return true;
-            __result = "Charm";
+            if (Registered && __0 == Id) __result = "Charm";
+            else if (JewelBaseType.Registered && __0 == JewelBaseType.Id) __result = "Jewel";
+            else return true;
             return false;
         }
     }

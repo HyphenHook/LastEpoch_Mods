@@ -27,6 +27,7 @@ public static class ModComposition
         if (harmony == null) throw new ArgumentNullException(nameof(harmony));
         return Runtime ??= new ModRuntime(new IRuntimeModule[]
         {
+            ModuleActions.Initialize("Data.Tunables", TunablesLoader.Load),
             ModuleActions.Initialize("Inspector.Start", () => InspectorServer.Start(harmony)),
             ModuleActions.Initialize("TestActions", () => Scripts.ModUI.Pages.ItemsTestDropsPage.Configure(TestActionFactory.Create())),
             ModuleActions.Tick("Base", () =>
@@ -50,6 +51,7 @@ public static class ModComposition
             ModuleActions.Tick("Crafting.Recombinator", Items_RecombinatorWindow.Tick),
             ModuleActions.Tick("Crafting.MemoryReflector", Items_MemoryReflectorWindow.Tick),
             ModuleActions.Tick("Crafting.AdvancedForge", Items_AdvancedForgeWindow.Tick),
+            ModuleActions.Tick("Crafting.IconSearch", Scripts.Mods.Items.Crafting.IconSearch.Tick),
             ModuleActions.Tick("Drops.OrbVisuals", OrbItemVisuals.Tick),
             ModuleActions.Tick("Equipment.Accessories", CharmEquipment.Tick),
             ModuleActions.Tick("Equipment.BaseTypePoc", EquipmentBaseTypePoc.Tick),
