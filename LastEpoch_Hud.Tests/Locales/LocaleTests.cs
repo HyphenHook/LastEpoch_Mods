@@ -138,7 +138,7 @@ public sealed partial class LocaleTests
     public void SettingLabels_HaveBaseKeys()
     {
         string source = File.ReadAllText(
-            Path.Combine(GameEnvironment.ModProjectDir, "Scripts", "ModUI", "ModSettings.cs")
+            SourceLayout.Find("ModSettings.cs")
         );
         var keys = Read("base").Keys.ToHashSet();
         var missing = LabelPattern()

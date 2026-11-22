@@ -508,5 +508,7 @@
   "The Woven": "Les tissés",
   "Affix {0} Tier": "Palier de l'affixe {0}",
   "Affix {0} Value": "Valeur de l'affixe {0}",
-  "Unique Mod {0}": "Modificateur unique {0}"
+  "Unique Mod {0}": "Modificateur unique {0}",
+  "Bazaar Warm-Up": "Préchauffage du Bazar",
+  "Stocks every Bazaar stall while the game is held after a character loads. Off fills them in the background instead. Applies from the next load.": "Remplit tous les étals du Bazar pendant que le jeu est en pause après le chargement d'un personnage. Désactivé, ils se remplissent en arrière-plan. S'applique au prochain chargement."
 }

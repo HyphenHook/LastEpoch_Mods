@@ -76,6 +76,8 @@ Start the game and select your language under Settings → Gameplay → Interfac
 
 ## Build
 
+Source is organized into `Core`, `Application`, `Features`, `Infrastructure`, `Presentation`, and `Bootstrap`. See [the architecture guide](docs/ARCHITECTURE.md) for dependency rules, compatibility constraints, and how to add features, persistence, and developer commands.
+
 The project references assemblies from your Last Epoch install. If the game is not in the default Steam folder:
 
 ```powershell

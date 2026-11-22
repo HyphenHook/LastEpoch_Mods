@@ -508,5 +508,7 @@
   "The Woven": "被编织者",
   "Affix {0} Tier": "词缀 {0} 阶级",
   "Affix {0} Value": "词缀 {0} 数值",
-  "Unique Mod {0}": "独特词条 {0}"
+  "Unique Mod {0}": "独特词条 {0}",
+  "Bazaar Warm-Up": "集市预热",
+  "Stocks every Bazaar stall while the game is held after a character loads. Off fills them in the background instead. Applies from the next load.": "角色加载后暂停游戏，为所有集市摊位上货。关闭后改为在后台逐步上货。下次加载时生效。"
 }

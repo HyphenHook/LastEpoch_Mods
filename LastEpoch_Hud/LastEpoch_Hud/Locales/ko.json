@@ -508,5 +508,7 @@
   "The Woven": "엮인 자들",
   "Affix {0} Tier": "접사 {0} 등급",
   "Affix {0} Value": "접사 {0} 수치",
-  "Unique Mod {0}": "고유 속성 {0}"
+  "Unique Mod {0}": "고유 속성 {0}",
+  "Bazaar Warm-Up": "바자회 사전 준비",
+  "Stocks every Bazaar stall while the game is held after a character loads. Off fills them in the background instead. Applies from the next load.": "캐릭터를 불러온 뒤 게임을 멈춘 상태에서 모든 바자회 상점을 채웁니다. 끄면 백그라운드에서 채웁니다. 다음 불러오기부터 적용됩니다."
 }
