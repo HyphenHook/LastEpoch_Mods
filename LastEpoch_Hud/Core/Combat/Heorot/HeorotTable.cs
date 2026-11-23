@@ -122,7 +122,7 @@ public static class VolcanicValues
     public static float NecroticLeech => Math.Max(0f, Get(NecroticLeechName, .02f));
     public static float IgniteAttackersChance => Math.Max(0f, Get(IgniteAttackersChanceName, 1f));
     /// <summary>Fire damage each Ignite on an attacker carries, per 1% of the wearer's uncapped Fire Resistance.</summary>
-    public static float IgniteDamagePerResistance => Math.Max(0f, Get(IgniteDamagePerResistanceName, 10f));
+    public static float IgniteDamagePerResistance => Math.Max(0f, Get(IgniteDamagePerResistanceName, 100f));
 
     /// <summary>The Fire damage of one Ignite on an attacker, for a wearer with this uncapped Fire Resistance (0.75 = 75%, 1.2 = 120%).</summary>
     public static float IgniteDamage(float fireResistance) =>

@@ -44,7 +44,7 @@ public sealed class VolcanicCoreTests
             Assert.Equal(.02f, VolcanicValues.FireLeech);
             Assert.Equal(.02f, VolcanicValues.NecroticLeech);
             Assert.Equal(1f, VolcanicValues.IgniteAttackersChance);
-            Assert.Equal(10f, VolcanicValues.IgniteDamagePerResistance);
+            Assert.Equal(100f, VolcanicValues.IgniteDamagePerResistance);
         }
         finally { VolcanicValues.Set(new Dictionary<string, float>()); }
     }
@@ -72,9 +72,9 @@ public sealed class VolcanicCoreTests
     public void IgniteDamageScalesWithFireResistance()
     {
         VolcanicValues.Set(new Dictionary<string, float>());
-        Assert.Equal(750f, VolcanicValues.IgniteDamage(.75f), 3);
-        Assert.Equal(300f, VolcanicValues.IgniteDamage(.3f), 3);
-        Assert.Equal(1200f, VolcanicValues.IgniteDamage(1.2f), 3); // uncapped: above the game's 75% cap still counts
+        Assert.Equal(7500f, VolcanicValues.IgniteDamage(.75f), 3);
+        Assert.Equal(3000f, VolcanicValues.IgniteDamage(.3f), 3);
+        Assert.Equal(12000f, VolcanicValues.IgniteDamage(1.2f), 1); // uncapped: above the game's 75% cap still counts
         Assert.Equal(0f, VolcanicValues.IgniteDamage(-.2f));
         Assert.Equal(0f, VolcanicValues.IgniteDamage(float.NaN));
         VolcanicValues.Set(new Dictionary<string, float> { ["IgniteDamagePerResistance"] = 2.5f });
