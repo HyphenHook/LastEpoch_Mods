@@ -11,6 +11,8 @@ namespace LastEpoch_Hud.Presentation.Overlays;
 
 internal static class HeorotAuraEffects
 {
+    // Power uses the former Defence visual, Energy the former Power, Defence the former Energy.
+    private static readonly int[] VisualOrder = { 2, 0, 1 };
     private static readonly GameObject[] shards = new GameObject[3];
     private static readonly TrailRenderer[] trails = new TrailRenderer[3];
     private static readonly SpriteRenderer[] frost = new SpriteRenderer[24];
@@ -61,13 +63,14 @@ internal static class HeorotAuraEffects
         for (int i = 0; i < shards.Length; i++)
         {
             bool active = (mask & (1 << i)) != 0;
-            float angle = (time * 52f + i * 120f) * Mathf.Deg2Rad;
+            int visual = VisualOrder[i];
+            float angle = (time * 52f + visual * 120f) * Mathf.Deg2Rad;
             shards[i].transform.localPosition = new Vector3(Mathf.Cos(angle) * .78f,
-                1.03f + Mathf.Sin(time * 1.5f + i * 2f) * .09f, Mathf.Sin(angle) * .78f);
+                1.03f + Mathf.Sin(time * 1.5f + visual * 2f) * .09f, Mathf.Sin(angle) * .78f);
             // Camera-facing crystal art keeps the detailed facets readable at gameplay distance.
             Quaternion facing = camera != null ? camera.transform.rotation : Quaternion.identity;
             shards[i].transform.rotation = facing * Quaternion.Euler(0, 0,
-                i * 17f - 18f + time * (i == 1 ? -13f : 11f));
+                visual * 17f - 18f + time * (visual == 1 ? -13f : 11f));
             if (shards[i].activeSelf != active)
             {
                 shards[i].SetActive(active);
@@ -127,7 +130,7 @@ internal static class HeorotAuraEffects
         if (trailMaterial.HasProperty("_TintColor")) trailMaterial.SetColor("_TintColor", Color.white);
         for (int i = 0; i < shards.Length; i++)
         {
-            var renderer = SpriteObject("Heorot_" + (HeorotBuffKind)i + "_IceFragment", shardArt[i]);
+            var renderer = SpriteObject("Heorot_" + (HeorotBuffKind)i + "_IceFragment", shardArt[VisualOrder[i]]);
             shards[i] = renderer.gameObject;
             SetHeight(renderer, .64f);
             shards[i].SetActive(false);

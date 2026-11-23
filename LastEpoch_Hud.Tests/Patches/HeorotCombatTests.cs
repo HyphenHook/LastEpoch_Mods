@@ -51,20 +51,23 @@ public sealed class HeorotCombatTests
     {
         GameEnvironment.SkipWithoutModBuild();
         using var mod = ModuleDefinition.ReadModule(GameEnvironment.ModDll);
-        var method = mod.GetType(CombatType).NestedTypes.Single(t => t.Name == "PowerDamage")
+        var prefix = mod.GetType(CombatType).NestedTypes.Single(t => t.Name == "PowerDamage")
             .Methods.Single(m => m.Name == "Prefix");
+        // The rebuild itself is shared by Heorot's Power (Cold) and Bhuldar's Wrath (Fire).
+        Assert.Contains(prefix.Body.Instructions.Select(i => i.Operand).OfType<MethodReference>(), m => m.Name == "Rebuilt");
+        var method = mod.GetType(CombatType).Methods.Single(m => m.Name == "Rebuilt");
         var calls = method.Body.Instructions.Select(i => i.Operand).OfType<MethodReference>().ToList();
         Assert.Contains(calls, m => m.DeclaringType.FullName == "Il2Cpp.Stats" && m.Name == "IncreasedStat");
         Assert.DoesNotContain(calls, m => m.Name == "MoreStat" || m.Name == "HealthDamage" || m.Name == "ApplyResistance");
         Assert.Contains(calls, m => m.Name == "buildDamageStats");
         Assert.Contains(calls, m => m.Name == "Copy");
         Assert.Contains(calls, m => m.Name == "RebuiltColdPreservingScale");
-        Assert.Equal("Il2Cpp.DamageStats&", method.Parameters.Single(p => p.Name == "__0").ParameterType.FullName);
+        Assert.Equal("Il2Cpp.DamageStats&", prefix.Parameters.Single(p => p.Name == "__0").ParameterType.FullName);
         var instructions = method.Body.Instructions.ToList();
         int increased = instructions.FindIndex(i => i.Operand is MethodReference m && m.Name == "IncreasedStat");
-        // SP.Damage, AT.Cold, increased, specialTag 0, extraTag 0: no more/generic damage stat.
+        // SP.Damage, the rule's damage tag (Cold or Fire), increased, specialTag 0, extraTag 0: no more/generic damage stat.
         Assert.Equal(Mono.Cecil.Cil.Code.Ldc_I4_0, instructions[increased - 5].OpCode.Code);
-        Assert.Equal(Mono.Cecil.Cil.Code.Ldc_I4_4, instructions[increased - 4].OpCode.Code);
+        Assert.DoesNotContain(instructions[increased - 4].OpCode.Code, new[] { Mono.Cecil.Cil.Code.Ldc_I4_0, Mono.Cecil.Cil.Code.Ldc_I4_4 });
         Assert.Equal(Mono.Cecil.Cil.Code.Ldc_I4_0, instructions[increased - 2].OpCode.Code);
         Assert.Equal(Mono.Cecil.Cil.Code.Ldc_I4_0, instructions[increased - 1].OpCode.Code);
     }

@@ -277,7 +277,7 @@ public class Items_Crafting_Slot
                             );
                             for (int z = 0; z < item.uniqueRolls.Count; z++)
                             {
-                                if (unique_mods_enables[z])
+                                if (unique_mods_enables[z] && !LastEpoch_Hud.Scripts.Mods.Items.Jewels.HeorotCore.IsAnyCore(item))
                                 {
                                     item.uniqueRolls[z] = (byte)unique_mods_values[z];
                                 }

@@ -80,7 +80,8 @@ internal static class Items_Attunement
         var implicits = (byte[])oldImplicits.Clone();
         var unique = (byte[])oldUnique.Clone();
         Random.NextBytes(implicits);
-        Random.NextBytes(unique);
+        // A Core (Heorot's or Volcanic Shaman's) keeps its buff roll: Attunement never changes it.
+        if (!LastEpoch_Hud.Scripts.Mods.Items.Jewels.HeorotCore.IsAnyCore(item)) Random.NextBytes(unique);
         double factor = AttunementState.RollMultiplier(Random.Next(AttunementState.MaxRoll + 1));
         var next = new AttunementState
         {

@@ -7,8 +7,11 @@ namespace LastEpoch_Hud.Scripts.Core.Heorot;
 public static class HeorotCoreRules
 {
     public const string Name = "Heorot’s Core";
-    public const ushort FirstUniqueId = 507;
+    /// <summary>The one unique every Heorot's Core is. Which buffs it gives is a roll stored on the item.</summary>
+    public const ushort UniqueId = 507;
     public const int CombinationCount = 7;
+    /// <summary>How many of the 256 roll values belong to each combination (the last combination also takes the 4 left over).</summary>
+    public const int RollsPerCombination = 36;
     public static double[] ValidateVariantChances(double single, double pair, double triple) =>
         new[] { ValidPercent(single), ValidPercent(pair), ValidPercent(triple) };
 
@@ -20,17 +23,32 @@ public static class HeorotCoreRules
         foreach (double value in percentages) total += ValidPercent(value);
         return Math.Clamp(total / 100, 0, 1);
     }
-    public static double DropChance => Math.Clamp(Tunables.Get("HeorotCore.DropChance", .10), 0, 1);
-    public static double[] VariantWeights => Tunables.Series("HeorotCore.VariantWeight", new[] { 80d, 18d, 2d });
+    public static double DropChance => Math.Clamp(Tunables.Get("HeorotCore.DropChance", .05), 0, 1);
+    public static double[] VariantWeights => Tunables.Series("HeorotCore.VariantWeight", new[] { 75d, 20d, 5d });
 
-    public static int MaskFor(int uniqueId) =>
-        uniqueId >= FirstUniqueId && uniqueId < FirstUniqueId + CombinationCount ? uniqueId - FirstUniqueId + 1 : 0;
+    public static bool IsCoreUnique(int uniqueId) => uniqueId == UniqueId;
 
-    public static ushort UniqueIdFor(int mask)
+    /// <summary>
+    /// The combinations in the order their roll bands run: the three single buffs, then the three pairs, then all three.
+    /// A buff mask is 1 Power, 2 Energy, 4 Defence.
+    /// </summary>
+    private static readonly int[] BandOrder = { 1, 2, 4, 3, 5, 6, 7 };
+
+    /// <summary>The buffs a stored roll stands for; 0 when the item has no roll.</summary>
+    public static int MaskForRoll(int roll) =>
+        roll < 0 ? 0 : BandOrder[Math.Min(CombinationCount - 1, roll / RollsPerCombination)];
+
+    /// <summary>A roll value that stands for <paramref name="mask" />; <paramref name="jitter" /> picks where inside its band.</summary>
+    public static byte RollForMask(int mask, int jitter)
     {
-        if (mask < 1 || mask > CombinationCount) throw new ArgumentOutOfRangeException(nameof(mask));
-        return (ushort)(FirstUniqueId + mask - 1);
+        int band = Array.IndexOf(BandOrder, mask);
+        if (band < 0) throw new ArgumentOutOfRangeException(nameof(mask));
+        return (byte)(band * RollsPerCombination + Math.Abs(jitter % RollsPerCombination));
     }
+
+    /// <summary>Corruption outcomes that re-roll or randomise an item's rolls. A Core's buffs are a roll, so these can never apply to one.</summary>
+    public static bool CorruptionOutcomeRerolls(int outcome) =>
+        outcome is 8 /* SetRollValues */ or 14 /* SetRarityAndRandomize */ or 18 /* RandomizeAndSetRolls */ or 23 /* RandomizeItem */;
 
     public static int MaskForVariant(int buffCount, int choice) => buffCount switch
     {

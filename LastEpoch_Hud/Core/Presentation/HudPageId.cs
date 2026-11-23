@@ -21,6 +21,8 @@ public enum HudPageId
     SkillsCompanions,
     SkillsSummon,
     SkillsQol,
-    UtilitiesHeorot,
     BossDropsHeorot,
+    BossDropsHeorotEffects,
+    BossDropsVolcanic,
+    BossDropsVolcanicEffects,
 }

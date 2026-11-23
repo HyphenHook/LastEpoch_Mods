@@ -5,7 +5,8 @@ using UnityEngine;
 
 namespace LastEpoch_Hud.Scripts.ModUI.Pages;
 
-internal static class UtilitiesHeorotPage
+/// <summary>Heorot’s three buffs, with a test toggle for each. Lives in the Boss Drop section next to the Core that grants them.</summary>
+internal static class BossDropsHeorotEffectsPage
 {
     private static HudFormPage page;
     public static void Build(HudPageId id, GameObject parent, GameObject hud, Font font)

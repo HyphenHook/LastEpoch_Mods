@@ -15,11 +15,11 @@ internal static class BossDropsHeorotPage
         page = HudFormPage.Build(parent, hud, font, id);
         if (page == null) return;
         var card = page.AddCard("HeorotCore", "Heorot’s Core");
-        page.AddText(card, "Rules", "Level 100 monolith Heorot only. At most one Core per encounter. Two-buff variants always have distinct buffs.", 65f);
+        page.AddText(card, "Rules", "Empowered level 100 monolith Heorot only. At most one Core per encounter. Two-buff variants always have distinct buffs.", 65f);
         page.AddToggle(card, "OverrideRates", "Override CSV drop rates",
             () => Ready && Save_Manager.instance.data.Items.Drop.HeorotCoreOverride,
             value => { if (Ready) { Initialize(); Save_Manager.instance.data.Items.Drop.HeorotCoreOverride = value; } });
-        page.AddToggle(card, "Testing", "Testing: bypass corruption scaling and native chance cap",
+        page.AddToggle(card, "Testing", "Testing: bypass corruption scaling, the native chance cap and the Empowered level-100 requirement",
             () => Ready && Save_Manager.instance.data.Items.Drop.HeorotCoreIgnoreScaling,
             value => { if (Ready) Save_Manager.instance.data.Items.Drop.HeorotCoreIgnoreScaling = value; });
         for (int i = 0; i < 3; i++)

@@ -1,4 +1,4 @@
-﻿using HarmonyLib;
+using HarmonyLib;
 using Il2Cpp;
 using UnityEngine;
 
@@ -32,10 +32,16 @@ public class Items_Drop_UniqueMods
     [HarmonyPatch(typeof(ItemData), "randomiseUniqueRolls")]
     public class randomiseUniqueRolls
     {
-        [HarmonyPostfix]
-        static void Postfix(ItemData __instance)
+        [HarmonyPrefix]
+        static void Prefix(ItemData __instance, out byte[] __state) =>
+            __state = LastEpoch_Hud.Scripts.Mods.Items.Jewels.HeorotCore.RememberRoll(__instance);
+
+        [HarmonyPostfix, HarmonyPriority(Priority.Last)]
+        static void Postfix(ItemData __instance, byte[] __state)
         {
-            if (CanRun() && !__instance.IsNullOrDestroyed())
+            // Heorot's Core keeps the roll that says which buffs it gives, whatever just randomised the item.
+            LastEpoch_Hud.Scripts.Mods.Items.Jewels.HeorotCore.RestoreRoll(__instance, __state);
+            if (__state == null && CanRun() && !__instance.IsNullOrDestroyed())
             {
                 for (int k = 0; k < __instance.uniqueRolls.Count; k++)
                 {

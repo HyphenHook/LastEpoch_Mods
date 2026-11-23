@@ -6,6 +6,7 @@ using Il2Cpp;
 using Il2CppInterop.Runtime;
 using Il2CppInterop.Runtime.InteropTypes.Arrays;
 using LastEpoch_Hud.Scripts.Core.Heorot;
+using LastEpoch_Hud.Scripts.Mods.Character.Volcanic;
 using UnityEngine;
 using StatList = Il2CppSystem.Collections.Generic.List<Il2Cpp.Stats.Stat>;
 
@@ -15,6 +16,8 @@ namespace LastEpoch_Hud.Scripts.Mods.Character.Heorot;
 internal static class HeorotCombat
 {
     private const int ColdIndex = (int)DamageType.COLD;
+    private const int FireIndex = (int)DamageType.FIRE;
+    private const int NecroticIndex = (int)DamageType.NECROTIC;
     [ThreadStatic] private static bool rebuilding;
 
     // Cached skill/ailment damage has already consumed the increased-damage pool. Keep its
@@ -29,9 +32,9 @@ internal static class HeorotCombat
         internal StatList Modifiers;
         internal float More, Penetration;
         internal DamageType PenetrationType;
-        internal float BuiltCold;
+        internal float[] Built;
         internal Actor Owner;
-        internal readonly Dictionary<float, float> ColdByIncrease = new();
+        internal readonly Dictionary<(int, float), float> RebuiltByIncrease = new();
     }
 
     private sealed class Entry
@@ -49,7 +52,8 @@ internal static class HeorotCombat
     // The main owner calls this after HeorotBuffs.Tick. No native query/allocation when empty.
     internal static void Tick()
     {
-        if (recipes.Count == 0 || HeorotBuffs.IsActive(Refs_Manager.player_actor, HeorotBuffKind.Power)) return;
+        if (recipes.Count == 0 || HeorotBuffs.IsActive(Refs_Manager.player_actor, HeorotBuffKind.Power)
+            || VolcanicBuffs.IsActive(Refs_Manager.player_actor, VolcanicBuffKind.Wrath)) return;
         lock (recipeLock)
         {
             foreach (var entry in recipes.Values) IL2CPP.il2cpp_gchandle_free(entry.WeakHandle);
@@ -111,16 +115,16 @@ internal static class HeorotCombat
             StatList __3, float __4, float __5, DamageType __6, DamageStats __result)
         {
             if (rebuilding || __0 == null || __2.IsNullOrDestroyed() || __result == null
-                || __result.damage == null || __result.damage.Length <= ColdIndex) return;
+                || __result.damage == null || __result.damage.Length <= Math.Max(ColdIndex, FireIndex)) return;
             var owner = __2.TryCast<BaseStats>()?.actor;
-            if (!HeorotBuffs.IsActive(owner, HeorotBuffKind.Power)) return;
+            if (!HeorotBuffs.IsActive(owner, HeorotBuffKind.Power) && !VolcanicBuffs.IsActive(owner, VolcanicBuffKind.Wrath)) return;
             var baseCopy = new DamageStatsHolder.BaseDamageStats(__0);
             if (__0.damage != null) baseCopy.damage = new Il2CppStructArray<float>(__0.damage.ToArray());
             Remember(__result, new Recipe
             {
                 Base = baseCopy, Tags = __1, Stats = __2,
                 Modifiers = Snapshot(__3 ?? __2.stats), More = __4,
-                Penetration = __5, PenetrationType = __6, BuiltCold = __result.damage[ColdIndex], Owner = owner
+                Penetration = __5, PenetrationType = __6, Built = __result.damage.ToArray(), Owner = owner
             });
         }
     }
@@ -141,40 +145,135 @@ internal static class HeorotCombat
         [HarmonyPriority(Priority.First)]
         private static void Prefix(ProtectionClass __instance, ref DamageStats __0, Actor __3)
         {
-            if (rebuilding || __0 == null || !HeorotBuffs.IsActive(__3, HeorotBuffKind.Power)
-                || __instance.actor.IsNullOrDestroyed()
+            if (rebuilding || __0 == null || __instance.actor.IsNullOrDestroyed()
                 || __instance.actor.ailmentReceiver.IsNullOrDestroyed()) return;
-            float increased = HeorotRules.PowerIncreasedCold(true,
-                __instance.actor.ailmentReceiver.getStacks((AilmentID)HeorotRules.ChillId),
-                HeorotBuffs.EffectOf(__3, HeorotBuffKind.Power));
-            if (increased <= 0) return;
-            var recipe = Find(__0);
-            if (recipe == null || recipe.Stats.IsNullOrDestroyed() || recipe.Owner != __3) return;
-            rebuilding = true;
-            try
+            bool power = HeorotBuffs.IsActive(__3, HeorotBuffKind.Power);
+            bool wrath = VolcanicBuffs.IsActive(__3, VolcanicBuffKind.Wrath);
+            if (power || wrath)
             {
-                if (!recipe.ColdByIncrease.TryGetValue(increased, out float cold))
+                var receiver = __instance.actor.ailmentReceiver;
+                var rules = new List<(int Index, AT Tag, float Increased)>(2);
+                if (power)
+                {
+                    float increased = HeorotRules.PowerIncreasedCold(true, receiver.getStacks((AilmentID)HeorotRules.ChillId),
+                        HeorotBuffs.EffectOf(__3, HeorotBuffKind.Power));
+                    if (increased > 0) rules.Add((ColdIndex, AT.Cold, increased));
+                }
+                if (wrath)
+                {
+                    float increased = VolcanicValues.WrathIncreasedFire(receiver.getStacks(AilmentID.Ignite),
+                        VolcanicBuffs.EffectOf(__3, VolcanicBuffKind.Wrath));
+                    if (increased > 0) rules.Add((FireIndex, AT.Fire, increased));
+                }
+                if (rules.Count > 0) __0 = Rebuilt(__0, rules, __3);
+            }
+            Leech(__0, __3, __instance.actor);
+        }
+    }
+
+    // The target-dependent increased damage of Heorot's Power (Cold, per Chill) and Bhuldar's Wrath (Fire, per Ignite):
+    // each rebuilds only its own damage type from the original inputs, so the two never feed each other.
+    private static DamageStats Rebuilt(DamageStats damage, List<(int Index, AT Tag, float Increased)> rules, Actor owner)
+    {
+        var recipe = Find(damage);
+        if (recipe == null || recipe.Stats.IsNullOrDestroyed() || recipe.Owner != owner) return damage;
+        rebuilding = true;
+        try
+        {
+            var values = damage.damage.ToArray();
+            foreach (var (index, tag, increased) in rules)
+            {
+                if (index >= values.Length || index >= recipe.Built.Length) continue;
+                if (!recipe.RebuiltByIncrease.TryGetValue((index, increased), out float rebuiltValue))
                 {
                     var modifiers = new StatList();
                     foreach (var stat in recipe.Modifiers) modifiers.Add(stat);
-                    modifiers.Add(Stats.IncreasedStat(SP.Damage, AT.Cold, increased, 0, 0));
+                    modifiers.Add(Stats.IncreasedStat(SP.Damage, tag, increased, 0, 0));
                     var rebuilt = DamageStats.buildDamageStats(recipe.Base, recipe.Tags, recipe.Stats,
                         modifiers, recipe.More, recipe.Penetration, recipe.PenetrationType);
-                    cold = rebuilt.damage[ColdIndex];
-                    recipe.ColdByIncrease[increased] = cold;
+                    rebuiltValue = rebuilt.damage[index];
+                    recipe.RebuiltByIncrease[(index, increased)] = rebuiltValue;
                 }
                 // Preserve every unrelated field/type on the application, including external
-                // conditional effects. The native builder computes cold from the original inputs.
-                var copy = __0.Copy();
-                var values = __0.damage.ToArray();
-                values[ColdIndex] = HeorotRules.RebuiltColdPreservingScale(recipe.BuiltCold,
-                    values[ColdIndex], cold);
-                copy.damage = new Il2CppStructArray<float>(values);
-                __0 = copy;
+                // conditional effects. The native builder computes the type from the original inputs.
+                values[index] = HeorotRules.RebuiltColdPreservingScale(recipe.Built[index], values[index], rebuiltValue);
             }
-            finally { rebuilding = false; }
+            var copy = damage.Copy();
+            copy.damage = new Il2CppStructArray<float>(values);
+            return copy;
+        }
+        finally { rebuilding = false; }
+    }
+
+    // Logi's Hunger: a share of the Fire and Necrotic damage the wearer deals comes back as Health.
+    private static void Leech(DamageStats damage, Actor attacker, Actor target)
+    {
+        if (damage?.damage == null || attacker.IsNullOrDestroyed() || attacker == target
+            || damage.damage.Length <= NecroticIndex || !VolcanicBuffs.IsActive(attacker, VolcanicBuffKind.Hunger)) return;
+        float health = VolcanicValues.LeechedHealth(damage.damage[FireIndex], damage.damage[NecroticIndex]);
+        if (health > 0 && float.IsFinite(health) && !attacker.health.IsNullOrDestroyed()) attacker.health.heal(health);
+    }
+
+    // Herkir's Vessel: whoever hits the wearer may be set alight. The game has no Ignite counterpart of its Chill retaliation.
+    [HarmonyPatch(typeof(AilmentReceiver), nameof(AilmentReceiver.whenHit))]
+    private static class IgniteAttackers
+    {
+        private static void Postfix(AilmentReceiver __instance, Actor __1)
+        {
+            var wearer = __instance.actor;
+            if (wearer.IsNullOrDestroyed() || __1.IsNullOrDestroyed() || __1 == wearer || __1.ailmentReceiver.IsNullOrDestroyed()
+                || !VolcanicBuffs.IsActive(wearer, VolcanicBuffKind.Vessel)) return;
+            float chance = VolcanicValues.IgniteAttackersChance * (1f + VolcanicBuffs.EffectOf(wearer, VolcanicBuffKind.Vessel));
+            int stacks = VolcanicValues.IgniteStacks(chance, ignite.NextDouble());
+            if (stacks <= 0) return;
+            // The burn deals Fire damage in proportion to the wearer's UNCAPPED Fire Resistance (every point of it, above the
+            // game's cap too), so it needs a damage record of its own.
+            float resistance = UncappedFireResistance(wearer);
+            float damage = VolcanicValues.IgniteDamage(resistance);
+            try
+            {
+                var definition = AilmentList.getAilment(AilmentID.Ignite);
+                if (damage > 0 && !definition.IsNullOrDestroyed())
+                {
+                    var record = new DamageStats();
+                    var amounts = new float[7];
+                    amounts[FireIndex] = damage;
+                    record.damage = new Il2CppStructArray<float>(amounts);
+                    record.baseDamageTypeTags = AT.Fire;
+                    __1.ailmentReceiver.ApplyAilmentWithDamageStats(definition, wearer, null, null, null, record,
+                        wearer.GetAlignment(), UseType.AilmentProc, stacks, 0f, 0f, 0f, false, 0f);
+                    if (igniteLogged++ < 5)
+                        Main.logger_instance?.Msg("Herkir’s Vessel: ignited " + __1.gameObject.name + " with " + stacks + " stack(s) of "
+                            + damage + " Fire damage (Fire Resistance " + resistance + ").");
+                    return;
+                }
+            }
+            catch (Exception ex)
+            {
+                if (igniteLogged++ < 5) Main.logger_instance?.Warning("Herkir’s Vessel: Ignite with damage failed (" + ex.Message + "); using a plain Ignite.");
+            }
+            __1.ailmentReceiver.ApplyStacksOfAilment(stacks, AilmentID.Ignite, wearer, 0f, 0f, false);
         }
     }
+
+    // The game's own uncapped total (5.32 = 532%), which includes every source. Summing the Fire Resistance stat alone misses some.
+    internal static float UncappedFireResistance(Actor actor)
+    {
+        try
+        {
+            if (!actor.IsNullOrDestroyed() && !actor.protection.IsNullOrDestroyed())
+            {
+                float value = actor.protection.uncappedFireResistance;
+                if (float.IsFinite(value)) return value;
+            }
+        }
+        catch (Exception ex) { ErrorLog.Report(ex, "Uncapped Fire Resistance"); }
+        return actor.IsNullOrDestroyed() || actor.stats.IsNullOrDestroyed() ? 0f : actor.stats.GetTotalAdded(SP.FireResistance, AT.None, 0, 0, false);
+    }
+
+    private static int igniteLogged;
+
+    private static readonly System.Random ignite = new();
 
     private static Ailment canonicalChill, ordinaryChill, defenceChill;
 

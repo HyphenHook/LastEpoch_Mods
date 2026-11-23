@@ -36,14 +36,16 @@ public sealed class TunablesTests
         AttunementState.RollMultiplier(0), AttunementState.RollMultiplier(600), AttunementState.MaxRoll,
         LastEpoch_Hud.Scripts.Core.Heorot.HeorotCoreRules.DropChance,
         string.Join("/", LastEpoch_Hud.Scripts.Core.Heorot.HeorotCoreRules.VariantWeights),
+        LastEpoch_Hud.Scripts.Core.Volcanic.VolcanicCoreRules.DropChance,
+        string.Join("/", LastEpoch_Hud.Scripts.Core.Volcanic.VolcanicCoreRules.VariantWeights),
     };
 
     [Fact]
     public void TheShippedTableMatchesTheBuiltInDefaults()
     {
         var defaults = Snapshot();
-        // Heorot's Core is explicitly balanced through CSV overrides.
-        var shipped = Shipped().Where(pair => !pair.Key.StartsWith("HeorotCore."))
+        // The Cores are explicitly balanced through CSV overrides.
+        var shipped = Shipped().Where(pair => !pair.Key.StartsWith("HeorotCore.") && !pair.Key.StartsWith("VolcanicCore."))
             .ToDictionary(pair => pair.Key, pair => pair.Value);
         using (Tunables.Scope(shipped))
         {

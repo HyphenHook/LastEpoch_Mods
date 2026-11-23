@@ -306,6 +306,10 @@ internal static class JewelCrafting
         [HarmonyPostfix]
         private static void Postfix(ItemData __instance, WeightedCorruptionOutcome __0, ref bool __result)
         {
+            // A Core's buffs are a roll: no corruption outcome may re-roll it up or down.
+            if (__result && !__0.IsNullOrDestroyed() && HeorotCore.IsAnyCore(__instance)
+                && Core.Heorot.HeorotCoreRules.CorruptionOutcomeRerolls((int)__0.corruptionOutcome))
+                __result = false;
             if (IsJewel(__instance) && !__0.IsNullOrDestroyed() && AddsOrdinaryAffix(__0.corruptionOutcome)
                 && !__0.replacesAffix && OrdinaryCount(__instance) >= EquipmentTypeRules.JewelTransferAffixes)
                 __result = false;

@@ -31,16 +31,29 @@ public sealed class HeorotCoreRulesTests
     }
 
     [Fact]
-    public void EveryCombinationHasAStableDistinctUniqueId()
+    public void EveryCombinationIsStoredAsARollAndReadBackExactly()
     {
-        var ids = Enumerable.Range(1, 7).Select(HeorotCoreRules.UniqueIdFor).ToArray();
-        Assert.Equal(7, ids.Distinct().Count());
         foreach (int mask in Enumerable.Range(1, 7))
-            Assert.Equal(mask, HeorotCoreRules.MaskFor(HeorotCoreRules.UniqueIdFor(mask)));
-        Assert.Equal(0, HeorotCoreRules.MaskFor(505));
-        Assert.Equal(0, HeorotCoreRules.MaskFor(506));
-        Assert.Equal(0, HeorotCoreRules.MaskFor(514));
+            for (int jitter = 0; jitter < 200; jitter++)
+                Assert.Equal(mask, HeorotCoreRules.MaskForRoll(HeorotCoreRules.RollForMask(mask, jitter)));
+        // Every possible roll value reads back as some combination, and an item without a roll has none.
+        foreach (int roll in Enumerable.Range(0, 256))
+            Assert.InRange(HeorotCoreRules.MaskForRoll(roll), 1, 7);
+        Assert.Equal(0, HeorotCoreRules.MaskForRoll(-1));
+        Assert.True(HeorotCoreRules.IsCoreUnique(HeorotCoreRules.UniqueId));
+        Assert.False(HeorotCoreRules.IsCoreUnique(506));
+        Assert.False(HeorotCoreRules.IsCoreUnique(508));
     }
+
+    [Theory]
+    [InlineData(8, true)]
+    [InlineData(14, true)]
+    [InlineData(18, true)]
+    [InlineData(23, true)]
+    [InlineData(0, false)]
+    [InlineData(12, false)]
+    public void CorruptionOutcomesThatRerollAreBlockedForTheCore(int outcome, bool blocked) =>
+        Assert.Equal(blocked, HeorotCoreRules.CorruptionOutcomeRerolls(outcome));
 
     [Theory]
     [InlineData(1, 0, 1)]

@@ -141,6 +141,12 @@ public partial class Save_Manager
             public float HeorotCoreSingleChance;
             public float HeorotCoreDoubleChance;
             public float HeorotCoreTripleChance;
+            public bool VolcanicCoreRatesInitialized;
+            public bool VolcanicCoreOverride;
+            public bool VolcanicCoreIgnoreScaling;
+            public float VolcanicCoreSingleChance;
+            public float VolcanicCoreDoubleChance;
+            public float VolcanicCoreTripleChance;
             public bool Enable_ForceUnique;
             public bool Enable_ForceSet;
             public bool Enable_ForceLegendary;

@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using UnityEngine;
 
 namespace LastEpoch_Hud.Scripts.Mods.Items.Crafting;
@@ -30,6 +31,34 @@ internal static class OrbArt
 
     /// <summary>A named image of the mod: orb_slot_empty, forge_slot_frame, forge_button_frame, glow_violet and so on.</summary>
     public static Sprite Named(string name) => Load(name);
+
+    /// <summary>A neutral silhouette of existing art for empty equipment slots.</summary>
+    public static Sprite GreyNamed(string name)
+    {
+        string key = "grey:" + name;
+        if (Cache.TryGetValue(key, out Sprite cached) && cached != null) return cached;
+        var source = Load(name);
+        if (source == null) return null;
+        var original = source.texture;
+        var pixels = original.GetPixels().ToArray();
+        for (int i = 0; i < pixels.Length; i++)
+        {
+            var color = pixels[i];
+            float grey = color.grayscale;
+            pixels[i] = new Color(grey, grey, grey, color.a);
+        }
+        var texture = new Texture2D(original.width, original.height, TextureFormat.RGBA32, false)
+        {
+            name = name + "_EmptySlot", hideFlags = HideFlags.HideAndDontSave,
+            wrapMode = TextureWrapMode.Clamp, filterMode = FilterMode.Bilinear,
+        };
+        texture.SetPixels(new Il2CppInterop.Runtime.InteropTypes.Arrays.Il2CppStructArray<Color>(pixels));
+        texture.Apply(false, true);
+        var sprite = Sprite.Create(texture, source.rect, new Vector2(.5f, .5f), source.pixelsPerUnit);
+        sprite.hideFlags = HideFlags.HideAndDontSave;
+        Cache[key] = sprite;
+        return sprite;
+    }
 
     /// <summary>The orb, drained of colour, for when there are none left.</summary>
     public static Sprite OrbGrey() => Load("orb_encapsulation_grey");

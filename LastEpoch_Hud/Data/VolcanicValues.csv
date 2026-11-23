@@ -1,0 +1,7 @@
+# Volcanic Shaman's Core buffs: the named numbers used by custom code. Embedded at compile time; edit here and rebuild.
+Name,Value,Note
+IncreasedFirePerIgnite,0.25,Bhuldar's Wrath: increased Fire Damage per stack of Ignite on the target (0.25 = 25%)
+FireLeech,0.02,Logi's Hunger: share of Fire damage dealt that is leeched as Health (0.02 = 2%)
+NecroticLeech,0.02,Logi's Hunger: share of Necrotic damage dealt that is leeched as Health (0.02 = 2%)
+IgniteAttackersChance,1,Herkir's Vessel: chance to Ignite an attacker when you are hit (1 = 100%; the part above 100% is a chance of a second stack)
+IgniteDamagePerResistance,10,Herkir's Vessel: Fire damage each of those Ignites carries per 1% of your UNCAPPED Fire Resistance (10 = 750 Fire damage at 75% resistance)

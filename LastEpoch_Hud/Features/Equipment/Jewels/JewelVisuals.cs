@@ -20,7 +20,7 @@ internal static class JewelVisuals
     internal static Sprite IconFor(ItemData item)
     {
         if (!JewelBaseType.IsJewel(item)) return null;
-        var sprite = OrbArt.Named(HeorotCore.IsCore(item) ? "heorot_core" : Assets[item.subType]);
+        var sprite = OrbArt.Named(HeorotCore.IsCore(item) ? "heorot_core" : VolcanicCore.IsCore(item) ? "volcanic_core" : Assets[item.subType]);
         if (sprite != null) Owned.Add(sprite);
         return sprite;
     }
@@ -41,6 +41,7 @@ internal static class JewelVisuals
     internal static string NameFor(ItemData item)
     {
         if (HeorotCore.IsCore(item)) return Core.Heorot.HeorotCoreRules.Name;
+        if (VolcanicCore.IsCore(item)) return Core.Volcanic.VolcanicCoreRules.Name;
         string baseName = JewelBaseType.Names[item.subType];
         string prefix = null, suffix = null;
         int prefixTier = -1, suffixTier = -1;

@@ -45,14 +45,6 @@ internal static class HudNavigation
                 UtilitiesBuffsPage.Hide
             ),
             Page(
-                HudPageId.UtilitiesHeorot,
-                "Heorot",
-                UtilitiesHeorotPage.Build,
-                UtilitiesHeorotPage.Show,
-                UtilitiesHeorotPage.Hide,
-                UtilitiesHeorotPage.Refresh
-            ),
-            Page(
                 HudPageId.UtilitiesQol,
                 "QOL",
                 UtilitiesQolPage.Build,
@@ -110,7 +102,13 @@ internal static class HudNavigation
             "Boss Drop",
             true,
             Page(HudPageId.BossDropsHeorot, "Heorot’s Core", BossDropsHeorotPage.Build,
-                BossDropsHeorotPage.Show, BossDropsHeorotPage.Hide, BossDropsHeorotPage.Refresh)
+                BossDropsHeorotPage.Show, BossDropsHeorotPage.Hide, BossDropsHeorotPage.Refresh),
+            Page(HudPageId.BossDropsHeorotEffects, "Heorot’s Effects", BossDropsHeorotEffectsPage.Build,
+                BossDropsHeorotEffectsPage.Show, BossDropsHeorotEffectsPage.Hide, BossDropsHeorotEffectsPage.Refresh),
+            Page(HudPageId.BossDropsVolcanic, "Volcanic Shaman’s Core", BossDropsVolcanicPage.Build,
+                BossDropsVolcanicPage.Show, BossDropsVolcanicPage.Hide, BossDropsVolcanicPage.Refresh),
+            Page(HudPageId.BossDropsVolcanicEffects, "Volcanic Shaman’s Effects", BossDropsVolcanicEffectsPage.Build,
+                BossDropsVolcanicEffectsPage.Show, BossDropsVolcanicEffectsPage.Hide, BossDropsVolcanicEffectsPage.Refresh)
         ),
         new(
             HudSectionId.World,

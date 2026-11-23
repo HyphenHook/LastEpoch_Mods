@@ -5,7 +5,7 @@
 Buff,Kind,Property,Tags,Value
 Power,Added,Damage,Cold,40
 Energy,AilmentChance,Chill,None,1.2
-Energy,AilmentChance,Frostbite,None,0.35
+Energy,AilmentChance,ColdResShred,None,0.35
 Energy,Increased,Damage,Cold,0.75
 Defence,Added,ChillRetaliationChance,None,1.2
 Defence,Added,ColdResistance,None,0.65

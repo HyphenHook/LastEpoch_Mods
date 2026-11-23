@@ -1,0 +1,11 @@
+# Volcanic Shaman's Core buffs: the native stats each buff grants. These numbers are embedded in the mod at compile time, so edit them here and rebuild.
+# Buff = Wrath (Bhuldar's Wrath), Hunger (Logi's Hunger) or Vessel (Herkir's Vessel). Kind = Added | Increased | AilmentChance.
+# Property = a game stat name (SyntheticProperty), or for AilmentChance the ailment name (Ignite, FireResShred, ...). Tags = an AttackTag name or None.
+# Value: Added is a flat amount (resistance is a fraction, 0.3 = 30%); Increased and chances are fractions (0.6 = 60%, 0.85 = 85%). The tooltip wording is generated from these rows.
+Buff,Kind,Property,Tags,Value
+Wrath,Added,Damage,Fire,30
+Wrath,AilmentChance,Ignite,None,0.85
+Hunger,AilmentChance,FireResShred,None,0.35
+Hunger,Increased,Damage,Fire,0.6
+Vessel,Added,FireResistance,None,0.3
+Vessel,Added,NecroticResistance,None,0.3

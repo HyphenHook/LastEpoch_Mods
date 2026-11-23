@@ -80,7 +80,7 @@ internal static class HeorotBuffs
     private static AT TagsOf(HeorotStatRow row) =>
         row.Tags.Length == 0 ? AT.None : (AT)Enum.Parse(typeof(AT), row.Tags, true);
 
-    private static Stats.Stat BuildStat(HeorotStatRow row)
+    internal static Stats.Stat BuildStat(HeorotStatRow row)
     {
         var tags = TagsOf(row);
         if (row.Kind == "AilmentChance")
@@ -91,15 +91,23 @@ internal static class HeorotBuffs
             : Stats.AddedStat(property, tags, row.Value, 0, 0);
     }
 
-    private static string Number(float value) =>
+    internal static string Number(float value) =>
         value.ToString("0.##", System.Globalization.CultureInfo.InvariantCulture);
 
-    private static string StatLine(HeorotStatRow row)
+    /// <summary>The ailment as the game calls it on screen: ColdResShred is "Shred Cold Resistance".</summary>
+    private static string AilmentName(string ailment)
+    {
+        const string resistanceShred = "ResShred";
+        if (!ailment.EndsWith(resistanceShred, StringComparison.OrdinalIgnoreCase)) return ailment;
+        return "Shred " + ailment.Substring(0, ailment.Length - resistanceShred.Length) + " Resistance";
+    }
+
+    internal static string StatLine(HeorotStatRow row)
     {
         var tags = TagsOf(row);
         // The game's wording says only "Ailment" for a chance to inflict a particular ailment, so name it here.
         if (row.Kind == "AilmentChance")
-            return "+" + Number(row.Value * 100f) + "% chance to inflict " + row.Property + " on hit";
+            return "+" + Number(row.Value * 100f) + "% chance to inflict " + AilmentName(row.Property) + " on hit";
         var property = (SP)Enum.Parse(typeof(SP), row.Property, true);
         // ...and it leaves the kind of damage out of an added Damage stat, so say which damage it is.
         if (row.Kind == "Added" && property == SP.Damage && tags != AT.None)
@@ -109,10 +117,10 @@ internal static class HeorotBuffs
     }
 
     // Plain wording for when the game's own stat wording is not available.
-    private static string PlainLine(HeorotStatRow row) =>
+    internal static string PlainLine(HeorotStatRow row) =>
         (row.Kind == "Increased" || row.Kind == "AilmentChance" ? (row.Value * 100f).ToString("0.##", System.Globalization.CultureInfo.InvariantCulture) + "%"
             : row.Value.ToString("0.##", System.Globalization.CultureInfo.InvariantCulture))
-        + " " + (row.Kind == "AilmentChance" ? row.Property + " chance" : row.Property) + (row.Tags is "" or "None" ? "" : " (" + row.Tags + ")");
+        + " " + (row.Kind == "AilmentChance" ? AilmentName(row.Property) + " chance" : row.Property) + (row.Tags is "" or "None" ? "" : " (" + row.Tags + ")");
 
     // The lines no native stat can express. Their numbers come from HeorotValues.csv.
     private static string CustomLine(HeorotBuffKind kind) => kind switch
@@ -276,7 +284,12 @@ internal static class HeorotBuffs
         [HarmonyPrefix]
         private static bool Prefix(Ailment __instance, ref string __result)
         {
-            if (!TryKind((int)__instance.id, out var kind)) return true;
+            if (!TryKind((int)__instance.id, out var kind))
+            {
+                if (!Volcanic.VolcanicBuffs.TryDescription(__instance, out string volcanic)) return true;
+                __result = volcanic;
+                return false;
+            }
             __result = descriptions[(int)kind];
             return false;
         }
@@ -291,7 +304,13 @@ internal static class HeorotBuffs
             if (__instance.content.IsNullOrDestroyed()) return;
             if (!__instance.isAilment || !TryKind(__instance.id, out var kind))
             {
-                if (ownedIcons.Contains(__instance.content.overrideSprite)) __instance.content.overrideSprite = null;
+                if (__instance.isAilment && Volcanic.VolcanicBuffs.TryKind(__instance.id, out _))
+                {
+                    Volcanic.VolcanicBuffs.ApplyIcon(__instance);
+                    return;
+                }
+                if (ownedIcons.Contains(__instance.content.overrideSprite)
+                    || Volcanic.VolcanicBuffs.OwnsIcon(__instance.content.overrideSprite)) __instance.content.overrideSprite = null;
                 return;
             }
             __instance.content.overrideSprite = Icon(kind);
@@ -309,7 +328,7 @@ internal static class HeorotBuffs
         [HarmonyPostfix]
         private static void Postfix(BuffUIEntry __instance, float __0)
         {
-            if (!__instance.isAilment || !TryKind(__instance.id, out _) || __0 <= 1e20f) return;
+            if (!__instance.isAilment || (!TryKind(__instance.id, out _) && !Volcanic.VolcanicBuffs.TryKind(__instance.id, out _)) || __0 <= 1e20f) return;
             __instance.noFixedDuration = true;
             __instance.ignoreRemainingDuration = true;
             __instance.timeOverlay?.SetActive(false);

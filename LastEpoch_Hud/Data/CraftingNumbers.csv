@@ -3,10 +3,10 @@
 # Tier lists are one row per tier: ".1" is T1, ".2" is T2, and so on.
 Name,Value,Note
 # ---------------------------------------------------------------- Heorot's Core unique Jewel
-HeorotCore.DropChance,0.045,Combined drop chance; at most one Core per level-100 monolith Heorot encounter
-HeorotCore.VariantWeight.1,3,Conditional variant weight giving a 3% boss-kill chance for one buff
-HeorotCore.VariantWeight.2,1,Conditional variant weight giving a 1% boss-kill chance for two distinct buffs
-HeorotCore.VariantWeight.3,0.5,Conditional variant weight giving a 0.5% boss-kill chance for all three buffs
+HeorotCore.DropChance,0.05,Chance a Core drops on a level-100 monolith Heorot kill; at most one Core per encounter
+HeorotCore.VariantWeight.1,75,Share of Core drops that give one buff (75% of Cores)
+HeorotCore.VariantWeight.2,20,Share of Core drops that give two buffs (20% of Cores)
+HeorotCore.VariantWeight.3,5,Share of Core drops that give all three buffs (5% of Cores)
 # ---------------------------------------------------------------- Orb of Attunement
 Attunement.MinMultiplier,0.7,Lowest multiplier the orb can roll
 Attunement.MaxMultiplier,1.3,Highest multiplier the orb can roll (rolls are in steps of 0.001 between min and max)
@@ -102,3 +102,7 @@ Reflector.LegendaryFullFactor,1.6,Legendary: cost factor when item A holds 4 or 
 Bazaar.MemoryChance,0.28,Chance a crafter listing carries a Memory
 Bazaar.UnrevealedMemoryChance,0.1,Share of all crafter listings whose Memory is still unrevealed
 Bazaar.EncapsulatedChance,0.16,Chance a crafter listing has an Encapsulated affix
+VolcanicCore.DropChance,0.05,Chance a Core drops when the last of the three Shamans falls in the level-100 Spirits of Fire fight
+VolcanicCore.VariantWeight.1,75,Share of Volcanic Cores that give one buff (75% of Cores)
+VolcanicCore.VariantWeight.2,20,Share of Volcanic Cores that give two buffs (20% of Cores)
+VolcanicCore.VariantWeight.3,5,Share of Volcanic Cores that give all three buffs (5% of Cores)

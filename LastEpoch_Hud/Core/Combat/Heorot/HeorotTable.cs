@@ -100,3 +100,49 @@ public static class HeorotValues
     public static float Get(string name, float fallback) =>
         current != null && current.TryGetValue(name, out float value) ? value : fallback;
 }
+
+/// <summary>The named numbers from VolcanicValues.csv (Bhuldar’s Wrath, Logi’s Hunger and Herkir’s Vessel). Anything missing keeps its default.</summary>
+public static class VolcanicValues
+{
+    public const string IncreasedFirePerIgniteName = "IncreasedFirePerIgnite";
+    public const string FireLeechName = "FireLeech";
+    public const string NecroticLeechName = "NecroticLeech";
+    public const string IgniteAttackersChanceName = "IgniteAttackersChance";
+    public const string IgniteDamagePerResistanceName = "IgniteDamagePerResistance";
+
+    private static IReadOnlyDictionary<string, float> current;
+
+    public static void Set(IReadOnlyDictionary<string, float> values) => current = values;
+
+    public static float Get(string name, float fallback) =>
+        current != null && current.TryGetValue(name, out float value) ? value : fallback;
+
+    public static float IncreasedFirePerIgnite => Math.Max(0f, Get(IncreasedFirePerIgniteName, .25f));
+    public static float FireLeech => Math.Max(0f, Get(FireLeechName, .02f));
+    public static float NecroticLeech => Math.Max(0f, Get(NecroticLeechName, .02f));
+    public static float IgniteAttackersChance => Math.Max(0f, Get(IgniteAttackersChanceName, 1f));
+    /// <summary>Fire damage each Ignite on an attacker carries, per 1% of the wearer's uncapped Fire Resistance.</summary>
+    public static float IgniteDamagePerResistance => Math.Max(0f, Get(IgniteDamagePerResistanceName, 10f));
+
+    /// <summary>The Fire damage of one Ignite on an attacker, for a wearer with this uncapped Fire Resistance (0.75 = 75%, 1.2 = 120%).</summary>
+    public static float IgniteDamage(float fireResistance) =>
+        float.IsFinite(fireResistance) && fireResistance > 0 ? fireResistance * 100f * IgniteDamagePerResistance : 0f;
+
+    /// <summary>Wrath’s increased Fire Damage for a target carrying <paramref name="igniteStacks" /> stacks of Ignite.</summary>
+    public static float WrathIncreasedFire(float igniteStacks, float increasedEffect = 0f) =>
+        float.IsFinite(igniteStacks) && igniteStacks > 0
+            ? IncreasedFirePerIgnite * igniteStacks * (1f + Math.Max(0f, increasedEffect)) : 0f;
+
+    /// <summary>Health returned for a hit with the given Fire and Necrotic damage.</summary>
+    public static float LeechedHealth(float fireDamage, float necroticDamage) =>
+        (float.IsFinite(fireDamage) ? Math.Max(0f, fireDamage) * FireLeech : 0f)
+        + (float.IsFinite(necroticDamage) ? Math.Max(0f, necroticDamage) * NecroticLeech : 0f);
+
+    /// <summary>How many Ignite stacks an attacker gets: the whole part of the chance, plus one more with the chance’s remainder.</summary>
+    public static int IgniteStacks(float chance, double roll)
+    {
+        if (!float.IsFinite(chance) || chance <= 0) return 0;
+        int whole = (int)Math.Floor(chance);
+        return whole + (roll < chance - whole ? 1 : 0);
+    }
+}

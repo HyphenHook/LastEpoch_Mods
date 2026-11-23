@@ -56,7 +56,7 @@ internal static class HeorotCoreCacheProbe
             core.RefreshIDAndValues();
             var restored = new ItemDataUnpacked(core.GetID());
             Check(HeorotCore.IsCore(restored) && restored.rarity == 9
-                && restored.uniqueID == Core.Heorot.HeorotCoreRules.UniqueIdFor(mask)
+                && restored.uniqueID == Core.Heorot.HeorotCoreRules.UniqueId && HeorotCore.MaskOf(restored) == mask
                 && restored.affixes.Count == lp && restored.Implicits.Count == 0,
                 "Native fusion/serialization failed for mask " + mask + " LP" + lp, null);
             Check(after.CanAddItemType(JewelBaseType.Id), "Output category rejects jewels", null);
